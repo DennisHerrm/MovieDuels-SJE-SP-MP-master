@@ -453,6 +453,8 @@ vmCvar_t cg_fighterCamTight; // (2026-10-13)
 vmCvar_t cg_SFXSabers;
 vmCvar_t cg_SFXSabersGlowSize;
 vmCvar_t cg_SFXSabersCoreSize;
+vmCvar_t cg_saberSolidCore;
+vmCvar_t cg_saberLightClassic;
 vmCvar_t cg_SFXLerpOrigin;
 //
 vmCvar_t cg_SFXSabersGlowSizeEP1;
@@ -718,6 +720,8 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_SFXSabers, "cg_SFXSabers", "4", CVAR_ARCHIVE },
 	{ &cg_SFXSabersGlowSize, "cg_SFXSabersGlowSize", "1.0", CVAR_ARCHIVE },
 	{ &cg_SFXSabersCoreSize, "cg_SFXSabersCoreSize", "1.0", CVAR_ARCHIVE },
+	{ &cg_saberSolidCore, "cg_saberSolidCore", "0", CVAR_ARCHIVE }, // 0 = additive core as before, 1 = solid core, 2 = solid + white-hot centre
+	{ &cg_saberLightClassic, "cg_saberLightClassic", "1", CVAR_ARCHIVE }, // 1 = saber light ignores r_dlightIntensity / r_dlightRadius (as SJE2026), 0 = boosted
 	{ &cg_SFXLerpOrigin, "cg_SFXLerpOrigin", "0", CVAR_ARCHIVE },
 
 	{ &cg_SFXSabersGlowSizeEP1, "cg_SFXSabersGlowSizeEP1", "1.0", CVAR_ARCHIVE },

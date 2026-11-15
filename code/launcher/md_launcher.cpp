@@ -239,7 +239,7 @@ namespace
 
 	struct Settings
 	{
-		bool rend2 = false;
+		bool rend2 = true; // rend2 is the default renderer (DH 2026-11-15)
 		bool windowed = true;
 		bool controller = false; // in_joystick
 		bool music = true;       // launcher background music (speaker button)
@@ -762,7 +762,7 @@ namespace
 	void LoadSettings()
 	{
 		const std::wstring ini = IniPath();
-		g_launcher.settings.rend2 = GetPrivateProfileIntW(L"Options", L"Rend2", 0, ini.c_str()) != 0;
+		g_launcher.settings.rend2 = GetPrivateProfileIntW(L"Options", L"Rend2", 1, ini.c_str()) != 0;
 		g_launcher.settings.windowed = GetPrivateProfileIntW(L"Options", L"Windowed", 0, ini.c_str()) != 0;
 		g_launcher.settings.controller = GetPrivateProfileIntW(L"Options", L"Controller", 0, ini.c_str()) != 0;
 		g_launcher.settings.music = GetPrivateProfileIntW(L"Options", L"Music", 1, ini.c_str()) != 0;
@@ -999,7 +999,7 @@ namespace
 		}
 		if (lines.empty())
 		{
-			s.rend2 = false;
+			s.rend2 = true;
 			s.windowed = true;
 			s.resolution = { 0, 0 };
 			s.controller = false;

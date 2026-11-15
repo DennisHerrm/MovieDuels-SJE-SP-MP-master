@@ -62,6 +62,7 @@ extern qboolean NPC_IsOversized(const gentity_t* self);
 extern float g_crosshairEntDist;
 extern int g_crosshairSameEntTime;
 extern int g_crosshairEntNum;
+extern int g_saberTargetLockEnt; // g_active.cpp, saber block target lock
 extern int g_crosshairEntTime;
 qboolean cg_forceCrosshair = qfalse;
 
@@ -6831,6 +6832,7 @@ static qboolean CG_SaberBlasterAiming()
 		|| ps->torsoAnim == BOTH_FORCELIGHTNING_RELEASE) && ps->torsoAnimTimer > 0 ? qtrue : qfalse;
 }
 
+static void CG_DrawSaberTargetLock(float cx, float cy, float cw, float ch);
 static void CG_DrawCrosshair(vec3_t world_point)
 {
 	float w = 0.0f, h = 0.0f;
@@ -7005,6 +7007,12 @@ static void CG_DrawCrosshair(vec3_t world_point)
 		ecolor[0] = ecolor[1] = ecolor[2] = 1.0f;
 	}
 
+	if (g_saberTargetLockEnt >= 0 && g_saberTargetLockEnt < ENTITYNUM_WORLD)
+	{
+		//the saber block target lock holds an enemy (g_saberTargetLock)
+		ecolor[0] = 1.0f;
+		ecolor[1] = ecolor[2] = 0.0f;
+	}
 	ecolor[3] = 1.0;
 	cgi_R_SetColor(ecolor);
 
@@ -7270,6 +7278,7 @@ static void CG_DrawCrosshair(vec3_t world_point)
 
 	chX = x + cg.refdef.x + 0.5 * (640 - w);
 	chY = y + cg.refdef.y + 0.5 * (480 - h);
+	CG_DrawSaberTargetLock(chX, chY, w, h); // saber block target lock brackets
 
 	if (cg.predictedPlayerState.hackingTime)
 	{ //hacking something
@@ -9819,6 +9828,75 @@ Flying a fighter, as in MP: brackets on the other piloted ships (red: enemies, g
 moving enemy one, where to aim so the shots meet it (the lead indicator, cg_drawVehLeadIndicator).
 ==================
 */
+// the camera position, for the saber block target lock range (g_active.cpp G_SaberTargetLock): the lock reaches as
+// far as the crosshair names show (256 units from the view)
+void CG_TargetLockViewOrg(vec3_t out)
+{
+	VectorCopy(cg.refdef.vieworg, out);
+}
+
+// the interpolated origin of the locked enemy (game frames move NPCs in steps): the lock follows it without shaking
+qboolean CG_TargetLockEntOrigin(const int num, vec3_t out)
+{
+	if (num < 0 || num >= ENTITYNUM_WORLD || VectorCompare(cg_entities[num].lerpOrigin, vec3_origin))
+	{
+		return qfalse;
+	}
+	VectorCopy(cg_entities[num].lerpOrigin, out);
+	return qtrue;
+}
+
+/*
+=====================
+Saber block target lock marker (g_saberTargetLock, g_active.cpp G_SaberTargetLock)
+
+Faint grey corner brackets around the crosshair while the lock holds an enemy, fading out like the crosshair names.
+=====================
+*/
+static void CG_DrawSaberTargetLock(const float cx, const float cy, const float cw, const float ch)
+{
+	// faint grey corner brackets around the crosshair (DH: around the crosshair, not the target) while the saber block
+	// target lock holds an enemy; called from CG_DrawCrosshair with the crosshair's screen box
+	if (g_saberTargetLockEnt < 0 || g_saberTargetLockEnt >= ENTITYNUM_WORLD || in_camera)
+	{
+		return;
+	}
+
+	const gentity_t* target = &g_entities[g_saberTargetLockEnt];
+
+	if (!target->inuse || !target->client || target->health <= 0)
+	{
+		return;
+	}
+
+	// fades out over the last fifth of the crosshair name range, as the names do
+	const float alpha = CG_OverheadFade(Distance(cg_entities[g_saberTargetLockEnt].lerpOrigin, cg.refdef.vieworg), 256.0f);
+	if (alpha <= 0.0f)
+	{
+		return;
+	}
+
+	const float pad = 0.0f; // the crosshair box itself: the ring inside it fills ~85%, so the brackets almost touch it (DH: discreet)
+	const float x = cx - pad;
+	const float y = cy - pad;
+	const float w = cw + pad * 2.0f;
+	const float h = ch + pad * 2.0f;
+	const float line_length = Q_max(2.0f, w * 0.2f);
+	const vec4_t grey = { 0.7f, 0.7f, 0.7f, alpha * 0.45f }; // faint grey (DH)
+
+	cgi_R_SetColor(grey);
+	CG_DrawPic(x, y, line_length, 1, cgs.media.whiteShader);
+	CG_DrawPic(x, y, 1, line_length, cgs.media.whiteShader);
+	CG_DrawPic(x + w - line_length, y, line_length, 1, cgs.media.whiteShader);
+	CG_DrawPic(x + w - 1, y, 1, line_length, cgs.media.whiteShader);
+	CG_DrawPic(x, y + h - 1, line_length, 1, cgs.media.whiteShader);
+	CG_DrawPic(x, y + h - line_length, 1, line_length, cgs.media.whiteShader);
+	CG_DrawPic(x + w - line_length, y + h - 1, line_length, 1, cgs.media.whiteShader);
+	CG_DrawPic(x + w - 1, y + h - line_length, 1, line_length, cgs.media.whiteShader);
+	cgi_R_SetColor(nullptr);
+}
+
+
 static void CG_DrawVehicleTargets()
 {
 	const gentity_t* my_ship = cg.snap->ps.m_iVehicleNum ? &g_entities[cg.snap->ps.m_iVehicleNum] : nullptr;
@@ -10482,6 +10560,7 @@ static void CG_Draw2D()
 		CG_DrawCrosshairItem();
 
 		CG_DrawVehicleTargets();
+
 
 		CG_RunRocketLocking();
 

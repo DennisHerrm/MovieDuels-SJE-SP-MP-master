@@ -1223,8 +1223,9 @@ static CMiniHeap* GetG2VertSpaceServer()
 #ifdef JK2_MODE
 #define DEFAULT_RENDER_LIBRARY	"rdjosp-vanilla"
 #else
-#define DEFAULT_RENDER_LIBRARY	"MovieDuels-rdsp"
+#define DEFAULT_RENDER_LIBRARY	"MovieDuels-rdsp-rend2"	// rend2 is the default (DH 2026-11-15)
 #endif
+#define VANILLA_RENDER_LIBRARY	"MovieDuels-rdsp"	// used when the default renderer DLL is missing
 
 void CL_InitRef()
 {
@@ -1242,6 +1243,15 @@ void CL_InitRef()
 		Cvar_ForceReset("cl_renderer");
 
 		Com_sprintf(dllName, sizeof(dllName), DEFAULT_RENDER_LIBRARY "_" ARCH_STRING DLL_EXT);
+		rendererLib = Sys_LoadDll(dllName, qfalse);
+	}
+
+	if (!rendererLib && strcmp(cl_renderer->string, VANILLA_RENDER_LIBRARY) != 0)
+	{
+		Com_Printf("failed: trying to load the vanilla renderer\n");
+		Cvar_Set2("cl_renderer", VANILLA_RENDER_LIBRARY, qtrue);
+
+		Com_sprintf(dllName, sizeof(dllName), VANILLA_RENDER_LIBRARY "_" ARCH_STRING DLL_EXT);
 		rendererLib = Sys_LoadDll(dllName, qfalse);
 	}
 
@@ -1359,6 +1369,8 @@ void CL_CompleteCinematic(char* args, int arg_num);
 CL_Init
 ====================
 */
+void Sys_BugReport_f(void); // shared/sys/sys_win32.cpp (2026-11-15)
+
 void CL_Init()
 {
 	Com_Printf("----- Client Initialization -----\n");
@@ -1469,6 +1481,15 @@ void CL_Init()
 	Cmd_AddCommand("clientinfo", CL_Clientinfo_f);
 	Cmd_AddCommand("snd_restart", CL_Snd_Restart_f);
 	Cmd_AddCommand("vid_restart", CL_Vid_Restart_f);
+	Cmd_AddCommand("bugreport", Sys_BugReport_f);
+	{
+		// F12 makes a bug report when nothing else is bound to it
+		const char* f12 = Key_GetBinding(A_F12);
+		if (!f12 || !*f12)
+		{
+			Key_SetBinding(A_F12, "bugreport");
+		}
+	}
 	CL_InitVideoRecording();
 	Cmd_AddCommand("disconnect", CL_Disconnect_f);
 	Cmd_AddCommand("cinematic", CL_PlayCinematic_f);

@@ -5039,7 +5039,7 @@ static void AI_SetBotSaberStyle(gentity_t* ent)
 	if (saber1->model[0] && (saber1->numBlades == 1 || BG_SaberIsCrossguard(saber1))) // (crossguard = single, 2026-11-04)
 	{
 		// SS_BLASTER bot class style set: Kyle Katarn - Medium and Blaster (as his NPC files)
-		if (ent->client->pers.botclass == BCLASS_KYLE)
+		if (ent->client->pers.botclass == BCLASS_KYLE || G_SaberBlasterKyleModel(ent)) // + Cal Kestis (item 373)
 		{
 			ent->client->saberStylesKnown = 1 << SS_MEDIUM | 1 << SS_BLASTER;
 		}
@@ -5712,7 +5712,7 @@ spawn_done:
 
 	// SS_BLASTER bot class style set: again here, the memset above cleared what AI_SetBotSaberStyle set
 	if (ent->r.svFlags & SVF_BOT
-		&& client->pers.botclass == BCLASS_KYLE
+		&& (client->pers.botclass == BCLASS_KYLE || G_SaberBlasterKyleModel(ent)) // + Cal Kestis (item 373)
 		&& client->saber[0].model[0] && client->saber[0].numBlades == 1 && !client->saber[1].model[0])
 	{
 		client->saberStylesKnown = 1 << SS_MEDIUM | 1 << SS_BLASTER;

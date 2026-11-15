@@ -286,6 +286,7 @@ cvar_t* g_totgfirststartup;
 
 cvar_t* g_allowgunnerbash;
 cvar_t* g_squadTactics;
+cvar_t* g_saberTargetLock; // g_active.cpp G_SaberTargetLock
 cvar_t* g_squadAdvancers;
 cvar_t* g_squadDebug;
 cvar_t* g_squadCommandCooldown;
@@ -350,6 +351,9 @@ cvar_t* g_saberAIRecover; // saber NPCs back off to meditate / heal when low
 cvar_t* g_saberAITactics; // saber NPCs kick/slap at the right moments, feint and taunt now and then
 cvar_t* g_saberNPCBlockBox; // NPC saber block box: tight, and a block always shows a parry
 cvar_t* g_saberAIDefend; // saber NPCs defend first: quick parry re-think, no attack into a swing
+cvar_t* g_saberAIStabDown; // mode 2: saber NPCs go in for the ground stab on a knocked-down enemy (item 367)
+cvar_t* g_saberAIDFA; // mode 2: saber NPCs use the DFA jump attacks at good moments, not at random (item 369)
+cvar_t* g_saberAIBlaster; // mode 2: Kyle NPCs fight in SS_BLASTER: pistol out of saber reach, saber close up (item 371)
 cvar_t* g_SaberMustReturn;
 
 cvar_t* com_rend2;
@@ -943,6 +947,7 @@ static void G_InitCvars()
 	g_allowgunnerbash = gi.cvar("g_allowgunnerbash", "1", CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART);
 	// Squad tactics: only g_squadAdvancers gunners per target push in, the others hold position (AI_Stormtrooper.cpp)
 	g_squadTactics = gi.cvar("g_squadTactics", "1", CVAR_ARCHIVE);
+	g_saberTargetLock = gi.cvar("g_saberTargetLock", "0", CVAR_ARCHIVE); // hold block with a saber: the view turns to the enemy nearest the crosshair
 	// NPCs stuck against something on the way climb / jump onto it or go round it (NPC_ObstacleClimb) (DH 2026-11-12)
 	g_obstacleClimb = gi.cvar("g_obstacleClimb", "1", CVAR_ARCHIVE);
 	g_squadAdvancers = gi.cvar("g_squadAdvancers", "2", CVAR_ARCHIVE);
@@ -1030,6 +1035,9 @@ static void G_InitCvars()
 	g_saberAITactics = gi.cvar("g_saberAITactics", "1", CVAR_ARCHIVE);
 	g_saberNPCBlockBox = gi.cvar("g_saberNPCBlockBox", "1", CVAR_ARCHIVE);
 	g_saberAIDefend = gi.cvar("g_saberAIDefend", "1", CVAR_ARCHIVE);
+	g_saberAIStabDown = gi.cvar("g_saberAIStabDown", "1", CVAR_ARCHIVE);
+	g_saberAIDFA = gi.cvar("g_saberAIDFA", "1", CVAR_ARCHIVE);
+	g_saberAIBlaster = gi.cvar("g_saberAIBlaster", "1", CVAR_ARCHIVE);
 
 	g_SaberMustReturn = gi.cvar("g_sabermustreturn", "0", CVAR_ARCHIVE);
 
