@@ -178,11 +178,29 @@ static void CorpsePhysics(gentity_t* self)
 	}
 
 	//FIXME: match my pitch and roll for the slope of my groundPlane
+	qboolean sloped = qfalse;
 	if (self->client->ps.groundEntityNum != ENTITYNUM_NONE && !(self->flags & FL_DISINTEGRATED))
 	{
 		//on the ground
 		//FIXME: check 4 corners
 		pitch_roll_for_slope(self);
+		sloped = qtrue;
+	}
+
+	if (self->client->NPC_class == CLASS_PROBE && self->health <= 0)
+	{
+		// a dead probe droid has no death anim: it tips over onto its side over 0.7 s (DH 2026-11-16)
+		float t = static_cast<float>(level.time - self->s.time) / 700.0f;
+		if (t < 0.0f)
+		{
+			t = 0.0f;
+		}
+		else if (t > 1.0f)
+		{
+			t = 1.0f;
+		}
+		const float tip = 80.0f * t * t;
+		self->client->ps.viewangles[ROLL] = (sloped ? self->client->ps.viewangles[ROLL] : 0.0f) + tip;
 	}
 
 	if (eventClearTime == level.time + ALERT_CLEAR_TIME)
@@ -631,11 +649,104 @@ void pitch_roll_for_slope(gentity_t* forwhom, vec3_t pass_slope, vec3_t store_an
 
 /*
 ----------------------------------------
+Dead droids (DH 2026-11-16): a droid body the player keeps looking at disintegrates (disruptor effect) about
+2-3 s after it died; out of view it is still removed as before. Galak's mech and placed/scripted bodies are left.
+----------------------------------------
+*/
+qboolean G_IsDroidClass(const int npc_class)
+{
+	switch (npc_class)
+	{
+	case CLASS_GONK:
+	case CLASS_INTERROGATOR:
+	case CLASS_MARK1:
+	case CLASS_MARK2:
+	case CLASS_MOUSE:
+	case CLASS_PROBE:
+	case CLASS_PROTOCOL:
+	case CLASS_R2D2:
+	case CLASS_R5D2:
+	case CLASS_REMOTE:
+	case CLASS_SEEKER:
+	case CLASS_SENTRY:
+	case CLASS_SABER_DROID:
+	case CLASS_ASSASSIN_DROID:
+	case CLASS_SBD:
+	case CLASS_BATTLEDROID:
+	case CLASS_DROIDEKA:
+		return qtrue;
+	default:
+		return qfalse;
+	}
+}
+
+static void G_FreeDroidCorpse(gentity_t* ent)
+{
+	if (ent->client && ent->client->ps.saberEntityNum > 0 && ent->client->ps.saberEntityNum < ENTITYNUM_WORLD)
+	{
+		G_FreeEntity(&g_entities[ent->client->ps.saberEntityNum]);
+		ent->client->ps.saberEntityNum = ENTITYNUM_NONE;
+	}
+	// freed on its next think, as DeadThink's own removal does (NPC_Think still uses the NPC data this frame)
+	ent->client->ps.eFlags |= EF_NODRAW;
+	ent->e_ThinkFunc = thinkF_G_FreeEntity;
+	ent->nextthink = level.time + FRAMETIME;
+}
+
+// true when the body is being removed (skip the rest of DeadThink)
+static qboolean G_DroidCorpseDisintegrate(gentity_t* ent)
+{
+	if (!ent->client || !ent->NPC || !G_IsDroidClass(ent->client->NPC_class) || ent->client->ps.eFlags & EF_NODRAW)
+	{
+		return qfalse;
+	}
+	if (ent->flags & FL_DISINTEGRATED)
+	{
+		// the disintegration has played (2 s): remove the body even if the player still looks at that spot
+		if (level.time >= ent->NPC->timeOfDeath && G_OkayToRemoveCorpse(ent))
+		{
+			G_FreeDroidCorpse(ent);
+			return qtrue;
+		}
+		return qfalse;
+	}
+	// 2-3 s after death, a little different per body so a row of droids doesn't go all at once
+	const int delay = 2000 + ent->s.number * 397 % 1001;
+	if (level.time - ent->s.time < delay || ent->NPC->aiFlags & NPCAI_HEAL_ROSH || !G_OkayToRemoveCorpse(ent)
+		|| !G_CorpseSeenByPlayer(ent))
+	{
+		return qfalse;
+	}
+
+	ent->flags |= FL_DISINTEGRATED;
+	ent->svFlags |= SVF_BROADCAST;
+	gentity_t* tent = G_TempEntity(ent->currentOrigin, EV_DISINTEGRATION);
+	tent->s.eventParm = PW_DISRUPTION;
+	tent->svFlags |= SVF_BROADCAST;
+	tent->owner = ent;
+	if (ent->playerModel >= 0)
+	{
+		gi.G2API_PauseBoneAnimIndex(&ent->ghoul2[ent->playerModel], ent->rootBone, cg.time);
+		gi.G2API_PauseBoneAnimIndex(&ent->ghoul2[ent->playerModel], ent->motionBone, cg.time);
+		gi.G2API_PauseBoneAnimIndex(&ent->ghoul2[ent->playerModel], ent->lowerLumbarBone, cg.time);
+	}
+	ent->contents = 0;
+	ent->maxs[2] = -8;
+	ent->NPC->timeOfDeath = level.time + 2000; // the cgame's disruptor effect length
+	return qfalse;
+}
+
+/*
+----------------------------------------
 DeadThink
 ----------------------------------------
 */
 static void DeadThink()
 {
+	if (G_DroidCorpseDisintegrate(NPC))
+	{
+		return;
+	}
 	trace_t trace;
 	//HACKHACKHACKHACKHACK
 	//We should really have a seperate G2 bounding box (seperate from the physics bbox) for G2 collisions only
@@ -2058,6 +2169,384 @@ NPC Behavior state thinking
 
 ===============
 */
+extern cvar_t* g_npcChatter;
+extern stringID_table_t ClassTable[];
+extern qboolean G_ControlledByPlayer(const gentity_t* self);
+
+//---------------------------------------------------------------------------------------------------------------------
+// NPC chatter (2026-11-16, DH; after Jedi Knight Galaxies' NPC conversations, NPC_Conversations.cpp; sounds and voice
+// sets in ext_data/sje_chatter.dat): two idle NPCs of a voice set standing close together (no enemy, not in a
+// script) turn to each other and talk, taking turns with talk animations. Stormtroopers and mercs play a whole little
+// dialog; the civilian sets (Rodians, Gran, Trandoshans, Weequay, Jawas, droids...) trade random lines and may mix.
+// It stops at once when either sees an enemy, gets hurt or walks off. Only one talk within CHAT_QUIET_RANGE, and
+// each NPC looks for a partner only every few seconds (cheap with many NPCs). g_npcChatter 0 = off.
+//---------------------------------------------------------------------------------------------------------------------
+#define CHATTER_FILE			"ext_data/sje_chatter.dat"
+#define MAX_CHAT_SETS			16
+#define MAX_CHAT_DIALOGS		16
+#define MAX_CHAT_DIALOG_LINES	8
+#define MAX_CHAT_LINES			128
+#define MAX_CHAT_CLASSES		8
+#define MAX_ACTIVE_CHATS		16
+#define CHAT_PARTNER_RANGE		128.0f	// JKG: within 128 units
+#define CHAT_QUIET_RANGE		1024.0f	// no second talk this close to one going on
+#define CHAT_COOLDOWN			45000	// ms before an NPC talks again
+
+typedef struct chatSet_s
+{
+	char name[32];
+	int classes[MAX_CHAT_CLASSES];
+	int numClasses;
+	char types[MAX_CHAT_CLASSES][32]; // parts of NPC type names (lower case)
+	int numTypes;
+	char dialog[MAX_CHAT_DIALOGS][MAX_CHAT_DIALOG_LINES][MAX_QPATH];
+	int dialogLines[MAX_CHAT_DIALOGS];
+	int numDialogs;
+	char line[MAX_CHAT_LINES][MAX_QPATH];
+	int numLines;
+} chatSet_t;
+
+static chatSet_t chatSets[MAX_CHAT_SETS];
+static int numChatSets = -1; // -1 = not loaded yet
+static int activeChats[MAX_ACTIVE_CHATS]; // entity number + 1 of each talk's leader, 0 = free
+
+static void NPC_ChatterLoad(void)
+{
+	char* buf = nullptr;
+	char* file = nullptr;
+	const char* p;
+
+	numChatSets = 0;
+	memset(chatSets, 0, sizeof chatSets);
+	memset(activeChats, 0, sizeof activeChats);
+	if (gi.FS_ReadFile(CHATTER_FILE, reinterpret_cast<void**>(&file)) <= 0 || !file)
+	{
+		return;
+	}
+	buf = file;
+	p = buf;
+	COM_BeginParseSession(CHATTER_FILE);
+	while (p && numChatSets < MAX_CHAT_SETS)
+	{
+		chatSet_t* cs = &chatSets[numChatSets];
+		const char* token = COM_ParseExt(&p, qtrue);
+
+		if (!token[0])
+		{
+			break;
+		}
+		Q_strncpyz(cs->name, token, sizeof cs->name);
+		token = COM_ParseExt(&p, qtrue);
+		if (Q_stricmp(token, "{"))
+		{
+			break;
+		}
+		while (1)
+		{
+			char key[32];
+
+			token = COM_ParseExt(&p, qtrue);
+			if (!token[0] || !Q_stricmp(token, "}"))
+			{
+				break;
+			}
+			Q_strncpyz(key, token, sizeof key);
+			token = COM_ParseExt(&p, qfalse);
+			if (!Q_stricmp(key, "classes") || !Q_stricmp(key, "types") || !Q_stricmp(key, "dialog"))
+			{
+				// a list: space separated (classes, types) or ";" separated (dialog)
+				char list[1024];
+				char* s;
+				const char sep = !Q_stricmp(key, "dialog") ? ';' : ' ';
+				int n = 0;
+
+				Q_strncpyz(list, token, sizeof list);
+				s = list;
+				while (*s)
+				{
+					char* e = strchr(s, sep);
+					if (e)
+					{
+						*e = 0;
+					}
+					if (*s)
+					{
+						if (!Q_stricmp(key, "classes") && cs->numClasses < MAX_CHAT_CLASSES)
+						{
+							const int c = GetIDForString(ClassTable, va("CLASS_%s", s));
+							if (c >= 0)
+							{
+								cs->classes[cs->numClasses++] = c;
+							}
+						}
+						else if (!Q_stricmp(key, "types") && cs->numTypes < MAX_CHAT_CLASSES)
+						{
+							Q_strncpyz(cs->types[cs->numTypes], s, sizeof cs->types[0]);
+							Q_strlwr(cs->types[cs->numTypes]);
+							cs->numTypes++;
+						}
+						else if (!Q_stricmp(key, "dialog") && cs->numDialogs < MAX_CHAT_DIALOGS && n < MAX_CHAT_DIALOG_LINES)
+						{
+							Q_strncpyz(cs->dialog[cs->numDialogs][n], s, MAX_QPATH);
+							n++;
+						}
+					}
+					if (!e)
+					{
+						break;
+					}
+					s = e + 1;
+				}
+				if (!Q_stricmp(key, "dialog") && n > 0 && cs->numDialogs < MAX_CHAT_DIALOGS)
+				{
+					cs->dialogLines[cs->numDialogs++] = n;
+				}
+			}
+			else if (!Q_stricmp(key, "line") && cs->numLines < MAX_CHAT_LINES)
+			{
+				Q_strncpyz(cs->line[cs->numLines++], token, MAX_QPATH);
+			}
+		}
+		if (cs->numDialogs || cs->numLines)
+		{
+			numChatSets++;
+		}
+	}
+	gi.FS_FreeFile(file);
+}
+
+// the voice set an NPC talks with, -1 = none (cached in chatSet: 0 = not looked up, else set + 1, -1 = none)
+static int NPC_ChatterSet(gentity_t* ent)
+{
+	int i, j;
+
+	if (ent->chatSet)
+	{
+		return ent->chatSet > 0 ? ent->chatSet - 1 : -1;
+	}
+	ent->chatSet = -1;
+	for (i = 0; i < numChatSets; i++)
+	{
+		for (j = 0; j < chatSets[i].numClasses; j++)
+		{
+			if (ent->client->NPC_class == chatSets[i].classes[j])
+			{
+				ent->chatSet = i + 1;
+				return i;
+			}
+		}
+		for (j = 0; j < chatSets[i].numTypes && ent->NPC_type; j++)
+		{
+			char type[64];
+			Q_strncpyz(type, ent->NPC_type, sizeof type);
+			Q_strlwr(type);
+			if (strstr(type, chatSets[i].types[j]))
+			{
+				ent->chatSet = i + 1;
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
+// can this NPC talk now (idle, alive, no enemy, standing, not scripted)
+static qboolean NPC_ChatterFree(const gentity_t* ent)
+{
+	return ent && ent->inuse && ent->client && ent->NPC && ent->health > 0 && !ent->enemy
+		&& ent->NPC->behaviorState != BS_CINEMATIC && VectorLength(ent->client->ps.velocity) <= 16.0f
+		&& ent->painDebounceTime < level.time && !G_ControlledByPlayer(ent) ? qtrue : qfalse;
+}
+
+static void NPC_ChatterEnd(gentity_t* ent)
+{
+	gentity_t* other = ent->chatPartner > 0 ? &g_entities[ent->chatPartner - 1] : nullptr;
+	int i;
+
+	for (i = 0; i < MAX_ACTIVE_CHATS; i++)
+	{
+		if (activeChats[i] == ent->s.number + 1 || (other && activeChats[i] == other->s.number + 1))
+		{
+			activeChats[i] = 0;
+		}
+	}
+	if (other && other->chatPartner == ent->s.number + 1)
+	{
+		other->chatPartner = 0;
+		other->chatNext = level.time + CHAT_COOLDOWN + Q_irand(0, 15000);
+	}
+	ent->chatPartner = 0;
+	ent->chatNext = level.time + CHAT_COOLDOWN + Q_irand(0, 15000);
+}
+
+static void NPC_ChatterFace(gentity_t* ent, const gentity_t* other)
+{
+	vec3_t dir, angles;
+
+	VectorSubtract(other->currentOrigin, ent->currentOrigin, dir);
+	vectoangles(dir, angles);
+	ent->NPC->desiredYaw = AngleNormalize360(angles[YAW]);
+}
+
+static void NPC_ChatterSay(gentity_t* speaker, const char* sound)
+{
+	G_SoundOnEnt(speaker, CHAN_VOICE_ATTEN, sound);
+	if (g_npcChatter->integer > 1)
+	{
+		Com_Printf("chatter: %i (%s) says %s\n", speaker->s.number, speaker->NPC_type, sound); // g_npcChatter 2 = debug
+	}
+	NPC_SetAnim(speaker, SETANIM_TORSO, Q_irand(0, 1) ? BOTH_TALK1 : BOTH_TALK2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+}
+
+// every NPC think (after its behaviour state)
+extern bool in_camera;
+
+void NPC_ChatterThink(gentity_t* ent)
+{
+	gentity_t* other;
+	int set, i;
+
+	if (!(g_npcChatter && g_npcChatter->integer) || !ent || !ent->client || !ent->NPC || in_camera)
+	{
+		return;
+	}
+	if (numChatSets < 0)
+	{
+		NPC_ChatterLoad();
+	}
+	if (!numChatSets)
+	{
+		return;
+	}
+
+	if (ent->chatPartner > 0)
+	{
+		// talking: the leader (chatRole 1) runs the talk
+		other = &g_entities[ent->chatPartner - 1];
+		if (!NPC_ChatterFree(ent) || !NPC_ChatterFree(other) || other->chatPartner != ent->s.number + 1
+			|| DistanceSquared(ent->currentOrigin, other->currentOrigin) > 200.0f * 200.0f)
+		{
+			NPC_ChatterEnd(ent);
+			return;
+		}
+		NPC_ChatterFace(ent, other);
+		if (ent->chatRole != 1 || level.time < ent->chatTime)
+		{
+			return;
+		}
+		set = NPC_ChatterSet(ent);
+		if (set < 0)
+		{
+			NPC_ChatterEnd(ent);
+			return;
+		}
+		{
+			const chatSet_t* cs = &chatSets[set];
+			gentity_t* speaker = ent->chatLine & 1 ? other : ent;
+			const chatSet_t* speaker_set = &chatSets[NPC_ChatterSet(speaker) >= 0 ? NPC_ChatterSet(speaker) : set];
+
+			if (ent->chatDialog >= 0)
+			{
+				if (ent->chatLine >= cs->dialogLines[ent->chatDialog])
+				{
+					NPC_ChatterEnd(ent);
+					return;
+				}
+				NPC_ChatterSay(speaker, cs->dialog[ent->chatDialog][ent->chatLine]);
+			}
+			else
+			{
+				if (ent->chatLine >= ent->chatLines || !speaker_set->numLines)
+				{
+					NPC_ChatterEnd(ent);
+					return;
+				}
+				NPC_ChatterSay(speaker, speaker_set->line[Q_irand(0, speaker_set->numLines - 1)]);
+			}
+			ent->chatLine++;
+			ent->chatTime = level.time + Q_irand(3500, 6000);
+		}
+		return;
+	}
+
+	// looking for someone to talk to, every few seconds
+	if (level.time < ent->chatNext)
+	{
+		return;
+	}
+	ent->chatNext = level.time + Q_irand(3000, 5000);
+	if (!NPC_ChatterFree(ent) || (set = NPC_ChatterSet(ent)) < 0)
+	{
+		return;
+	}
+	for (i = 0; i < MAX_ACTIVE_CHATS; i++)
+	{
+		const gentity_t* lead = activeChats[i] ? &g_entities[activeChats[i] - 1] : nullptr;
+		if (lead && (!lead->inuse || lead->chatPartner <= 0))
+		{
+			activeChats[i] = 0; // a talk that ended without telling us
+			continue;
+		}
+		if (lead && DistanceSquared(lead->currentOrigin, ent->currentOrigin) < CHAT_QUIET_RANGE * CHAT_QUIET_RANGE)
+		{
+			return; // someone is already talking near here
+		}
+	}
+	{
+		static gentity_t* near_list[MAX_GENTITIES];
+		const int count = G_RadiusList(ent->currentOrigin, CHAT_PARTNER_RANGE, ent, qtrue, near_list);
+		const qboolean scripted = chatSets[set].numDialogs > 0 ? qtrue : qfalse;
+		int slot = -1;
+
+		for (i = 0; i < MAX_ACTIVE_CHATS; i++)
+		{
+			if (!activeChats[i])
+			{
+				slot = i;
+				break;
+			}
+		}
+		if (slot < 0)
+		{
+			return;
+		}
+		for (i = 0; i < count; i++)
+		{
+			int other_set;
+
+			other = near_list[i];
+			if (!other || other == ent || !NPC_ChatterFree(other) || other->chatPartner > 0 || other->chatNext > level.time + CHAT_COOLDOWN)
+			{
+				continue;
+			}
+			other_set = NPC_ChatterSet(other);
+			if (other_set < 0 || (scripted && other_set != set) || (!scripted && chatSets[other_set].numDialogs > 0))
+			{
+				continue; // troopers / mercs only with their own kind, civilians with any civilians
+			}
+			// start: this one leads
+			ent->chatPartner = other->s.number + 1;
+			other->chatPartner = ent->s.number + 1;
+			ent->chatRole = 1;
+			other->chatRole = 2;
+			ent->chatLine = 0;
+			ent->chatDialog = scripted ? Q_irand(0, chatSets[set].numDialogs - 1) : -1;
+			ent->chatLines = Q_irand(4, 6);
+			ent->chatTime = level.time + 500;
+			activeChats[slot] = ent->s.number + 1;
+			return;
+		}
+	}
+}
+
+extern void G_CivilianReset(void);
+
+// a new map: reload the sets (the file may differ per mod) and forget old talks
+void NPC_ChatterReset(void)
+{
+	numChatSets = -1;
+}
+
 static void NPC_ExecuteBState(const gentity_t* self) //, int msec )
 {
 	NPC_HandleAIFlags();
@@ -2478,6 +2967,7 @@ void NPC_Think(gentity_t* ent) //, int msec )
 
 		//nextthink is set before this so something in here can override it
 		NPC_ExecuteBState(ent);
+		NPC_ChatterThink(ent); // NPC chatter (2026-11-16)
 
 #if	AI_TIMERS
 		int addTime = GetTime(startTime);
@@ -2582,6 +3072,8 @@ extern int G_ParseAnimFileSet(const char* skeletonName, const char* model_name =
 
 void NPC_InitGame()
 {
+	NPC_ChatterReset(); // NPC chatter (2026-11-16)
+	G_CivilianReset(); // wandering civilians (2026-11-16, NPC_spawn)
 	//	globals.NPCs = (gNPC_t *) gi.TagMalloc(game.maxclients * sizeof(game.bots[0]), TAG_GAME);
 	debugNPCName = gi.cvar("d_npc", "", 0);
 	NPC_LoadParms();

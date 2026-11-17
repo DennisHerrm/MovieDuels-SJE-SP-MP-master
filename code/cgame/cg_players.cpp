@@ -85,6 +85,8 @@ static void CG_AddSaberLight(const vec3_t org, const float radius, const vec3_t 
 }
 
 extern qboolean WP_SaberBlasterChargeState(gentity_t* ent, vec3_t muzzle, float* frac, int* cost); // SS_BLASTER (2026-10-31)
+static vec3_t cg_saberBlasterMuzzle[MAX_GENTITIES]; // SS_BLASTER pistol muzzle as drawn (item 404), set in CG_Player
+static int cg_saberBlasterMuzzleTime[MAX_GENTITIES]; // cg.time it was set (0 = not this frame)
 extern qboolean WP_SaberBladeUseSecondBladeStyle(const saberInfo_t* saber, int bladeNum);
 extern void WP_SaberSwingSound(const gentity_t* ent, int saberNum, swingType_t swing_type);
 extern vmCvar_t cg_SaberInnonblockableAttackWarning;
@@ -16680,9 +16682,18 @@ static void CG_Z6SpinBarrel(centity_t* cent)
 constexpr int DROID_WRECK_SMOKE_TIME = 60000;
 constexpr int DROID_WRECK_SPARK_TIME = 30000; // DH 11:13: more sparks (was 10 s, one every 1.2-2.8 s)
 
+// every droid class (DH 2026-11-16, was remote + saber droid only); same list as the game's G_IsDroidClass (NPC.cpp)
+extern qboolean G_IsDroidClass(int npc_class);
+
 static bool CG_DroidWreckClass(const int npc_class)
 {
-	return npc_class == CLASS_REMOTE || npc_class == CLASS_SABER_DROID;
+	return G_IsDroidClass(npc_class) != qfalse;
+}
+
+// small droids get the remote's smaller smoke column, marks and spark radius
+static bool CG_DroidWreckSmall(const int npc_class)
+{
+	return npc_class == CLASS_REMOTE || npc_class == CLASS_SEEKER || npc_class == CLASS_MOUSE;
 }
 
 static void CG_DroidWreckMarks(gentity_t* gent, const vec3_t center, const float radius, const int count, const int life)
@@ -16794,7 +16805,7 @@ static void CG_DroidWreckFx(const centity_t* cent, const vec3_t origin)
 	{
 		return;
 	}
-	const bool remote = gent->client->NPC_class == CLASS_REMOTE;
+	const bool remote = CG_DroidWreckSmall(gent->client->NPC_class); // small droid
 	const float radius = remote ? 10.0f : 24.0f;
 
 	// where it lies: the floor below the model origin, the smoke starts a little above it
@@ -17332,6 +17343,23 @@ void CG_Player(centity_t* cent)
 		VectorCopy(ent.origin, cent->gent->client->renderInfo.torsoPoint);
 		VectorCopy(cent->lerpAngles, cent->gent->client->renderInfo.torsoAngles);
 		VectorCopy(ent.origin, cent->gent->client->renderInfo.crotchPoint);
+		// SS_BLASTER pistol muzzle as drawn this frame (item 404): the charge glow follows the gun while he moves (the
+		// game's own bolt position is a game frame behind and uses another yaw)
+		cg_saberBlasterMuzzleTime[cent->currentState.number] = 0;
+		if (cent->gent->client->ps.saberAnimLevel == SS_BLASTER
+			&& cent->gent->weaponModel[1] > 0 && cent->gent->weaponModel[1] < static_cast<int>(cent->gent->ghoul2.size()))
+		{
+			const int flash_bolt = gi.G2API_AddBolt(&cent->gent->ghoul2[cent->gent->weaponModel[1]], "*flash");
+			if (flash_bolt >= 0)
+			{
+				mdxaBone_t flash_matrix;
+				gi.G2API_GetBoltMatrix(cent->gent->ghoul2, cent->gent->weaponModel[1], flash_bolt, &flash_matrix, tempAngles,
+					ent.origin, cg.time, cgs.model_draw, cent->currentState.modelScale);
+				gi.G2API_GiveMeVectorFromMatrix(flash_matrix, ORIGIN, cg_saberBlasterMuzzle[cent->currentState.number]);
+				cg_saberBlasterMuzzleTime[cent->currentState.number] = cg.time;
+			}
+		}
+
 		if (cent->currentState.number != 0
 			|| cg.renderingThirdPerson
 			|| cg.snap->ps.stats[STAT_HEALTH] <= 0
@@ -19094,6 +19122,10 @@ void CG_Player(centity_t* cent)
 
 		if (WP_SaberBlasterChargeState(cent->gent, muzzle, &val, nullptr))
 		{
+			if (cg_saberBlasterMuzzleTime[cent->currentState.number] == cg.time)
+			{
+				VectorCopy(cg_saberBlasterMuzzle[cent->currentState.number], muzzle); // the gun as drawn (item 404)
+			}
 			vec3_t WHITE = { 1.0f, 1.0f, 1.0f };
 
 			if (cent->currentState.number == 0)

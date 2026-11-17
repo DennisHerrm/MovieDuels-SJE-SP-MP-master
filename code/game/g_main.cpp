@@ -146,6 +146,9 @@ static void ValidateInUseBits()
 gentity_t* player;
 
 cvar_t* g_speed;
+cvar_t* g_npcChatter; // NPC chatter (2026-11-16, NPC.cpp): idle NPCs talk to each other, 0 = off
+cvar_t* g_civilians; // wandering civilians (2026-11-16, NPC_spawn.cpp): how many to keep about, 0 = off
+cvar_t* g_civilianTypes; // their NPC types
 cvar_t* g_gravity;
 cvar_t* g_stepSlideFix;
 
@@ -385,6 +388,8 @@ extern char* G_GetLocationForEnt(const gentity_t* ent);
 extern void CP_FindCombatPointWaypoints();
 extern qboolean InFront(vec3_t spot, vec3_t from, vec3_t fromAngles, float threshHold = 0.0f);
 
+extern void G_CivilianThink(void);
+extern void G_CivilianReset(void);
 void G_RunFrame(int level_time);
 extern void WP_SaberHolsterCheckGuns(gentity_t* ent);
 void G_EnforceUpdateSettings();
@@ -780,6 +785,9 @@ static void G_InitCvars()
 
 	// change anytime vars
 	g_speed = gi.cvar("g_speed", "250", CVAR_CHEAT);
+	g_npcChatter = gi.cvar("g_npcChatter", "1", CVAR_ARCHIVE);
+	g_civilians = gi.cvar("g_civilians", "0", CVAR_ARCHIVE);
+	g_civilianTypes = gi.cvar("g_civilianTypes", "rodian rodian2 gran gran2 trandoshan weequay jawa ugnaught prisoner protocol r2d2 r5d2", CVAR_ARCHIVE);
 	g_gravity = gi.cvar("g_gravity", "800", CVAR_SAVEGAME | CVAR_ROM);
 	g_stepSlideFix = gi.cvar("g_stepSlideFix", "1", CVAR_ARCHIVE);
 	g_sex = gi.cvar("sex", "f", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART);
@@ -2813,6 +2821,7 @@ void G_RunFrame(const int level_time)
 	}
 
 	AI_UpdateGroups();
+	G_CivilianThink(); // wandering civilians (2026-11-16, NPC_spawn)
 
 	//Look to clear out old events
 	ClearPlayerAlertEvents();

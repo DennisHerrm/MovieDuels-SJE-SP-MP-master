@@ -147,7 +147,7 @@ animFlags_t BG_AnimStyleFlags(int animStyle);
 #define DEFAULT_REDTEAM_NAME	"Empire"
 #define DEFAULT_BLUETEAM_NAME	"Rebellion"
 
-#define CURRENT_MD_CLIENTVERSION		"Day-15,Month-11,Year-26,BuildNum-10" // build date
+#define CURRENT_MD_CLIENTVERSION		"Day-17,Month-11,Year-26,BuildNum-11" // build date
 
 #define	STEPSIZE		18
 
@@ -2012,6 +2012,12 @@ typedef enum saber_styles_e {
 #define SABERBLASTER_CHARGE_FULL	1500		// ms held to full charge
 #define SABERBLASTER_CHARGE_LEVELS	3
 int BG_SaberBlasterChargeLevel(int held, int clip_used);
+// the gun arm (2026-11-16, item 404): the shot / charge anims (BOTH_FORCELIGHTNING(_RELEASE), BOTH_FORCEGRIP_HOLD while
+// charging) only time and network the shot now; the body plays its legs anim there (server + cgame) and the cgame
+// puts the left arm in BOTH_ATTACK_DUAL's pistol pose (CG_SaberBlasterArmPose)
+#define SABERBLASTER_AIM_RAISE		120			// ms the gun arm takes to go out; the shot waits for it
+qboolean BG_SaberBlasterAimAnim(int torso_anim, int weapon, int saber_anim_level, int charge_start);
+int BG_SaberBlasterTorsoAnim(int torso_anim, int legs_anim, int weapon, int saber_anim_level, int charge_start);
 
 typedef enum
 {
@@ -2269,6 +2275,7 @@ qboolean BG_ClassSkeletonOk(int botclass, int skelFlags);	// may a model with th
 qboolean BG_ClassHasNoFists(int botclass);			// gets no melee either (R2: stun only; R5, gonk, protocol: nothing), as the SP NPC files
 qboolean BG_ClassCantJump(int botclass);			// SP PM_GentCantJump droids
 qboolean BG_AnimSetCantJump(int animIndex);			// own skeleton without a real jump anim (galak_mech, mark1...)
+qboolean BG_AnimSetCantCrouch(int animIndex);		// own skeleton without a real crouch anim (protocol, R2/R5, gonk...)
 qboolean BG_ClassIsWholeBody(int botclass);			// every anim drives the whole body (no separate torso/weapon anims)
 qboolean BG_ClassCreatureSize(int botclass, float* halfWidth, int* standheight, int* crouchheight); // SP .npc width/height
 int		BG_ClassCreatureScale(int botclass);		// SP .npc scale (percent), 0 = not a creature class

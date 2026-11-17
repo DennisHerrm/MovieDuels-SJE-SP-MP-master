@@ -191,4 +191,7 @@ XCVAR_DEF(g_cursor, "10", NULL, CVAR_ARCHIVE) // same default as SP (Vader curso
 XCVAR_DEF(ui_selectedHolocron, "", NULL, CVAR_ARCHIVE | CVAR_INTERNAL)
 XCVAR_DEF(g_update9firststartup, "1", NULL, CVAR_ARCHIVE) // same as SP: 1 until the first-startup welcome/credits pages are done (main.menu, welcome.menu, credits.menu)
 
+// Missions cutscene rows of the create server / solo game menus (2026-11-16): the game's defaults, so the menu shows them right before a server ever ran
+XCVAR_DEF(g_missionCutscenes, "0", NULL, CVAR_ARCHIVE)
+XCVAR_DEF(g_missionSkipIntro, "1", NULL, CVAR_ARCHIVE)
 #undef XCVAR_DEF

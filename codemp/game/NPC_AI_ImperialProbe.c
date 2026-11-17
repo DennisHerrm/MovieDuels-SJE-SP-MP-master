@@ -51,6 +51,7 @@ void NPC_Probe_Precache(void)
 	G_EffectIndex("chunks/probehead");
 	G_EffectIndex("env/med_explode2");
 	G_EffectIndex("explosions/probeexplosion1");
+	G_EffectIndex("explosions/probe_wreck");
 	G_EffectIndex("bryar/muzzle_flash");
 
 	RegisterItem(BG_FindItemForAmmo(AMMO_BLASTER));

@@ -7024,6 +7024,7 @@ static void CG_DrawSaberBlasterClip(const centity_t* cent)
 CG_DrawHUD
 ================
 */
+extern qboolean in_camera;
 static void CG_DrawHUD(const centity_t* cent)
 {
 	// don't display if dead
@@ -9260,7 +9261,8 @@ static void CG_DrawStats(void)
 		}
 	}
 
-	if (drawHUD)
+	// not over a cutscene (the camera: Missions with g_missionCutscenes 1, SP maps outside Missions; 2026-11-16)
+	if (drawHUD && !in_camera)
 	{
 		CG_DrawHUD(cent);
 	}
@@ -16620,6 +16622,8 @@ static void CG_DrawSaberLockMeter(void)
 	CG_FillRect(x, y + h + 3.0f, w * time_frac, 2.0f, timer);
 }
 
+extern qboolean CG_InServerCamera(void);
+extern void CG_DrawServerCameraBars(void);
 static void CG_Draw2D(void)
 {
 	const float in_time = cg.invenSelectTime + WEAPON_SELECT_TIME;
@@ -16667,6 +16671,17 @@ static void CG_Draw2D(void)
 	if (cg.snap->ps.pm_type == PM_INTERMISSION)
 	{
 		CG_DrawIntermission();
+		CG_ChatBox_DrawStrings();
+		return;
+	}
+
+	// a cutscene (the server-side camera, 2026-11-16, DH): no HUD, crosshair, radar or selection; only the letterbox
+	// bars, center prints and chat
+	if (CG_InServerCamera())
+	{
+		CGCam_DoFade(); // (the cutscene's fades, SJE)
+		CG_DrawServerCameraBars();
+		CG_DrawCenterString();
 		CG_ChatBox_DrawStrings();
 		return;
 	}

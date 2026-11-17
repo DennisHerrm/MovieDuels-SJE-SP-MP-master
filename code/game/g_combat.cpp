@@ -811,6 +811,51 @@ Not to be confused with NPC_RemoveBodyEffects (NPC.cpp), which only applies effe
 
 extern qboolean jedi_cultist_destroyer(const gentity_t* self);
 
+// Probe wreck (SJE port, DH 2026-11-16): a destroyed probe droid leaves its burnt wreck on the floor below it, not
+// solid, removed after g_corpseRemovalTime seconds like a body (0 = it stays). Nothing when there is no floor below
+// (a pit, the sky). The model is SJE's (= JKG's) imp_mine/probedestroyed.md3, put in the Claude_Edits pk3 under its
+// own name so the Outcast addon's imp_mine/probedestroyed.md3 map object stays as it is.
+constexpr auto PROBE_WRECK_MODEL = "models/players/probe/probe_wreck.md3";
+extern cvar_t* g_corpseRemovalTime;
+
+static void G_SpawnProbeWreck(const gentity_t* ent)
+{
+	trace_t tr;
+	vec3_t start, end;
+
+	VectorCopy(ent->currentOrigin, start);
+	start[2] += 16;
+	VectorCopy(start, end);
+	end[2] -= 1024;
+	gi.trace(&tr, start, nullptr, nullptr, end, ent->s.number, MASK_SOLID, static_cast<EG2_Collision>(0), 0);
+	if (tr.startsolid || tr.allsolid || tr.fraction >= 1.0f)
+	{
+		return;
+	}
+
+	gentity_t* wreck = G_Spawn();
+	if (!wreck)
+	{
+		return;
+	}
+	wreck->classname = "probe_wreck";
+	wreck->s.eType = ET_GENERAL;
+	wreck->s.modelindex = G_ModelIndex(PROBE_WRECK_MODEL);
+	VectorSet(wreck->mins, -24, -24, 0);
+	VectorSet(wreck->maxs, 24, 24, 32);
+	wreck->contents = 0;
+	wreck->clipmask = 0;
+	G_SetOrigin(wreck, tr.endpos);
+	const vec3_t angles = { 0, ent->currentAngles[YAW], 0 };
+	G_SetAngles(wreck, angles);
+	if (g_corpseRemovalTime->integer > 0)
+	{
+		wreck->e_ThinkFunc = thinkF_G_FreeEntity;
+		wreck->nextthink = level.time + g_corpseRemovalTime->integer * 1000;
+	}
+	gi.linkentity(wreck);
+}
+
 void DeathFX(const gentity_t* ent)
 {
 	if (!ent || !ent->client)
@@ -860,6 +905,9 @@ void DeathFX(const gentity_t* ent)
 		VectorCopy(ent->currentOrigin, effect_pos);
 		effect_pos[2] += 50;
 		G_PlayEffect("explosions/probeexplosion1", effect_pos);
+		// JKG port: broken probe parts (damaged legs, plates, smoking head) stay on the ground for a while
+		G_PlayEffect("explosions/probe_wreck", effect_pos);
+		G_SpawnProbeWreck(ent); // SJE port: the burnt wreck model on the floor
 		break;
 
 	case CLASS_ATST:
@@ -6625,7 +6673,36 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker,
 		self->s.time = level.time;
 	}
 
+	// dead flying droids (probe, remote, seeker, sentry, interrogator) drop to the floor instead of hanging in the air
+	// (DH 2026-11-16)
+	switch (self->client->NPC_class)
+	{
+	case CLASS_PROBE:
+	case CLASS_REMOTE:
+	case CLASS_SEEKER:
+	case CLASS_SENTRY:
+	case CLASS_INTERROGATOR:
+		self->client->moveType = MT_RUNJUMP;
+		self->svFlags &= ~SVF_CUSTOM_GRAVITY;
+		self->client->ps.gravity = g_gravity->value;
+		break;
+	default:
+		break;
+	}
+
 	DeathFX(self);
+
+	// probe wreck (SJE port, DH 2026-11-16): the probe's own body goes behind its explosion, its burnt wreck model
+	// (G_SpawnProbeWreck in DeathFX) lies on the floor. Hidden and not solid now; DeadThink frees a hidden body once
+	// no death script runs. A probe that holds a key keeps its body.
+	if (self->client->NPC_class == CLASS_PROBE && !self->message)
+	{
+		self->takedamage = qfalse;
+		self->client->ps.eFlags |= EF_NODRAW;
+		self->s.eFlags |= EF_NODRAW;
+		self->contents = 0;
+		gi.linkentity(self);
+	}
 }
 
 qboolean G_CheckForStrongAttackMomentum(const gentity_t* self)

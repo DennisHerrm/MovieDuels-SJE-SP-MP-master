@@ -1385,8 +1385,7 @@ Marks the entity as free
 extern qboolean EjectAll(Vehicle_t* p_veh);
 
 void G_FreeEntity(gentity_t* ed)
-{
-	if (ed->isSaberEntity)
+{	if (ed->isSaberEntity)
 	{
 #ifdef _DEBUG
 		Com_Printf("Tried to remove JM saber!\n");

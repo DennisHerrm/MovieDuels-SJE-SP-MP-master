@@ -70,6 +70,7 @@ XCVAR_DEF(g_allowDuelSuicide, "1", NULL, CVAR_ARCHIVE, qtrue)
 XCVAR_DEF(g_allowHighPingDuelist, "1", NULL, CVAR_NONE, qtrue)
 XCVAR_DEF(g_AIsurrender, "0", NULL, CVAR_CHEAT, qfalse) // non-jawa / ugnaught NPCs surrender (SP)
 XCVAR_DEF(g_allowNPC, "1", NULL, CVAR_ARCHIVE, qtrue)
+XCVAR_DEF(g_missionCutscenes, "0", NULL, CVAR_ARCHIVE, qfalse) // Missions (2026-11-16): 1 = every player watches the cutscenes (the MP camera), 0 = they play out unseen
 XCVAR_DEF(g_missionSkipIntro, "1", NULL, CVAR_ARCHIVE, qfalse) // Missions: each map's intro is skipped from the start (ext_data/mission_intros.dat; 0 = it plays out unseen)
 XCVAR_DEF(g_allowTeamVote, "1", NULL, CVAR_ARCHIVE, qfalse)
 XCVAR_DEF(g_allowVote, "1", NULL, CVAR_ARCHIVE, qfalse)
@@ -346,5 +347,9 @@ XCVAR_DEF(g_Advancedaitalk, "1", NULL, CVAR_ARCHIVE, qfalse) // NPCs taunt/talk 
 XCVAR_DEF(g_SaberAttackSpeedMD, "0", NULL, CVAR_ARCHIVE, qtrue)
 
 XCVAR_DEF(g_lightningDrainRate, "25", NULL, CVAR_ARCHIVE, qtrue) // force points a second while force lightning is held (DH 2026-11-02); 0 = the old cost (2 / 5 / 8 points every 50 ms)
+XCVAR_DEF(g_civilians, "0", NULL, CVAR_ARCHIVE, qfalse) // wandering civilians (2026-11-16, NPC_spawn.c): how many to keep about, 0 = off
+XCVAR_DEF(g_civilianTypes, "rodian rodian2 gran gran2 trandoshan weequay jawa ugnaught prisoner protocol r2d2 r5d2", NULL, CVAR_ARCHIVE, qfalse) // their NPC types
+XCVAR_DEF(g_botChatter, "1", NULL, CVAR_ARCHIVE, qfalse) // bots talk to each other and taunt enemy bots (2026-11-16, ai_main.c), 0 = off, 2 = prints
+XCVAR_DEF(g_npcChatter, "1", NULL, CVAR_ARCHIVE, qfalse) // NPC chatter (2026-11-16, NPC.c): idle NPCs talk to each other, 0 = off
 XCVAR_DEF(g_obstacleClimb, "1", NULL, CVAR_ARCHIVE, qfalse) // NPCs and bots stuck against something on their way climb / jump onto it or go round it (DH 2026-11-12); 0 = off
 #undef XCVAR_DEF

@@ -4072,8 +4072,8 @@ static void CG_SetLerpFrameAnimation(centity_t* cent, clientInfo_t* ci, lerpFram
 				trap->G2API_SetBoneAnim(cent->ghoul2, 0, supportBone, firstFrame, lastFrame, flags, animSpeed, cg.time, beginFrame, blendTime);
 			}
 		}
-		else if (ci &&
-			(ci->brokenLimbs ||
+		else if (ci && !cent->saberBlasterArmState // not the SS_BLASTER gun arm (item 404)
+			&& (ci->brokenLimbs ||
 				trap->G2API_GetBoneFrame(cent->ghoul2, "lhumerus", cg.time, &unused, cgs.game_models, 0) ||
 				trap->G2API_GetBoneFrame(cent->ghoul2, "rhumerus", cg.time, &unused, cgs.game_models, 0)))
 			//rwwFIXMEFIXME: brokenLimbs gets stomped sometimes, but it shouldn't.
@@ -4390,8 +4390,12 @@ static void CG_PlayerAnimation(centity_t* cent, int* legs_old, int* legs, float*
 			}
 		}
 
-		CG_RunLerpFrame(cent, ci, &cent->pe.torso, cent->currentState.torsoFlip, cent->currentState.torsoAnim,
-			speed_scale, qtrue);
+		// SS_BLASTER shot / charge anims: the body keeps its legs anim, the gun arm is CG_SaberBlasterArmPose (item 404)
+		const int torso_anim = BG_SaberBlasterTorsoAnim(cent->currentState.torsoAnim, cent->currentState.legsAnim,
+			cent->currentState.weapon, cent->currentState.fireflag,
+			cent->currentState.number == cg.predictedPlayerState.clientNum
+			? cg.predictedPlayerState.weaponChargeTime : cent->currentState.constantLight);
+		CG_RunLerpFrame(cent, ci, &cent->pe.torso, cent->currentState.torsoFlip, torso_anim, speed_scale, qtrue);
 
 		*torso_old = cent->pe.torso.oldFrame;
 		*torso = cent->pe.torso.frame;
@@ -18430,6 +18434,168 @@ static void CG_SaberBlasterPistolUpdate(centity_t* cent, const clientInfo_t* ci)
 	}
 }
 
+// SS_BLASTER gun arm (2026-11-16, item 404): the saber anims hold the left hand open, so the pistol sat sideways and the
+// shot played the force lightning cast. The left arm takes a pistol anim's left arm on its lhumerus bone: straight out
+// while a shot / charge anim runs (the body plays its legs anim then, BG_SaberBlasterTorsoAnim) and a moment after,
+// lowered in front of him (lhumerus angles) otherwise. MD's _humanoid has its own frames: BOTH_ATTACK_FP_JANGO holds the
+// pistol straight out (BOTH_ATTACK_DUAL holds both hands at the chest), and the MD stances turn the chest sideways, so
+// while it aims the upper body (upper_lumbar) also takes BOTH_STAND1 - facing forward, the saber held low. None while
+// the body's own anim needs the arm (knockdown, roll, flip, saberlock, reload, death)
+#define SABERBLASTER_AIM_HOLD		1500		// ms the arm stays out after a shot (DH: 1-2 s)
+#define SABERBLASTER_ARM_RELEASE	400		// ms the arm / body blend back down / into the torso anim
+#define SABERBLASTER_ARM_LOW		30.0f	// lhumerus angles of the low pose (the arm down in front of him, the pistol
+#define SABERBLASTER_ARM_LOW_YAW	60.0f	// pointing ahead: MD's side-on stances need the turn)
+extern qboolean BG_InKnockDown(int anim);
+// a bone that had its own pose blends into the torso's anim: the lower_lumbar anim copied onto it, frame for frame
+// (item 404), so freeing the bone afterwards does not show
+static void CG_SaberBlasterBoneToTorso(centity_t* cent, const char* bone, const int blend)
+{
+	float current_frame = 0.0f;
+	float anim_speed = 1.0f;
+	int start_frame = 0;
+	int end_frame = 0;
+	int flags = 0;
+
+	if (trap->G2API_GetBoneAnim(cent->ghoul2, "lower_lumbar", cg.time, &current_frame, &start_frame, &end_frame, &flags,
+		&anim_speed, NULL, 0) && end_frame > start_frame)
+	{
+		trap->G2API_SetBoneAnim(cent->ghoul2, 0, bone, start_frame, end_frame, flags | BONE_ANIM_BLEND, anim_speed, cg.time,
+			current_frame, blend);
+	}
+	else
+	{
+		trap->G2API_SetBoneAnim(cent->ghoul2, 0, bone, 0, 1, 0, 0, cg.time, -1, 0);
+	}
+}
+
+static void CG_SaberBlasterFreeArm(centity_t* cent)
+{
+	vec3_t zero = { 0.0f, 0.0f, 0.0f };
+	// flags 0 first, so the bone can go (as the broken arm code does)
+	trap->G2API_SetBoneAngles(cent->ghoul2, 0, "lhumerus", zero, 0, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, cgs.game_models,
+		0, cg.time);
+	trap->G2API_SetBoneAnim(cent->ghoul2, 0, "lhumerus", 0, 1, 0, 0, cg.time, -1, 0);
+	trap->G2API_RemoveBone(cent->ghoul2, "lhumerus", 0);
+}
+
+static void CG_SaberBlasterArmPose(centity_t* cent) // not const: the Ghoul2 calls take the instance
+{
+	const entityState_t* es = &cent->currentState;
+	const playerState_t* ps = &cg.predictedPlayerState;
+	const qboolean local = es->number == ps->clientNum ? qtrue : qfalse;
+	const int charge_start = local ? ps->weaponChargeTime : es->constantLight;
+	int state = 0;
+	int frame = 0;
+	int body_frame = -1;
+
+	if (cent->saberBlasterPistol && cent->ghoul2 && !(es->eFlags & EF_DEAD)
+		&& cent->localAnimIndex >= 0 && cent->localAnimIndex < MAX_ANIM_FILES && bgAllAnims[cent->localAnimIndex].anims
+		&& BG_AnimSetIsHumanoidLike(cent->localAnimIndex)
+		&& !es->brokenLimbs
+		&& !BG_InKnockDown(es->legsAnim) && !BG_InKnockDown(es->torsoAnim)
+		&& !PM_FlippingAnim(es->legsAnim)
+		&& !PM_InSaberLock(es->torsoAnim)
+		&& es->torsoAnim != BOTH_RELOAD
+		&& !(es->legsAnim >= BOTH_ROLL_F && es->legsAnim <= BOTH_ROLL_R)
+		&& es->legsAnim != BOTH_ROLL_F1 && es->legsAnim != BOTH_ROLL_F2
+		&& es->saberMove <= LS_READY // swings, parries, blocks: the body's own anims, the arm only idle or shooting (DH)
+		&& !(es->ManualBlockingFlags & 1 << MBF_HOLDINGBLOCK))
+	{
+		const animation_t* anims = bgAllAnims[cent->localAnimIndex].anims;
+		const animation_t* arm = &anims[BOTH_ATTACK_FP_JANGO];
+		if (arm->numFrames <= 0)
+		{
+			arm = &anims[BOTH_ATTACK_DUAL];
+		}
+		if (arm->numFrames > 0)
+		{
+			frame = arm->firstFrame + arm->numFrames / 2;
+			// a shot anim stays the torso anim after its timer: a new one (anim or restart flip) aims, a charge aims while held
+			const int torso_key = es->torsoAnim | (es->torsoFlip ? 0x10000 : 0);
+			if (BG_SaberBlasterAimAnim(es->torsoAnim, es->weapon, es->fireflag, charge_start)
+				&& (torso_key != cent->saberBlasterTorsoKey || es->torsoAnim == BOTH_FORCEGRIP_HOLD))
+			{
+				cent->saberBlasterAimUntil = cg.time + SABERBLASTER_AIM_HOLD;
+			}
+			cent->saberBlasterTorsoKey = torso_key;
+			state = cg.time < cent->saberBlasterAimUntil ? 2 : 1;
+			if (state == 1 && BG_SaberBlasterTorsoAnim(es->torsoAnim, es->legsAnim, es->weapon, es->fireflag, charge_start) == BOTH_STAND1)
+			{
+				state = 0; // standing idle: plain BOTH_STAND1 like the other styles (DH)
+			}
+			if (anims[BOTH_STAND1].numFrames > 0)
+			{
+				body_frame = anims[BOTH_STAND1].firstFrame;
+			}
+		}
+	}
+
+	if (!state)
+	{
+		cent->saberBlasterAimUntil = 0; // a swing / knockdown cuts the aim short
+	}
+	if (!cent->ghoul2)
+	{
+		cent->saberBlasterArmState = 0;
+		return;
+	}
+	if (cent->saberBlasterBodyRelease && cg.time >= cent->saberBlasterBodyRelease)
+	{
+		// the upright aiming body has blended back into the torso anim: free the bone
+		cent->saberBlasterBodyRelease = 0;
+		trap->G2API_SetBoneAnim(cent->ghoul2, 0, "upper_lumbar", 0, 1, 0, 0, cg.time, -1, 0);
+	}
+	if (cent->saberBlasterArmState == 3 && !state)
+	{
+		// blending back to the body's anim (DH: no snap): the bone goes once the blend is done
+		if (cg.time >= cent->saberBlasterArmTime + SABERBLASTER_ARM_RELEASE)
+		{
+			cent->saberBlasterArmState = 0;
+			CG_SaberBlasterFreeArm(cent);
+		}
+		return;
+	}
+	if (state == cent->saberBlasterArmState
+		&& (!state || cg.time - cent->saberBlasterArmTime < 1000))
+	{
+		return; // set already (set again now and then: the ghoul2 instance can be made anew)
+	}
+	const int old_state = cent->saberBlasterArmState == 3 ? 0 : cent->saberBlasterArmState;
+	cent->saberBlasterArmState = state;
+	cent->saberBlasterArmTime = cg.time;
+	if (old_state == 2 && state != 2)
+	{
+		// the body blends back into the torso anim (a copy of it on upper_lumbar), freed once done
+		CG_SaberBlasterBoneToTorso(cent, "upper_lumbar", SABERBLASTER_ARM_RELEASE);
+		cent->saberBlasterBodyRelease = cg.time + SABERBLASTER_ARM_RELEASE;
+	}
+	if (!state)
+	{
+		// the arm blends into the torso's own anim (a copy of it on lhumerus), then the bone is freed (state 3)
+		vec3_t zero = { 0.0f, 0.0f, 0.0f };
+		CG_SaberBlasterBoneToTorso(cent, "lhumerus", SABERBLASTER_ARM_RELEASE);
+		trap->G2API_SetBoneAngles(cent->ghoul2, 0, "lhumerus", zero, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z,
+			cgs.game_models, SABERBLASTER_ARM_RELEASE, cg.time);
+		cent->saberBlasterArmState = 3;
+		return;
+	}
+	const int blend = state == 2 ? SABERBLASTER_AIM_RAISE : SABERBLASTER_ARM_RELEASE;
+	vec3_t angles = { 0.0f, state == 2 ? 0.0f : SABERBLASTER_ARM_LOW_YAW, state == 2 ? 0.0f : SABERBLASTER_ARM_LOW };
+	if (!old_state || state == old_state)
+	{
+		trap->G2API_SetBoneAnim(cent->ghoul2, 0, "lhumerus", frame, frame + 1, BONE_ANIM_OVERRIDE_FREEZE | BONE_ANIM_BLEND,
+			1.0f, cg.time, (float)frame, blend);
+	}
+	if (state == 2 && body_frame >= 0)
+	{
+		cent->saberBlasterBodyRelease = 0;
+		trap->G2API_SetBoneAnim(cent->ghoul2, 0, "upper_lumbar", body_frame, body_frame + 1,
+			BONE_ANIM_OVERRIDE_FREEZE | BONE_ANIM_BLEND, 1.0f, cg.time, (float)body_frame, blend);
+	}
+	trap->G2API_SetBoneAngles(cent->ghoul2, 0, "lhumerus", angles, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y,
+		NEGATIVE_Z, cgs.game_models, state == old_state ? 0 : blend, cg.time);
+}
+
 // SS_BLASTER charged shot (2026-10-31): the bryar's charge glow on the left hand pistol's muzzle while walk + dash are
 // held past SABERBLASTER_CHARGE_START (the arm out in BOTH_FORCEGRIP_HOLD), growing to full at
 // SABERBLASTER_CHARGE_FULL. The hold start is ps.weaponChargeTime - entityState constantLight for other clients
@@ -20752,18 +20918,79 @@ static void CG_SaberIgnitionStep(const centity_t* cent, saberInfo_t* saber)
 // bot) or remote keeps smoking where it lies (a column of smoke sprites, gfx/effects/jk_smoke5), thick at first and
 // thinner later, gone after 60 s; the first 30 s it also throws sparks. When the body is first seen dead it gets scorch marks (saber burn
 // glow + burn mark, ghoul2 marks) that last as long as the smoke and a bit. Same as SP (code/cgame/cg_players.cpp).
-// MP remotes are removed at death (they blow up), so in MP this mostly shows on saber droids.
+// 2026-11-16: all droid NPCs; their bodies stay 2-3 s and then disintegrate (game NPC.c G_DroidCorpseDisintegrate).
 #define DROID_WRECK_SMOKE_TIME 60000
 #define DROID_WRECK_SPARK_TIME 30000 // DH 11:13: more sparks (was 10 s, one every 1.2-2.8 s)
+
+// a dead probe droid has no death anim: it tips over onto its side over 0.7 s (DH 2026-11-16). The MP cgame draws
+// players and NPCs from the yaw only, so the roll is added here (SP does it in the game's CorpsePhysics).
+static void CG_ProbeCorpseTip(const centity_t* cent, vec3_t angles, matrix3_t axis)
+{
+	static int deadSince[MAX_GENTITIES];
+	const int num = cent->currentState.number;
+	float t;
+
+	if (num < 0 || num >= MAX_GENTITIES)
+	{
+		return;
+	}
+	if (cent->currentState.eType != ET_NPC || cent->currentState.NPC_class != CLASS_PROBE
+		|| !(cent->currentState.eFlags & EF_DEAD))
+	{
+		deadSince[num] = 0;
+		return;
+	}
+	if (!deadSince[num] || deadSince[num] > cg.time)
+	{
+		deadSince[num] = cg.time;
+	}
+	t = (float)(cg.time - deadSince[num]) / 700.0f;
+	if (t > 1.0f)
+	{
+		t = 1.0f;
+	}
+	angles[ROLL] += 80.0f * t * t;
+	AnglesToAxis(angles, axis);
+}
 
 static qboolean CG_DroidWreckClass(const centity_t* cent)
 {
 	if (cent->currentState.eType == ET_NPC)
 	{
-		return cent->currentState.NPC_class == CLASS_REMOTE || cent->currentState.NPC_class == CLASS_SABER_DROID
-			? qtrue : qfalse;
+		// every droid NPC (DH 2026-11-16, was remote + saber droid); same list as the game's G_IsDroidClass (NPC.c),
+		// whose droid bodies now stay 2-3 s before they disintegrate
+		switch (cent->currentState.NPC_class)
+		{
+		case CLASS_GONK:
+		case CLASS_INTERROGATOR:
+		case CLASS_MARK1:
+		case CLASS_MARK2:
+		case CLASS_MOUSE:
+		case CLASS_PROBE:
+		case CLASS_PROTOCOL:
+		case CLASS_R2D2:
+		case CLASS_R5D2:
+		case CLASS_REMOTE:
+		case CLASS_SEEKER:
+		case CLASS_SENTRY:
+		case CLASS_SABER_DROID:
+		case CLASS_ASSASSIN_DROID:
+		case CLASS_SBD:
+		case CLASS_BATTLEDROID:
+		case CLASS_DROIDEKA:
+			return qtrue;
+		default:
+			return qfalse;
+		}
 	}
 	return cent->currentState.botclass == BCLASS_SABER_DROID ? qtrue : qfalse;
+}
+
+// small droids get the remote's smaller smoke column, marks and spark radius
+static qboolean CG_DroidWreckSmall(const centity_t* cent)
+{
+	return cent->currentState.eType == ET_NPC && (cent->currentState.NPC_class == CLASS_REMOTE
+		|| cent->currentState.NPC_class == CLASS_SEEKER || cent->currentState.NPC_class == CLASS_MOUSE) ? qtrue : qfalse;
 }
 
 static void CG_DroidWreckMarks(centity_t* cent, const vec3_t center, const float radius, const int count, const int life)
@@ -20855,7 +21082,7 @@ static void CG_DroidWreckFx(centity_t* cent, const refEntity_t* ent)
 	{
 		return;
 	}
-	remote = cent->currentState.eType == ET_NPC && cent->currentState.NPC_class == CLASS_REMOTE ? qtrue : qfalse;
+	remote = CG_DroidWreckSmall(cent); // small droid
 	radius = remote ? 10.0f : 24.0f;
 
 	// where it lies: the floor below the model origin, the smoke starts a little above it
@@ -21708,6 +21935,7 @@ void CG_Player(centity_t* cent)
 
 	CG_VisualWeaponsUpdate(cent, ci);
 	CG_SaberBlasterPistolUpdate(cent, ci); // SS_BLASTER
+	CG_SaberBlasterArmPose(cent); // the gun arm (item 404)
 	CG_SaberBlasterChargeGlow(cent); // the charged shot's glow (2026-10-31)
 	CG_ScepterUpdate(cent, ci); // Ragnos' scepter in the left hand (EF2_SCEPTER, 2026-10-23)
 
@@ -21929,6 +22157,7 @@ void CG_Player(centity_t* cent)
 	VectorCopy(legs.origin, legs.oldorigin); // don't positionally lerp at all
 
 	CG_G2PlayerAngles(cent, legs.axis, root_angles);
+	CG_ProbeCorpseTip(cent, root_angles, legs.axis);
 	CG_G2PlayerHeadAnims(cent);
 
 	if (cent->currentState.eFlags2 & EF2_HELD_BY_MONSTER

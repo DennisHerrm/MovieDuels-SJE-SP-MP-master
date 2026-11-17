@@ -2567,6 +2567,13 @@ static void CG_DrawSkyBoxPortal()
 
 	const refdef_t backuprefdef = cg.refdef;
 
+	// 3D skybox parallax (misc_skyportal_orient, see G_AppendSkyboxOrient): " ori x y z scale" at the end
+	vec3_t skyOriPos = { 0.0f, 0.0f, 0.0f };
+	float skyOriScale = 0.0f;
+	const char* skyOri = strstr(cstr, " ori ");
+	const qboolean haveSkyOri = (skyOri && sscanf(skyOri + 5, "%f %f %f %f", &skyOriPos[0], &skyOriPos[1],
+		&skyOriPos[2], &skyOriScale) == 4 && skyOriScale != 0.0f) ? qtrue : qfalse;
+
 	// asdf
 	COM_BeginParseSession();
 	const char* token = COM_ParseExt(&cstr, qfalse);
@@ -2693,6 +2700,14 @@ static void CG_DrawSkyBoxPortal()
 
 	cg.refdef.rdflags |= RDF_SKYBOXPORTAL; //mark portal scene specialness
 	cg.refdef.rdflags |= RDF_DRAWSKYBOX; //drawk portal skies
+
+	if (haveSkyOri)
+	{
+		// move the portal camera with the player, as MP's cgame does
+		vec3_t dif;
+		VectorSubtract(backuprefdef.vieworg, skyOriPos, dif);
+		VectorMA(cg.refdef.vieworg, skyOriScale, dif, cg.refdef.vieworg);
+	}
 
 	cgi_CM_SnapPVS(cg.refdef.vieworg, cg.refdef.areamask); //fill in my areamask for this view origin
 	// draw the skybox

@@ -1604,6 +1604,15 @@ struct gentity_s
 	qboolean saberPower;
 	int Dash_Count;
 	int next_kick_time;
+	// NPC chatter (2026-11-16, NPC.cpp): partner entity + 1, role (1 leads), voice set + 1 (-1 none), dialog, line, timers; not saved
+	int chatPartner = 0;
+	int chatRole = 0;
+	int chatSet = 0;
+	int chatDialog = 0;
+	int chatLine = 0;
+	int chatLines = 0;
+	int chatTime = 0;
+	int chatNext = 0;
 	int npc_roll_time;
 	qboolean npc_roll_start;
 	int npc_roll_direction;

@@ -65,6 +65,8 @@ gclient_t g_clients[MAX_CLIENTS];
 qboolean gDuelExit = qfalse;
 
 void G_InitGame(int levelTime, int randomSeed, int restart);
+extern void G_CivilianThink(void);
+extern void G_CivilianReset(void);
 void G_RunFrame(int levelTime);
 void G_ShutdownGame(int restart);
 void CheckExitRules(void);
@@ -4729,6 +4731,7 @@ void G_RunFrame(const int levelTime)
 	}
 
 	AI_UpdateGroups();
+	G_CivilianThink(); // wandering civilians (2026-11-16, NPC_spawn)
 
 	if (level.gametype == GT_SINGLE_PLAYER) // (DH 2026-11-02: also at g_allowNPC 0, the needed NPCs walk)
 	{

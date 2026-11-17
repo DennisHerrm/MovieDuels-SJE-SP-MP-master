@@ -4210,6 +4210,9 @@ static void laserTrapThink(gentity_t* ent)
 
 void laserTrapStick(gentity_t* ent, vec3_t endpos, vec3_t normal)
 {
+	// the trace stopped the mine's box LT_SIZE short of the wall: move it onto the wall, it floated in front of it
+	// (2026-11-16, fix from Jedi Knight Galaxies)
+	VectorMA(endpos, -LT_SIZE, normal, endpos);
 	G_SetOrigin(ent, endpos);
 	VectorCopy(normal, ent->pos1);
 
@@ -8242,10 +8245,10 @@ void G_SaberBlasterFire(gentity_t* ent, const int charge, gentity_t* target)
 	eye[2] += ent->client->ps.viewheight;
 	AngleVectors(ent->client->ps.viewangles, fwd, right, NULL);
 
-	// left hand, in front of the left shoulder
+	// the pistol muzzle of the gun arm held out (item 404; the server has no pistol model and no arm pose)
 	VectorCopy(eye, start);
-	start[2] -= 12.0f;
-	VectorMA(start, 16.0f, fwd, start);
+	start[2] -= 10.0f;
+	VectorMA(start, 28.0f, fwd, start);
 	VectorMA(start, -8.0f, right, start);
 	WP_TraceSetStart(ent, start, vec3_origin, vec3_origin);
 

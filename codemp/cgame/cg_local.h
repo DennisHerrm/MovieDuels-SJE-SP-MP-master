@@ -518,6 +518,11 @@ typedef struct centity_s {
 	int				scepterAnim;	// the torso anim its effects were last started for
 	int				scepterFxTime;	// when its beam effect is renewed
 	qboolean		saberBlasterPistol; // SS_BLASTER: the left hand pistol model is in ghoul2 slot 2
+	int				saberBlasterArmState; // SS_BLASTER gun arm pose set on lhumerus (item 404): 0 none, 1 low, 2 aim
+	int				saberBlasterArmTime; // when it was set
+	int				saberBlasterAimUntil; // the arm aims until then
+	int				saberBlasterTorsoKey; // torso anim | restart flip last seen (a new shot anim)
+	int				saberBlasterBodyRelease; // MD: when the upright aiming body (upper_lumbar) is freed (0 = not pending)
 
 	float			smoothYaw;
 

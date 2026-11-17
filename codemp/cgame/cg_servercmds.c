@@ -711,6 +711,8 @@ void CG_ParseWeatherEffect(const char* str);
 extern void CG_ParseSiegeState(const char* str); //cg_main.c
 extern int cg_beatingSiegeTime;
 extern int cg_siegeWinTeam;
+void CG_CameraParse(void);
+
 static void CG_ConfigStringModified(void) {
 	const int num = atoi(CG_Argv(1));
 
@@ -923,6 +925,12 @@ static void CG_ConfigStringModified(void) {
 	else if (num >= CS_LIGHT_STYLES && num < CS_LIGHT_STYLES + (MAX_LIGHT_STYLES * 3))
 	{
 		CG_SetLightstyle(num - CS_LIGHT_STYLES);
+	}
+	else if (num == CS_CAMERA)
+	{
+		// the cutscene camera runs here as in SP (follow, pan, zoom, fades), as SJE does; the cgame used to show only
+		// the server's view from the player held on the camera (2026-11-16)
+		CG_CameraParse();
 	}
 }
 
