@@ -1643,7 +1643,7 @@ static void R_Register(void)
 	r_smaa = ri_Cvar_Get_NoComm("r_smaa", "1", CVAR_ARCHIVE | CVAR_LATCH, "Disable/enable SMAA");
 	r_smaa_quality = ri_Cvar_Get_NoComm("r_smaa_quality", "3", CVAR_ARCHIVE | CVAR_LATCH, "0: LOW | 1: MEDIUM | 2: HIGH | 3: ULTRA");
 
-	r_cameraExposure = ri_Cvar_Get_NoComm("r_cameraExposure", "0.1", CVAR_ARCHIVE | CVAR_CHEAT, "");
+	r_cameraExposure = ri_Cvar_Get_NoComm("r_cameraExposure", "0.2", CVAR_ARCHIVE | CVAR_CHEAT, "");
 
 	r_depthPrepass = ri_Cvar_Get_NoComm("r_depthPrepass", "1", CVAR_ARCHIVE, "");
 	r_ssao = ri_Cvar_Get_NoComm("r_ssao", "1", CVAR_LATCH | CVAR_ARCHIVE, "");

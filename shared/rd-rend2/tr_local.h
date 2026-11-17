@@ -4160,6 +4160,7 @@ struct RenderState
 	uint32_t cullType; // this is stupid
 
 	bool transformFeedback;
+	bool ssrMaskBlend; // r_ssr (2026-11-17): a blended saber blade draw that still adds its brightness to the SSR mask
 };
 
 struct DrawItem

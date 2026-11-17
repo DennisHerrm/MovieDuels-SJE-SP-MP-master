@@ -3363,10 +3363,19 @@ qboolean G_DoDismemberment(gentity_t* self, vec3_t point, const int mod, const i
 			char limb_cap_name[MAX_QPATH];
 			char stub_cap_name[MAX_QPATH];
 
+			// Saber Slice (2026-11-17): the cut goes where the blade hit, so with Saber Slice every Model Dismemberment
+			// level above Off cuts the same body parts as High (Low / Medium only limit the Classic limb cuts)
+			int dismember_level = g_dismemberment->integer;
+			if (dismember_level > 0 && dismember_level < 3 && G_SaberSliceCvar()->integer && self->client
+				&& !G_SaberSliceExcluded(self))
+			{
+				dismember_level = 3;
+			}
+
 			switch (hit_loc)
 			{
 			case HL_LEG_RT:
-				if (g_dismemberment->integer > 1)
+				if (dismember_level > 1)
 				{
 					do_dismemberment = qtrue;
 					limb_bone = "rtibia";
@@ -3383,7 +3392,7 @@ qboolean G_DoDismemberment(gentity_t* self, vec3_t point, const int mod, const i
 				}
 				break;
 			case HL_LEG_LT:
-				if (g_dismemberment->integer > 1)
+				if (dismember_level > 1)
 				{
 					do_dismemberment = qtrue;
 					limb_bone = "ltibia";
@@ -3400,7 +3409,7 @@ qboolean G_DoDismemberment(gentity_t* self, vec3_t point, const int mod, const i
 				}
 				break;
 			case HL_WAIST:
-				if (g_dismemberment->integer > 2 &&
+				if (dismember_level > 2 &&
 					(!self->s.number || !self->message))
 				{
 					do_dismemberment = qtrue;
@@ -3419,7 +3428,7 @@ qboolean G_DoDismemberment(gentity_t* self, vec3_t point, const int mod, const i
 			case HL_CHEST_RT:
 			case HL_ARM_RT:
 			case HL_BACK_RT:
-				if (g_dismemberment->integer)
+				if (dismember_level)
 				{
 					do_dismemberment = qtrue;
 					limb_bone = "rhumerus";
@@ -3438,7 +3447,7 @@ qboolean G_DoDismemberment(gentity_t* self, vec3_t point, const int mod, const i
 			case HL_CHEST_LT:
 			case HL_ARM_LT:
 			case HL_BACK_LT:
-				if (g_dismemberment->integer &&
+				if (dismember_level &&
 					(!self->s.number || !self->message))
 				{
 					//either the player or not carrying a key on my arm
@@ -3457,7 +3466,7 @@ qboolean G_DoDismemberment(gentity_t* self, vec3_t point, const int mod, const i
 				}
 				break;
 			case HL_HAND_RT:
-				if (g_dismemberment->integer)
+				if (dismember_level)
 				{
 					do_dismemberment = qtrue;
 					limb_bone = "rradiusX";
@@ -3474,7 +3483,7 @@ qboolean G_DoDismemberment(gentity_t* self, vec3_t point, const int mod, const i
 				}
 				break;
 			case HL_HAND_LT:
-				if (g_dismemberment->integer)
+				if (dismember_level)
 				{
 					do_dismemberment = qtrue;
 					limb_bone = "lradiusX";
@@ -3491,7 +3500,7 @@ qboolean G_DoDismemberment(gentity_t* self, vec3_t point, const int mod, const i
 				}
 				break;
 			case HL_HEAD:
-				if (g_dismemberment->integer > 1)
+				if (dismember_level > 1)
 				{
 					do_dismemberment = qtrue;
 					limb_bone = "cervical";

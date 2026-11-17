@@ -392,8 +392,16 @@ int G2_IsSurfaceRendered(const CGhoul2Info* ghlInfo, const char* surfaceName, co
 			offsets[surf_num]);
 		surf_num = surf_info->parentIndex;
 		// walk the surface hierarchy up until we hit the root
+		// a parent index outside the model (bad or stale model data) ends the walk instead of reading outside it
+		// (SJE MP crash in CG_General -> BG_GetRootSurfNameWithVariant, 2026-11-17)
+		int walk_guard = 0;
 		while (surf_num != -1)
 		{
+			if (surf_num < 0 || surf_num >= ghlInfo->currentModel->mdxm->numSurfaces || ++walk_guard > ghlInfo->currentModel->mdxm->numSurfaces
+				|| surf_indexes->offsets[surf_num] <= 0 || surf_indexes->offsets[surf_num] >= ghlInfo->currentModel->mdxm->ofsEnd)
+			{
+				break;
+			}
 			uint32_t parent_flags = 0u;
 
 			const mdxmSurfHierarchy_t* parent_surf_info = reinterpret_cast<mdxmSurfHierarchy_t*>((byte*)surf_indexes +

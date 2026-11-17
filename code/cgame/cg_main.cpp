@@ -825,7 +825,7 @@ static cvarTable_t cvarTable[] = {
 
 	{ &cg_jumpSounds, "cg_jumpSounds", "1", CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART },
 
-	{ &cg_rollSounds, "cg_rollSounds", "2", CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART },
+	{ &cg_rollSounds, "cg_rollSounds", "1", CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART },
 
 	{ &cg_com_rend2, "com_rend2", "0", CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART },
 
