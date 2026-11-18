@@ -3911,6 +3911,38 @@ NOTSOLID - Starts not solid
 STARTINSOLID - Don't try to fix if spawn in solid
 SHY - Spawner is shy
 */
+// MD SP plays Jedi Outcast with ext_data/npcs' _jk2 stormtroopers, pilots and imperials (its NPC_spawn.cpp, com_outcast
+// 1), so a Jedi Outcast mission in MP does too (g_missionSPNPCs, 2026-11-18). NPC_AddMissingParms finds their files.
+static char* NPC_OutcastType(char* type)
+{
+	static const char* jk2[][2] = {
+		{ "rockettrooper", "rockettrooper_jk2" }, { "stofficeralt", "stofficeralt_jk2" },
+		{ "stcommander", "stcommander_jk2" }, { "stofficer", "stofficer_jk2" }, { "StormTrooper", "StormTrooper_jk2" },
+		{ "StormTrooper2", "StormTrooper2_jk2" }, { "stormpilot", "stormpilot_jk2" }, { "stormpilot2", "stormpilot_jk2" },
+		{ "ImpOfficer", "ImpOfficer_jk2" }, { "ImpCommander", "ImpCommander_jk2" }, { "Imperial", "Imperial_jk2" }
+	};
+	char mapname[MAX_QPATH];
+	int i;
+
+	if (!type || g_missionSPNPCs.integer <= 0 || (g_missionSPNPCs.integer < 2 && level.gametype != GT_SINGLE_PLAYER))
+	{
+		return type;
+	}
+	trap->Cvar_VariableStringBuffer("mapname", mapname, sizeof mapname);
+	if (!G_IsOutcastSPMap(mapname))
+	{
+		return type;
+	}
+	for (i = 0; i < (int)ARRAY_LEN(jk2); i++)
+	{
+		if (!Q_stricmp(type, jk2[i][0]))
+		{
+			return (char*)jk2[i][1];
+		}
+	}
+	return type;
+}
+
 void SP_NPC_Stormtrooper(gentity_t* self)
 {
 	if (self->spawnflags & 8)
@@ -3945,6 +3977,7 @@ void SP_NPC_Stormtrooper(gentity_t* self)
 			self->NPC_type = "StormTrooper2";
 		}
 	}
+	self->NPC_type = NPC_OutcastType(self->NPC_type);
 
 	SP_NPC_spawner(self);
 }
@@ -4083,6 +4116,7 @@ void SP_NPC_Tie_Pilot(gentity_t* self)
 	{
 		self->NPC_type = "stormpilot2";
 	}
+	self->NPC_type = NPC_OutcastType(self->NPC_type);
 
 	SP_NPC_spawner(self);
 }
@@ -4365,6 +4399,7 @@ void SP_NPC_Imperial(gentity_t* self)
 		{
 			self->NPC_type = "Imperial";
 		}
+		self->NPC_type = NPC_OutcastType(self->NPC_type);
 	}
 	//rwwFIXMEFIXME: Allow goodie keys
 	SP_NPC_spawner(self);

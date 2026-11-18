@@ -21202,6 +21202,30 @@ void CG_Player(centity_t* cent)
 		}
 	}
 
+	// sitting in an SP emplaced gun chair (g_weapon.c, 2026-11-18): drawn in its seat, the chair turned the way he looks
+	// (as SP cg_players.cpp)
+	if (cent->currentState.weapon == WP_EMPLACED_GUN && cent->currentState.otherentityNum2 > 0
+		&& cent->currentState.otherentityNum2 < ENTITYNUM_WORLD
+		&& cg_entities[cent->currentState.otherentityNum2].currentState.origin2[1] > 0.5f
+		&& cg_entities[cent->currentState.otherentityNum2].ghoul2)
+	{
+		centity_t* chair = &cg_entities[cent->currentState.otherentityNum2];
+		const int seat = trap->G2API_AddBolt(chair->ghoul2, 0, "*seat");
+
+		if (seat >= 0)
+		{
+			mdxaBone_t seat_matrix;
+			vec3_t chair_angles;
+
+			VectorSet(chair_angles, 0, cent->lerpAngles[YAW], 0);
+			if (trap->G2API_GetBoltMatrix(chair->ghoul2, 0, seat, &seat_matrix, chair_angles, chair->lerpOrigin, cg.time,
+				cgs.game_models, chair->modelScale))
+			{
+				BG_GiveMeVectorFromMatrix(&seat_matrix, ORIGIN, cent->lerpOrigin);
+			}
+		}
+	}
+
 	if (cent->currentState.iModelScale)
 	{
 		//if the server says we have a custom scale then set it now.

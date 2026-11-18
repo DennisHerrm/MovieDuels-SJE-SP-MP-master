@@ -682,13 +682,16 @@ qboolean G_IsDroidClass(const int npc_class)
 
 static void G_FreeDroidCorpse(gentity_t* ent)
 {
-	if (ent->client && ent->client->ps.saberEntityNum > 0 && ent->client->ps.saberEntityNum < ENTITYNUM_WORLD)
+	if (ent->client)
 	{
-		G_FreeEntity(&g_entities[ent->client->ps.saberEntityNum]);
-		ent->client->ps.saberEntityNum = ENTITYNUM_NONE;
+		if (ent->client->ps.saberEntityNum > 0 && ent->client->ps.saberEntityNum < ENTITYNUM_WORLD)
+		{
+			G_FreeEntity(&g_entities[ent->client->ps.saberEntityNum]);
+			ent->client->ps.saberEntityNum = ENTITYNUM_NONE;
+		}
+		ent->client->ps.eFlags |= EF_NODRAW; // (no client: nothing to hide, C6011)
 	}
 	// freed on its next think, as DeadThink's own removal does (NPC_Think still uses the NPC data this frame)
-	ent->client->ps.eFlags |= EF_NODRAW;
 	ent->e_ThinkFunc = thinkF_G_FreeEntity;
 	ent->nextthink = level.time + FRAMETIME;
 }
