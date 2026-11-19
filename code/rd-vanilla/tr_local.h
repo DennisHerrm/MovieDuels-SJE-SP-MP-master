@@ -525,6 +525,7 @@ using viewParms_t = struct viewParms_t {
 	vec3_t		pvsOrigin;			// may be different than or.origin for portals
 	qboolean	is_portal;			// true if this view is through a portal
 	qboolean	isMirror;			// the portal is a mirror, invert the face culling
+	qboolean	hadPortal;			// a mirror / portal view was drawn for this view: its picture has to stay (r_voidFog)
 	int			frameSceneNum;		// copied from tr.frameSceneNum
 	int			frameCount;			// copied from tr.frameCount
 	cplane_t	portalPlane;		// clip anything behind this if mirroring
@@ -1078,6 +1079,7 @@ using trGlobals_t = struct trGlobals_t {
 	float					rangedFog;
 
 	float					distanceCull;
+	float					distanceCullMap;	// what the map asked for (worldspawn "distanceCull" or the default); r_distanceCull overrides it
 };
 
 int		 R_Images_StartIteration();
@@ -1192,6 +1194,8 @@ extern cvar_t* r_dynamicGlowBloom;
 extern cvar_t* r_dynamicGlowBloomThreshold;
 extern cvar_t* r_ext_alpha_to_coverage;
 extern cvar_t* r_gammaShaders;
+extern cvar_t* r_distanceCull;
+extern cvar_t* r_voidFog;
 
 extern	cvar_t* r_nobind;						// turns off binding to appropriate textures
 extern	cvar_t* r_singleShader;				// make most world faces use default shader

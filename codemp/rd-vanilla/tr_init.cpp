@@ -63,6 +63,7 @@ cvar_t* r_measureOverdraw;
 
 cvar_t* r_inGameVideo;
 cvar_t* r_fastsky;
+cvar_t* r_distanceCull;				// view distance override, 0 = the map's own (as in rend2 and the SP renderer)
 cvar_t* r_drawSun;
 cvar_t* r_dynamiclight;
 cvar_t* r_Turn_Off_dynamiclight;
@@ -1700,6 +1701,7 @@ static void R_Register()
 	ri.Cvar_CheckRange(r_znear, 0.001f, 10, qfalse);
 	r_ignoreGLErrors = ri.Cvar_Get("r_ignoreGLErrors", "1", CVAR_ARCHIVE_ND, "");
 	r_fastsky = ri.Cvar_Get("r_fastsky", "0", CVAR_ARCHIVE_ND, "");
+	r_distanceCull = ri.Cvar_Get("r_distanceCull", "0", CVAR_ARCHIVE_ND, "View distance in map units, whatever the map's worldspawn distanceCull says (0 = the map's own)");
 	r_inGameVideo = ri.Cvar_Get("r_inGameVideo", "1", CVAR_ARCHIVE_ND, "");
 	r_drawSun = ri.Cvar_Get("r_drawSun", "0", CVAR_ARCHIVE_ND, "");
 	r_dynamiclight = ri.Cvar_Get("r_dynamiclight", "1", CVAR_ARCHIVE, "");
