@@ -145,6 +145,7 @@ cvar_t* r_vertexLight;
 cvar_t* r_uiFullScreen;
 cvar_t* r_shadows;
 cvar_t* r_meshCloth;
+cvar_t* r_meshClothSubdiv;
 cvar_t* r_meshClothGravity;
 cvar_t* r_meshClothDrag;
 cvar_t* r_meshClothIter;
@@ -1769,6 +1770,7 @@ static void R_Register()
 	r_noportals = ri.Cvar_Get("r_noportals", "0", CVAR_CHEAT, "");
 	r_shadows = ri.Cvar_Get("cg_shadows", "1", CVAR_NONE, "");
 	r_meshCloth = ri.Cvar_Get("r_meshCloth", "1", CVAR_ARCHIVE, "");
+	r_meshClothSubdiv = ri.Cvar_Get("r_meshClothSubdiv", "1", CVAR_ARCHIVE_ND, "Mesh cloth drawn with its triangles split on a smooth curved patch: 0 off, 1 on, 2 twice");
 	r_meshClothGravity = ri.Cvar_Get("r_meshClothGravity", "700", CVAR_ARCHIVE, "");
 	r_meshClothDrag = ri.Cvar_Get("r_meshClothDrag", "1.4", CVAR_ARCHIVE, "");
 	r_meshClothIter = ri.Cvar_Get("r_meshClothIter", "6", CVAR_ARCHIVE, "");
