@@ -4532,6 +4532,14 @@ static bool MC_WaterHeight(const vec3_t origin, float* z)
 //                       self-collision pair that shakes loses its closing speed (not where a limb moves the
 //                       cloth), and a point that only trembles in place counts as at rest (0 = off)
 //  r_meshClothBendModel 0 = bend links (default), 1 = isometric (cotangent) bending
+//  r_meshClothFine      2.5 = cloth that collides with itself (a cape, a cloak: 'self') and whose spacing (the median
+//                       length of its edges) is under this many units counts as fine. Then, so that a fine cape is
+//                       as calm as a coarse one: its loose sheets bend by their curvature (with bend model 0; bend
+//                       links hold less the finer the mesh is, so a fine cape rippled), the layer rule measures a
+//                       heap pose by the cloth AREA under the floor, not by the points, and its self-collision keeps
+//                       two points only as far apart as the pose lays them, a touching pair losing its closing
+//                       speed (a crouch crushes the cape into folds tighter than the thickness; the stored push
+//                       never let it rest). 0 = off: as before
 //  r_meshClothAero      1 = the air pushes each triangle (drag + lift), 0 = each point (default)
 static int R_RenderJobThreads();
 // SJE r_meshClothSettleCut: every view of the level, once a frame, before its cloth is prepared (see MC_ViewCut).
@@ -4580,6 +4588,7 @@ static void MC_SolverParams(mcParams_t& prm)
 	static cvar_t* rst = nullptr;
 	static cvar_t* ese = nullptr;
 	static cvar_t* bm = nullptr;
+	static cvar_t* fb = nullptr;
 	static cvar_t* ae = nullptr;
 	if (!xp)
 	{
@@ -4611,6 +4620,7 @@ static void MC_SolverParams(mcParams_t& prm)
 		rst = ri.Cvar_Get("r_meshClothRest", "1", CVAR_ARCHIVE_ND, "Mesh cloth lying on a body that holds still is left to rest by the triangle test (no throw back to the animated side for cloth draped round a shape, a collar not held off the arm further than the pose has it); 0 off");
 		ese = ri.Cvar_Get("r_meshClothEase", "1", CVAR_ARCHIVE_ND, "Mesh cloth: a point the shake watchdog let go comes back gently while the pose holds it still (no throw of several units every few seconds where two body shapes dispute a piece of cloth); 0 off");
 		bm = ri.Cvar_Get("r_meshClothBendModel", "0", CVAR_ARCHIVE_ND, "Mesh cloth bending: 0 bend links, 1 isometric (cotangent) bending");
+		fb = ri.Cvar_Get("r_meshClothFine", "2.5", CVAR_ARCHIVE_ND, "Mesh cloth: self-colliding cloth (a cape, a cloak) whose spacing (median edge length, units) is under this counts as fine: its loose sheets bend by their curvature (bend links hold less the finer the mesh is), the layer rule measures a heap pose by cloth area, and its self-collision keeps two points only as far apart as the pose lays them, a touching pair losing its closing speed; 0 off");
 		ae = ri.Cvar_Get("r_meshClothAero", "0", CVAR_ARCHIVE_ND, "Mesh cloth air: 0 per point, 1 per triangle (drag + lift)");
 		mc_fist = ri.Cvar_Get("r_meshClothFist", "1", CVAR_ARCHIVE_ND, "Mesh cloth: the fist shape lies along the hand (towards its finger bones), not along the forearm, so the fingers of a bent hand stay under a cape lying over it; 0 off");
 		mc_subdivMean = ri.Cvar_Get("r_meshClothSubdivMean", "1", CVAR_ARCHIVE_ND, "Mesh cloth drawn split (r_meshClothSubdiv): the new points take the mean of their edge's two normals - even shading on strips and sheared cloth; 0 = the curved patch's own normal, as before");
@@ -4669,6 +4679,7 @@ static void MC_SolverParams(mcParams_t& prm)
 	prm.rest = rst ? rst->integer : 1;
 	prm.ease = ese ? ese->integer : 1;
 	prm.bendModel = bm ? bm->integer : 0;
+	prm.fine = fb ? fb->value : 2.5f;
 	prm.aero = ae ? ae->integer : 0;
 }
 
@@ -5107,6 +5118,7 @@ static bool RB_MeshClothPrepare(CBoneCache* bones, const mdxmSurface_t* surface,
 	prm.inertia = r_meshClothInertia->value;
 	prm.maxAccel = r_meshClothMaxAccel->value;
 	prm.airDrag = r_meshClothAirDrag->value;
+	prm.hipBone = cp.lk.idx[0][0];	// SJE: the hip bone (pelvis), for cloth lines with 'bell'
 	{
 		const int parsed = sscanf(
 			r_meshClothWind->string,
