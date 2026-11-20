@@ -1216,6 +1216,7 @@ extern	cvar_t* r_clear;						// force screen clear every frame
 
 extern	cvar_t* r_shadows;
 extern	cvar_t* r_meshCloth;			// simulate robe surfaces listed in ext_data/meshcloth.dat
+extern	cvar_t* r_meshClothSubdiv;		// SJE: draw cloth with its triangles split on a smooth curved patch (0 off, 1 on, 2 twice)
 extern	cvar_t* r_meshClothGravity;
 extern	cvar_t* r_meshClothDrag;
 extern	cvar_t* r_meshClothIter;
