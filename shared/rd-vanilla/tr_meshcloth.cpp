@@ -109,7 +109,7 @@ namespace {
 		float			friction = 0.3f;	// 0..1 kinetic friction against the body and floor
 		float			sfriction = 0.5f;	// static friction: contacts sliding slower than this x the push stick
 		float			lift = 2.0f;		// units a free point may rise above the attached edge it hangs from; <0 = no limit
-		// SJE: options after EA's Battlefront II cape set-up (all off unless the line asks for them; see MC_LoadConfig)
+		// SJE: heavy-cape options (all off unless the line asks for them; see MC_LoadConfig)
 		float			dampH = 0.0f, dampV = 0.0f;	// 'damp H V': share of the cloth's speed (in a frame travelling with the character over the ground) taken per 16 ms, sideways / up-down
 		float			ring = 0.0f;		// 'ring D': second tether level - every point further down is tied rigidly to the nearest point D units (along the cloth) below the attached edge
 		float			bell = 0.0f;		// 'bell B': 0..1 the free cloth's animated spot is its bind shape carried by the hip bone alone (a rigid bell), blended in by B x freedom
@@ -139,7 +139,7 @@ namespace {
 		float	room;					// how far the triangle may be moved in all (to the model's next surface on the other side)
 	};
 
-	const int MC_WRAP_K = 4;	// SJE 'wrap': grid triangles each drawn vertex is blended from (Battlefront II: 4)
+	const int MC_WRAP_K = 4;	// SJE 'wrap': grid triangles each drawn vertex is blended from
 	const float MC_SPRING_BACK = 0.6f;	// SJE 'spring': seconds (time constant) it takes to take hold again after a run
 
 	struct mcGroup_t {
@@ -162,9 +162,9 @@ namespace {
 		float								selfThick = 1.2f;	// self-collision distance (largest thickness of the self-colliding surfaces)
 		std::vector<char>					hangs;			// per particle: hanging cloth ("above" rule: capes, robes, skirts)
 		std::vector<char>					hardCol;		// per particle: arms/hands always push it out (not for sleeves, which wrap the arms)
-		// SJE: Battlefront II style options (per particle; empty unless a line of the group asks for one - anyBf2)
+		// SJE: heavy-cape options (per particle; empty unless a line of the group asks for one - anyHeavy)
 		std::vector<float>					dampH, dampV, bellW, springS, springA, ringD;
-		bool								anyBf2 = false, anyDamp = false, anyBell = false, anySpring = false, anyRing = false;
+		bool								anyHeavy = false, anyDamp = false, anyBell = false, anySpring = false, anyRing = false;
 		mutable std::vector<int>			ringAnchor;		// per particle: the ring point it is tied to (-1 none; ComputeRing, lazy)
 		mutable std::vector<float>			ringLen;		// ... its bind distance along the cloth to it
 		mutable std::vector<float>			springK;		// per particle: spring per 16 ms (ComputeRing, lazy)
@@ -227,7 +227,7 @@ namespace {
 		std::vector<float>					drawW;			// 4 per drawn point: their weights
 		std::vector<int>					seedDraw;		// per particle: the drawn point it sits on
 		std::vector<int>					drawLinkA, drawLinkB;	// edges between drawn points (grid only: smoothing)
-		// SJE 'wrap' (grid only, Battlefront II style): per drawn point the grid triangles it is drawn from (-1 none), its
+		// SJE 'wrap' (grid only): per drawn point the grid triangles it is drawn from (-1 none), its
 		// place in each triangle's plane (3 barycentric weights, may be a little outside) and its distance off the plane
 		bool								wrapOn = false;
 		std::vector<int>					wrapTri;		// 'wrap': per drawn vertex MC_WRAP_K grid triangles (-1: none)
@@ -328,7 +328,7 @@ namespace {
 		const mcCapsule_t* faceCapsFrom = nullptr;	// the body shapes then (valid during the step)
 		// SJE: per-triangle air (r_meshClothAero), isometric bending multipliers (one per stencil)
 		std::vector<float>	aeroDv, aeroW, bendLambda;
-		// SJE: Battlefront II style options ('bell', 'damp', 'spring'; only for groups that use them):
+		// SJE: heavy-cape options ('bell', 'damp', 'spring'; only for groups that use them):
 		std::vector<float>	bellNow, bellPrev, bellSim;	// the hip-carried bind shape (world, 3 per particle) this frame, the last, at the last step
 		std::vector<float>	bellFrom, bellTo;		// ... at the start and the end of the 16 ms step being run (Simulate sets them)
 		std::vector<float>	anchor;					// per substep: each point's animated spot ('bell' blended in, never under the floor)
@@ -619,13 +619,13 @@ namespace {
 			g->weight.push_back(r->weight[s]); g->thick.push_back(r->thick[s]);
 			g->lift.push_back(r->lift[s]); g->stretchG.push_back(r->stretchG[s]); g->fricK.push_back(r->fricK[s]); g->fricS.push_back(r->fricS[s]);
 			g->hangs.push_back(r->hangs[s]); g->hardCol.push_back(r->hardCol[s]);
-			if (r->anyBf2) {	// SJE: Battlefront II style options, from the grid point's own vertex
+			if (r->anyHeavy) {	// SJE: heavy-cape options, from the grid point's own vertex
 				g->dampH.push_back(r->dampH[s]); g->dampV.push_back(r->dampV[s]); g->bellW.push_back(r->bellW[s]);
 				g->springS.push_back(r->springS[s]); g->springA.push_back(r->springA[s]); g->ringD.push_back(r->ringD[s]);
 			}
 			mcCopy(&r->bindPos[s * 3], &g->bindPos[i * 3]);
 		}
-		g->anyBf2 = r->anyBf2; g->anyDamp = r->anyDamp; g->anyBell = r->anyBell; g->anySpring = r->anySpring; g->anyRing = r->anyRing;
+		g->anyHeavy = r->anyHeavy; g->anyDamp = r->anyDamp; g->anyBell = r->anyBell; g->anySpring = r->anySpring; g->anyRing = r->anyRing;
 		// grid links and triangles
 		std::unordered_map<unsigned long long, char> haveLink;
 		std::unordered_map<unsigned long long, int> edgeOther;
@@ -738,12 +738,11 @@ namespace {
 			}
 			for (int j = 0; j < k; j++) g->drawW[v * 4 + j] /= tot;
 		}
-		// SJE 'wrap' (Battlefront II style): every drawn vertex is bound to the grid triangles nearest to it in the bind
+		// SJE 'wrap': every drawn vertex is bound to the grid triangles nearest to it in the bind
 		// pose (up to MC_WRAP_K that face the same way) - where it lies in each triangle's plane (barycentric, also a
 		// little outside: the hem beyond the last grid row) and how far off it - and drawn from their blend as they are
-		// now. The blend above, smoothed after, drew the hem up to several units inside the grid's own hem in a swing;
-		// Battlefront II draws its capes from the simulation's triangles the same way (each render vertex from 4 of
-		// them). From the nearest triangle alone the dense cape showed the grid's flat facets and the creases between
+		// now. The blend above, smoothed after, drew the hem up to several units inside the grid's own hem in a swing.
+		// From the nearest triangle alone the dense cape showed the grid's flat facets and the creases between
 		// them - corners in its outline on the round shoulders and back. Only the grid's own region and its
 		// neighbours are looked at (the same sheet).
 		for (const mcDef_t* d : r->defs) if (d->wrap) g->wrapOn = true;
@@ -871,14 +870,14 @@ namespace {
 			g->numVerts += g->surfs[si]->numVerts;
 		}
 		g->vertToParticle.assign(g->numVerts, -1);
-		// SJE: Battlefront II style options - only a group with a line that asks for one gets them (anyBf2)
+		// SJE: heavy-cape options - only a group with a line that asks for one gets them (anyHeavy)
 		for (const mcDef_t* d : g->defs) {
 			if (d->dampH > 0.0f || d->dampV > 0.0f) g->anyDamp = true;
 			if (d->bell > 0.0f) g->anyBell = true;
 			if (d->spring > 0.0f) g->anySpring = true;
 			if (d->ring > 0.0f) g->anyRing = true;
 		}
-		g->anyBf2 = g->anyDamp || g->anyBell || g->anySpring || g->anyRing;
+		g->anyHeavy = g->anyDamp || g->anyBell || g->anySpring || g->anyRing;
 		for (size_t si = 0; si < g->surfs.size(); si++) {
 			const mdxmSurface_t* s = g->surfs[si];
 			const mdxmVertex_t* v = Verts(s);
@@ -908,7 +907,7 @@ namespace {
 					g->thick.push_back(g->defs[si]->thickness);
 					g->hardCol.push_back(g->defs[si]->rule == MC_RULE_SEGMENT ? 0 : 1);
 					g->hangs.push_back(g->defs[si]->rule == MC_RULE_ABOVE ? 1 : 0);
-					if (g->anyBf2) {
+					if (g->anyHeavy) {
 						const mcDef_t* d = g->defs[si];
 						g->dampH.push_back(d->dampH); g->dampV.push_back(d->dampV); g->bellW.push_back(d->bell);
 						g->springS.push_back(d->spring); g->springA.push_back(d->springFade); g->ringD.push_back(d->ring);
@@ -926,7 +925,7 @@ namespace {
 					if (g->defs[si]->tether < g->tether[p]) g->tether[p] = g->defs[si]->tether;
 					if (g->defs[si]->shape > g->shape[p]) g->shape[p] = g->defs[si]->shape;
 					if (g->defs[si]->bend > g->bend[p]) g->bend[p] = g->defs[si]->bend;
-					if (g->anyBf2) {	// SJE: Battlefront II style options: the stronger one wins
+					if (g->anyHeavy) {	// SJE: heavy-cape options: the stronger one wins
 						const mcDef_t* d = g->defs[si];
 						if (d->dampH > g->dampH[p]) g->dampH[p] = d->dampH;
 						if (d->dampV > g->dampV[p]) g->dampV[p] = d->dampV;
@@ -1606,7 +1605,7 @@ namespace {
 				const float len = mcLen(d);
 				if (len > maxLen && len > 1e-5f) mcMA(&in->p[an * 3], maxLen / len, d, pp);
 			}
-			// SJE 'ring' (Battlefront II style): the second tether level - no further from its ring point than the cloth
+			// SJE 'ring': the second tether level - no further from its ring point than the cloth
 			// between them is long (or the pose has them, where that is more), no stretch allowed
 			if (sv.ring) {
 				const int rn = g->ringAnchor[p];
@@ -3151,18 +3150,17 @@ namespace {
 		}
 	}
 
-	// SJE: Battlefront II style options, worked out once per group (lazy, main thread, after ComputeRootDist).
+	// SJE: heavy-cape options, worked out once per group (lazy, main thread, after ComputeRootDist).
 	// 'spring S A': each point's pull per 16 ms toward its animated spot, S x exp(-A x its distance along the cloth from
-	// the attached edge in metres, 39.37 units each) - strong near the collar, weak at the hem (Battlefront II: anchor
-	// spring 0.47 per 1/30 s with an attenuation of 1.5).
-	// 'ring D': the second tether level. Battlefront II ties its cape's upper part to the collar and every point below
-	// the waist to the nearest point of a ring about 42 cm under the collar, with no stretch allowed: the lower cape keeps
-	// its length from that ring and swings round it as one piece instead of stretching. Here the ring is the first row of
+	// the attached edge in metres, 39.37 units each) - strong near the collar, weak at the hem.
+	// 'ring D': the second tether level. The upper cloth hangs from the attached edge; every point lower down is also tied,
+	// with no stretch allowed, to a ring of points further down, so the lower cape keeps its length from that ring and
+	// swings round it as one piece instead of stretching. The ring is the first row of
 	// points D units (bind, along the cloth) below the attached edge; every point further down is tied to the ring point
 	// nearest to it along the cloth, at most that bind distance away (or the pose's, where the pose is longer). The
 	// first level is the long range attachment every free point has to the attached edge (lraAnchor).
 	static void ComputeRing(const mcGroup_t* g) {
-		if (g->ringBuilt || !g->anyBf2) return;
+		if (g->ringBuilt || !g->anyHeavy) return;
 		g->ringBuilt = true;
 		const int n = g->numParticles;
 		if ((int)g->rootDist.size() != n || (int)g->ringD.size() != n || (int)g->springS.size() != n) return;
@@ -3523,15 +3521,15 @@ namespace {
 		solve.overArms = prm->overArms;
 		solve.rest = prm->rest != 0;
 		solve.ease = prm->ease != 0;
-		// SJE: Battlefront II style options ('damp', 'spring', 'bell', 'ring'; only groups with a line that asks for one).
+		// SJE: heavy-cape options ('damp', 'spring', 'bell', 'ring'; only groups with a line that asks for one).
 		// Per substep each point gets its animated spot (in->anchor): the animated pose, with the hip-carried shape
 		// blended in where the line has 'bell' (BellPose), never under the floor.
-		const bool bf2 = g->anyBf2 && (int)g->dampH.size() == g->numParticles && (int)g->springK.size() == g->numParticles;
-		const bool bellStep = bf2 && g->anyBell && in->bellOk && in->bellFrom.size() == tgtTo.size() && in->bellTo.size() == tgtTo.size();
+		const bool heavy = g->anyHeavy && (int)g->dampH.size() == g->numParticles && (int)g->springK.size() == g->numParticles;
+		const bool bellStep = heavy && g->anyBell && in->bellOk && in->bellFrom.size() == tgtTo.size() && in->bellTo.size() == tgtTo.size();
 		solve.bell = bellStep ? 1 : 0;
-		solve.ring = bf2 && g->anyRing && (int)g->ringAnchor.size() == g->numParticles && (int)g->ringLen.size() == g->numParticles ? 1 : 0;
+		solve.ring = heavy && g->anyRing && (int)g->ringAnchor.size() == g->numParticles && (int)g->ringLen.size() == g->numParticles ? 1 : 0;
 		thread_local static std::vector<float> kDampH, kDampV, kSpring;
-		if (bf2) {
+		if (heavy) {
 			const float isub = 1.0f / sub;
 			// 'spring' lets go while its wearer runs: held to the hips the cape hung straight down in a run (the
 			// travel wind could not stream it back); standing, walking, turning and swinging the saber it pulls in
@@ -3842,7 +3840,7 @@ namespace {
 			const float t1 = (float)(s + 1) / sub;
 			if (s > 0) in->targetSub.assign(in->target.begin(), in->target.end());
 			for (size_t i = 0; i < tgtTo.size(); i++) in->target[i] = tgtFrom[i] + (tgtTo[i] - tgtFrom[i]) * t1;
-			if (bf2) {
+			if (heavy) {
 				// SJE: each point's animated spot at the end of this substep ('bell' blended in)
 				for (int p = 0; p < g->numParticles; p++) {
 					float* A = &in->anchor[p * 3];
@@ -3890,8 +3888,8 @@ namespace {
 				mcSub(pp, pv, v);
 				mcScale(v, damp, v);
 				if (s == 0 && in->impulse.size() == in->p.size()) mcMA(v, h, &in->impulse[p * 3], v);
-				if (bf2 && (kDampH[p] > 0.0f || kDampV[p] > 0.0f)) {
-					// SJE 'damp' (Battlefront II style): the cloth's speed in a frame that travels with the character but
+				if (heavy && (kDampH[p] > 0.0f || kDampV[p] > 0.0f)) {
+					// SJE 'damp': the cloth's speed in a frame that travels with the character but
 					// does not turn with him dies out, sideways and up-down apart. So his run is not damped (no head wind
 					// that streams the cape back), a swing after a stop or a turn dies out in about half a second, and
 					// in a turn or a saber swing the cape still lags and flares. (Damped against its animated spot
@@ -4020,8 +4018,8 @@ namespace {
 					mcSub(&in->target[p * 3], pp, d);
 					mcMA(pp, k, d, pp);
 				}
-				if (bf2 && kSpring[p] > 0.0f) {
-					// SJE 'spring' (Battlefront II style): pulled toward its animated spot, strong near the attached edge
+				if (heavy && kSpring[p] > 0.0f) {
+					// SJE 'spring': pulled toward its animated spot, strong near the attached edge
 					vec3_t d;
 					mcSub(&in->anchor[p * 3], pp, d);
 					mcMA(pp, kSpring[p], d, pp);
@@ -4221,9 +4219,8 @@ namespace {
 		return true;
 	}
 
-	// SJE 'bell' (Battlefront II style): the group's bind shape carried by the hip bone alone, in world space. Battlefront
-	// II skins the lower part of Vader's cape to the hips and nothing else: its animated shape is a rigid bell that turns
-	// with the pelvis and never walks with the legs. Ours is wherever the model's own skinning puts it - a cape skinned
+	// SJE 'bell': the group's bind shape carried by the hip bone alone, in world space: a rigid bell that turns with the
+	// pelvis and never walks with the legs. Without it the animated shape is wherever the model's own skinning puts it - a cape skinned
 	// partly to thighs and shins swings with every stride. The points of a line with 'bell' measure their tether and
 	// spring from this shape instead, blended in by B x their freedom (Step). Clears bellNow where not used.
 	static void BellPose(const mcGroup_t* g, mcInstance_t* in, const mcParams_t* prm, mcBoneFn_t boneFn, void* boneCtx,
@@ -4263,7 +4260,7 @@ namespace {
 			}
 		}
 		for (int p = 0; p < g->numParticles; p++) mcCopy(&drawTarget[g->seedDraw[p] * 3], &target[p * 3]);
-		// SJE 'bell' (Battlefront II style; only groups with a line that asks for it): this frame's hip-carried shape. The
+		// SJE 'bell' (only groups with a line that asks for it): this frame's hip-carried shape. The
 		// steps below take it from where the last step left it to here, as the animated pose (bellFrom / bellTo).
 		in->bellOk = false;
 		if (g->anyBell) BellPose(g, in, prm, boneFn, boneCtx, origin, axis);
@@ -4551,7 +4548,7 @@ namespace {
 			}
 			if (mcDot(dO, dO) < MC_TELEPORT * MC_TELEPORT && odt > 0) {
 				const float dt = odt * 0.001f;
-				// max acceleration (Battlefront II's cloth "MaxAcceleration"):
+				// max acceleration:
 				// the cloth feels the character's speeding up, stopping and
 				// turning only up to a limit; any harder jolt carries it along
 				// instead of whipping it
@@ -5159,7 +5156,7 @@ int MC_LoadConfig(const char* text) {
 			else if (!Q_stricmp(tok, "stretch")) { d.stretch = Clamp01((float)atof(COM_ParseExt(&p, qfalse))); if (d.stretch > 0.95f) d.stretch = 0.95f; }
 			else if (!Q_stricmp(tok, "friction")) d.friction = Clamp01((float)atof(COM_ParseExt(&p, qfalse)));
 			else if (!Q_stricmp(tok, "sfriction")) { d.sfriction = (float)atof(COM_ParseExt(&p, qfalse)); if (d.sfriction < 0.0f) d.sfriction = 0.0f; if (d.sfriction > 4.0f) d.sfriction = 4.0f; }
-			// SJE: options after EA's Battlefront II cape set-up (each off unless given)
+			// SJE: heavy-cape options (each off unless given)
 			else if (!Q_stricmp(tok, "damp")) {
 				d.dampH = (float)atof(COM_ParseExt(&p, qfalse)); d.dampV = (float)atof(COM_ParseExt(&p, qfalse));
 				d.dampH = d.dampH < 0.0f ? 0.0f : (d.dampH > 0.9f ? 0.9f : d.dampH);
@@ -5854,7 +5851,7 @@ bool MC_Prepare(const void* surfacePtr, const void* instanceKey, int timeMs, mcR
 	// the group's lazily built data is shared by every character with this model: build it
 	// here, on the main thread, so MC_Run (maybe on a job worker) only ever reads the group
 	ComputeRootDist(g);
-	ComputeRing(g);	// SJE: Battlefront II style 'ring' and 'spring' (only groups that use them)
+	ComputeRing(g);	// SJE: 'ring' and 'spring' (only groups that use them)
 	ComputeWrap(g);	// SJE
 	ComputeLayerPairs(g);	// SJE: r_meshClothLayers
 	ComputeLinkAlpha(g);

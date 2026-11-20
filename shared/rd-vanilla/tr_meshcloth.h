@@ -37,7 +37,7 @@ from a config text (ext_data/meshcloth.dat), one line per surface:
   smooth   0..1 smooths small creases out of the drawn cloth (visual only).
 		   Default 0.5.
   maxaccel units/s^2: the character's acceleration the cloth feels, at
-		   most (Battlefront II's MaxAcceleration; 20 m/s^2 is about 790).
+		   most (20 m/s^2 is about 790).
 		   0 = no limit. Default: the r_meshClothMaxAccel console value.
   maxspin  degrees/s: how fast the attached edge may turn before the cloth
 		   is carried round with it instead of winding up (fast saber spins).
@@ -58,18 +58,17 @@ from a config text (ext_data/meshcloth.dat), one line per surface:
 		   turns). Default 2. 'lift off' = no limit: capes can blow up and
 		   over the head (also needs a long enough tether).
 
-SJE: options after EA's Battlefront II cape set-up (each off unless given):
+SJE: heavy-cape options (each off unless given):
   damp H V  0..0.9 share of the cloth's speed taken away per 16 ms,
 		   sideways (H) and up-down (V), measured in a frame that travels with
 		   the character over the ground (not up and down) but does not turn
 		   with him, on top of the solver's own damping: a swing dies out
 		   instead of wobbling, his run is not damped, a turn still flares the
-		   cloth, in a jump it lags and settles by its own weight
-		   (Battlefront II's Vader cape: 0.048 0.033).
+		   cloth, in a jump it lags and settles by its own weight.
   ring D   second tether level: every point more than D units (along the
 		   cloth) below the attached edge is tied, with no stretch, to the
 		   nearest point of the row D units down, so the lower cloth swings
-		   round that ring as one piece (Vader's cape there: about 12.5).
+		   round that ring as one piece.
   bell B   0..1 the free cloth's animated spot (what 'tether' and 'spring'
 		   measure from) is its bind shape carried by the hip bone alone - a
 		   rigid bell that turns with the hips, not with the legs - blended in
@@ -81,8 +80,7 @@ SJE: options after EA's Battlefront II cape set-up (each off unless given):
 		   jumps or falls, and takes hold again slowly after a run.
   wrap     (no value; cloth on a grid, 'proxy N', only) every drawn vertex
 		   is bound to its nearest grid triangles (up to 4) in the bind pose
-		   and drawn from their blend, as Battlefront II draws its capes from
-		   the simulation's triangles: the hem and the grid points are drawn
+		   and drawn from their blend: the hem and the grid points are drawn
 		   where the grid has them (otherwise a blend of nearby grid points,
 		   smoothed).
 
