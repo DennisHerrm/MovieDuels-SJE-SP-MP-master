@@ -718,6 +718,9 @@ stringID_table_t setTable[] =
 	ENUM2STRING(SET_PAZAAK_ALLOWED),
 	ENUM2STRING(SET_PAZAAK_END),
 
+	// JK2's name for SET_FACE_MOVE_DIR (2026-11-19: its scripts use it)
+	{ "SET_FACE_MOVEDIR", SET_FACE_MOVE_DIR },
+
 	{ "", SET_ }
 };
 
