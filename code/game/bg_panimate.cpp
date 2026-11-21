@@ -7433,6 +7433,9 @@ static bool TorsoAgainstWindTest(gentity_t* ent)
 						ent->client->ps.ManualBlockingFlags & 1 << MBF_HOLDINGBLOCK)
 					{
 						// Dont do this if sprinting it looks shit
+						// SJE: and not 'wind anim active' either: returned true here without the anim, the callers left the
+						// torso as it was - sprinting or holding a block into a strong wind the upper body froze in its last pose
+						return false;
 					}
 					else
 					{
@@ -7449,6 +7452,13 @@ static bool TorsoAgainstWindTest(gentity_t* ent)
 							// ok i have a saber
 							if (g_SerenityJediEngineMode->integer)
 							{
+								// SJE: MD / MDA mode, not with the blade lit: the brace pose took the place of the saber stance for
+								// as long as the player faced the wind - the upper body stood still with the saber held up in one
+								// hand. Saber off or other weapons: as before; JKA mode as before.
+								if (ent->client->ps.SaberActive())
+								{
+									return false;
+								}
 								if (!(ent->client->ps.ManualBlockingFlags & 1 << MBF_HOLDINGBLOCK) &&
 									!(ent->client->ps.PlayerEffectFlags & 1 << PEF_SPRINTING) &&
 									!(ent->client->ps.PlayerEffectFlags & 1 << PEF_WEAPONSPRINTING))
@@ -7473,7 +7483,9 @@ static bool TorsoAgainstWindTest(gentity_t* ent)
 						}
 					}
 
-					return true;
+					// SJE: active only while the anim really plays (a model without it, or an anim that could not be set,
+					// leaves the torso to the normal logic instead of freezing it)
+					return ent->client->ps.torsoAnim == BOTH_WIND;
 				}
 			}
 		}
