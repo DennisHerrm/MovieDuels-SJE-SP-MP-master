@@ -1276,23 +1276,23 @@ namespace {
 
 	// Solver settings for one substep, from mcParams_t
 	struct mcSolve_t {
-		float	bendScale;	// exponent for the old projection's bend (1 / substeps)
-		float	h;			// substep length (s)
-		int		xpbd;		// 1: XPBD, 0: old projection
-		int		xpbdIters;	// XPBD passes per substep
-		float	liftLimit;	// -2 = per surface, -1 = no limit, N = units
-		float	liftSlope;	// SJE: the lift limit drops by this much per unit of cloth length from the attached edge
+		float	bendScale = 1.0f;	// exponent for the old projection's bend (1 / substeps)
+		float	h = 0.0f;			// substep length (s)
+		int		xpbd = 0;		// 1: XPBD, 0: old projection
+		int		xpbdIters = 0;	// XPBD passes per substep
+		float	liftLimit = -1.0f;	// -2 = per surface, -1 = no limit, N = units
+		float	liftSlope = 0.0f;	// SJE: the lift limit drops by this much per unit of cloth length from the attached edge
 		int		floorOk = 0;	// SJE: the floor under the character (the sloped lift limit never lies under it)
 		float	floorPt[3] = { 0.0f, 0.0f, 0.0f }, floorN[3] = { 0.0f, 0.0f, 1.0f };
-		int		edgeCol;	// 1: cloth edges against arms, fists and hilts
-		int		faceCol;	// SJE: 1: cloth triangles against every body shape (FaceCollide; replaces edgeCol)
-		int		faceNow;	// SJE: run it in this substep (every other one, and the last)
-		int		overArms;	// SJE r_meshClothOverArms: cloth hanging from shoulder height lies over arms and hands
-		int		rest;		// SJE r_meshClothRest: 1 = on
-		int		ease;		// SJE r_meshClothEase: 1 = on
-		float	tetherK;	// SJE: fraction of the over-tether distance reeled in per substep (per-step constant)
-		const float* bendK;	// SJE: per link, old projection's bend fraction per substep (nullptr = work it out)
-		int		bendModel;	// SJE: 1 = isometric bending stencils instead of the bend links; 2 = for loose cloth only, each
+		int		edgeCol = 0;	// 1: cloth edges against arms, fists and hilts
+		int		faceCol = 0;	// SJE: 1: cloth triangles against every body shape (FaceCollide; replaces edgeCol)
+		int		faceNow = 0;	// SJE: run it in this substep (every other one, and the last)
+		int		overArms = 0;	// SJE r_meshClothOverArms: cloth hanging from shoulder height lies over arms and hands
+		int		rest = 0;		// SJE r_meshClothRest: 1 = on
+		int		ease = 0;		// SJE r_meshClothEase: 1 = on
+		float	tetherK = 0.0f;	// SJE: fraction of the over-tether distance reeled in per substep (per-step constant)
+		const float* bendK = nullptr;	// SJE: per link, old projection's bend fraction per substep (nullptr = work it out)
+		int		bendModel = 0;	// SJE: 1 = isometric bending stencils instead of the bend links; 2 = for loose cloth only, each
 							//   stencil as soft as the surface's 'bend' says, whatever its shape (r_meshClothFine)
 		const float* bendH = nullptr;	// SJE: per stencil, the animated cloth's curvature in this substep (MC_BEND_NONE = none)
 		float	bendTrip = 0.0f;	// SJE: the shake watchdog's trip count (bendModel 2: a stencil with a shaking point lets go)

@@ -6422,8 +6422,18 @@ static void RB_MeshClothSubdivide(const int firstVert, const int firstIndex)
 	{
 		return;
 	}
+	// the triangles' indexes, copied first: the new ones are written over them (a plain loop with its bound checked
+	// rather than memcpy, so code analysis can see every read below is of a copied index, C6385)
+	const int n3 = nt * 3;
+	if (n3 > SHADER_MAX_INDEXES || firstIndex < 0 || firstIndex + n3 > SHADER_MAX_INDEXES)
+	{
+		return;
+	}
 	static glIndex_t oldIdx[SHADER_MAX_INDEXES];
-	memcpy(oldIdx, &tess.indexes[firstIndex], sizeof(glIndex_t) * nt * 3);
+	for (int i = 0; i < n3; i++)
+	{
+		oldIdx[i] = tess.indexes[firstIndex + i];
+	}
 	// edge -> its new point: open addressing, keyed by the two local vertex numbers (12 bits each)
 	constexpr int HB = 15, HS = 1 << HB;
 	static int hKey[HS], hVal[HS], hUsed[HS];
@@ -6456,9 +6466,9 @@ static void RB_MeshClothSubdivide(const int firstVert, const int firstIndex)
 		return static_cast<glIndex_t>(v);
 	};
 	glIndex_t* out = &tess.indexes[firstIndex];
-	for (int t = 0; t < nt; t++)
+	for (int i = 0; i + 2 < n3; i += 3)
 	{
-		const glIndex_t a = oldIdx[t * 3], b = oldIdx[t * 3 + 1], c = oldIdx[t * 3 + 2];
+		const glIndex_t a = oldIdx[i], b = oldIdx[i + 1], c = oldIdx[i + 2];
 		const glIndex_t ab = edgePoint(a, b), bc = edgePoint(b, c), ca = edgePoint(c, a);
 		*out++ = a; *out++ = ab; *out++ = ca;
 		*out++ = ab; *out++ = b; *out++ = bc;
