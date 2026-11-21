@@ -131,6 +131,7 @@ void R_ShutdownWeatherSystem();
 void RB_SurfaceWeather(srfWeather_t* surf);
 void R_UpdateWeatherWind();	// RE_BeginFrame: the global wind, once a frame
 bool R_IsOutside(vec3_t pos);
+bool R_IsInsideMarked(vec3_t pos);
 bool R_IsShaking(vec3_t pos);
 float R_IsOutsideCausingPain(vec3_t pos);
 float R_GetChanceOfSaberFizz();

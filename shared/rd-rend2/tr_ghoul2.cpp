@@ -4237,6 +4237,8 @@ static cvar_t* MC_ClothCvar(const char* name, const char* value, const char* des
 //  r_meshClothLayers    1 = a character's cloth layers keep their order: a cape stays over a robe (0 = off)
 //  r_meshClothBodyCarry 1 = the cloth is carried along with the body's own fast travel inside its animation,
 //                       e.g. the landing of a jump: no cape thrown up over the shoulders there (0 = off)
+//  r_meshClothLiftAir 1 = air from below (a fall, an updraft) and strong wind open the lift limit behind the attached
+//                       edge, so a cape's hem may flip up and stream out above the shoulders (0 = closed, as before)
 //  r_meshClothLiftSlope 0.3 = the lift limit slopes down from the attached edge by this much per unit of cloth
 //                       length, so a cape thrown up streams out and droops instead of lying flat (0 = level)
 //  r_meshClothTwistFree 540 = deg/s of the body's turn about its upright axis the cloth lags by itself; the part of
@@ -4245,6 +4247,7 @@ static cvar_t* MC_ClothCvar(const char* name, const char* value, const char* des
 //                       flick of the body there and back the cape trails and comes back by itself (under 0 = carried
 //                       at once, wherever it is: it goes round with the body like a part of it and is back with it)
 //  r_meshClothTwistCarry 1 = the part of that excess that is carried (0 = none)
+//  r_meshClothBreezeInside 0 = no breeze where the map marks the character as inside (still air; 1 = there too)
 //  r_meshClothBreeze    1 = a light, slowly wandering breeze sways hanging cloth near the camera (strength;
 //                       0 = off: in still air the cloth hangs frozen). Cloth in the breeze does not sleep.
 //  r_meshClothShoulders 1 = the drawn cloth is kept over what the shoulder bones carry: no shoulder plate
@@ -4341,6 +4344,7 @@ static void MC_SolverParams(mcParams_t& prm)
 	static cvar_t* ly = nullptr;
 	static cvar_t* bcr = nullptr;
 	static cvar_t* lsl = nullptr;
+	static cvar_t* lai = nullptr;
 	static cvar_t* twf = nullptr;
 	static cvar_t* twl = nullptr;
 	static cvar_t* twc = nullptr;
@@ -4373,6 +4377,7 @@ static void MC_SolverParams(mcParams_t& prm)
 		ly = MC_ClothCvar("r_meshClothLayers", "1", "A character's mesh cloth layers keep their order (a cape stays over a robe); 0 off");
 		bcr = MC_ClothCvar("r_meshClothBodyCarry", "1", "The mesh cloth is carried along with the body's own fast travel inside its animation (the landing of a jump); 0 off");
 		lsl = MC_ClothCvar("r_meshClothLiftSlope", "0.3", "The mesh cloth's lift limit drops by this much per unit of cloth length from the attached edge (no flat sheet at shoulder height in a jump); 0 level");
+		lai = MC_ClothCvar("r_meshClothLiftAir", "1", "Air from below (a fall, an updraft) and strong wind open the mesh cloth's lift limit behind the attached edge, so a cape's hem may flip up; 0 closed");
 		twf = MC_ClothCvar("r_meshClothTwistFree", "540", "Degrees per second of the body's turn the mesh cloth lags by itself; a faster turn's excess is carried along");
 		twl = MC_ClothCvar("r_meshClothTwistLag", "20", "Degrees the mesh cloth may trail behind a fast turn before it is carried along; under 0 at once, wherever the cloth is");
 		twc = MC_ClothCvar("r_meshClothTwistCarry", "1", "The part of a fast turn's excess the mesh cloth is carried along by; 0 none");
@@ -4410,6 +4415,7 @@ static void MC_SolverParams(mcParams_t& prm)
 	prm.layers = ly ? ly->integer : 0;
 	prm.bodyCarry = bcr ? bcr->value : 1.0f;
 	prm.liftSlope = lsl ? lsl->value : 0.3f;
+	prm.liftAir = lai ? lai->value : 1.0f;
 	{
 		// SJE r_meshClothResume: cloth not simulated for up to this many ms (its character was out of view) carries
 		// on where it was instead of settling anew from the pose (0 = off, as before)
@@ -4508,6 +4514,29 @@ static bool MC_LevelWind(const trRefEntity_t* ent, const void* key, const int ti
 //                          fades in and out over ~0.4 s at a shelter edge
 //  r_meshClothWater        in water: heavy drag, the cloth floats up a little (strength; 0 = off)
 //  r_meshClothRain         outside in rain the cloth soaks and gets heavier, then dries (0 = off)
+// SJE r_meshClothBreezeInside: no breeze where the map marks the character as inside (its weather volumes): still
+// air indoors. A cape that keeps swaying in a room is a fault players notice. A map without
+// such volumes keeps the breeze everywhere (its outside test says nothing about rooms). 1 = breeze inside too.
+static void MC_BreezeInside(const trRefEntity_t* ent, mcParams_t& prm)
+{
+	static cvar_t* bi = nullptr;
+	if (!bi)
+	{
+		bi = MC_ClothCvar("r_meshClothBreezeInside", "0", "0 = no breeze on mesh cloth where the map marks the character as inside (still air); 1 = breeze there too");
+	}
+	if (!(prm.breeze > 0.0f) || !bi || bi->value > 0.0f || !tr.world || (backEnd.refdef.rdflags & RDF_NOWORLDMODEL))
+	{
+		return;
+	}
+	vec3_t pos;
+	VectorCopy(ent->e.origin, pos);
+	pos[2] += 32.0f;	// the body, not the floor it stands on
+	if (R_IsInsideMarked(pos))
+	{
+		prm.breeze = 0.0f;
+	}
+}
+
 static void MC_WeatherWind(const trRefEntity_t* ent, const void* key, const int timeMs, mcParams_t& prm)
 {
 	// r_meshClothFlutter: wind ripples across the cloth (tr_meshcloth.cpp Step), for any wind
@@ -5280,6 +5309,7 @@ static void RB_MeshClothPrepare(CBoneCache* bones, const mdxmSurface_t* surface,
 	MC_WeatherWind(ent, bones, timeMs, prm);
 	MC_ZoneWind(ent, bones, timeMs, prm);	// SJE r_meshClothFans (cg_clothFans)
 	MC_SolverParams(prm);
+	MC_BreezeInside(ent, prm);	// SJE r_meshClothBreezeInside (after the breeze is read)
 	prm.timeSec = 0.0f;
 	MC_LodParams(ent, prm);
 	MC_FloorUnder(ent, timeMs, prm);

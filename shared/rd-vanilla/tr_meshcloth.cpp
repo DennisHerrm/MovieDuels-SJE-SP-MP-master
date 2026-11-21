@@ -145,6 +145,13 @@ namespace {
 	const float MC_WIND_FLUTTER = 0.9f;	// SJE: ripple strength (as r_meshClothFlutter) the cloth gets in wind of 1500 units/s and more
 	const float MC_STORM_WEIGHT = 1.5f;	// SJE: in a storm lighter cloth is blown as cloth of this weight (the heavy cape's)
 	const float MC_WIND_TAIL = 0.4f;	// SJE: wind from behind pushes cloth by this share of its forward part
+	const float MC_LIFT_FALL0 = 150.0f;	// SJE r_meshClothLiftAir: air from below (a fall, an updraft) from which the lift limit opens
+	const float MC_LIFT_FALL1 = 600.0f;	// ... and from which it is fully open (units/s)
+	const float MC_LIFT_WIND0 = 500.0f;	// SJE: the same for wind over the ground (the strong weather wind gives 1000-1600)
+	const float MC_LIFT_WIND1 = 1200.0f;
+	const float MC_LIFT_OPEN = 1.0f;	// SJE: fully open, a point may rise this part of its cloth length above the attached edge
+	const float MC_LIFT_BEHIND = 8.0f;	// SJE: ... but only behind that edge: fully from this far behind it, not at all in front
+	const float MC_LIFT_CLOSE = 2.0f;	// SJE: when the air stops the opening closes by this much per second (no snap on landing)
 
 	struct mcGroup_t {
 		std::vector<const mdxmSurface_t*>	surfs;
@@ -277,6 +284,7 @@ namespace {
 		vec3_t				up = {};				// the character's up direction (world)
 		vec3_t				side = {};			// the character's left direction (world)
 		vec3_t				fwd = {};			// SJE: the character's facing (world, its entity axis; wind from behind)
+		float				liftAir = 0.0f;		// SJE r_meshClothLiftAir: the lift limit's opening (closes slowly, Step)
 		std::vector<float>	pinPrev;		// attached particles' animated positions last frame
 		float				twistRun = 0.0f;	// SJE: how far the attached edge has turned fast in one direction in one go (radians, signed)
 		int					pinTime = 0;
@@ -1307,6 +1315,10 @@ namespace {
 		const float* ptAllow = nullptr;			// ... and how far from there each list holds
 		int		bell = 0;		// SJE 'bell': the tether measures from in->anchor for points with a bell weight
 		int		ring = 0;		// SJE 'ring': the second tether level (ringAnchor / ringLen)
+		float	liftAir = 0.0f;	// SJE r_meshClothLiftAir: 0..1 how far the lift limit is open (air from below, strong wind)
+		float	liftFwd[3] = { 0.0f, 0.0f, 0.0f };	// SJE: the character's facing over the ground (open only behind the edge)
+		const unsigned char* liftWrap = nullptr;	// SJE: worn cloth keeps the limit (g->wrap / g->under; nullptr = not known)
+		const unsigned char* liftUnder = nullptr;
 	};
 
 	// SJE: isometric bending (r_meshClothBendModel 1). The curvature vector of each stencil, H(x) = sum w_i x_i,
@@ -1637,6 +1649,18 @@ namespace {
 				// out behind and droops to its hem.
 				const float hp = mcDot(pp, in->up), ha = mcDot(&in->p[an * 3], in->up) - sv.liftSlope * g->lraLen[p] * in->linkScale, ht = mcDot(t, in->up);
 				float lim = (ha > ht ? ha : ht) + liftL * in->linkScale;
+				// SJE r_meshClothLiftAir: air from below (a fall, an updraft) or strong wind opens the limit, up to MC_LIFT_OPEN
+				// of the point's cloth length above the edge, so a cape's hem may flip up and stream out above the shoulders
+				// (closed, it held the hem a part of the cape's length under the shoulders in every jump and in any wind).
+				// Only behind the edge the point hangs from (fully MC_LIFT_BEHIND behind it, not at all in front): a cape never
+				// tips forward over its wearer's head. Worn cloth (robes, layers under them) keeps the limit. Closed (runs,
+				// turns, spawns): as before.
+				if (sv.liftAir > 0.0f && !(sv.liftWrap && (sv.liftWrap[p] || sv.liftUnder[p]))) {
+					vec3_t ra;
+					mcSub(pp, &in->p[an * 3], ra);
+					const float behind = -mcDot(ra, sv.liftFwd), bw = MC_LIFT_BEHIND * in->linkScale;
+					if (behind > 0.0f) lim += sv.liftAir * (behind < bw ? behind / bw : 1.0f) * (sv.liftSlope + MC_LIFT_OPEN) * g->lraLen[p] * in->linkScale;
+				}
 				// SJE: ... but the sloped limit never lies under the floor. In a low pose (lying, sitting, kneeling) the
 				// attached edge is near the ground and the limit, lower by a part of the cloth's length, under it:
 				// every substep the hem was pushed 6-13 units down to it, the body tests ran with the cloth under the
@@ -3710,6 +3734,31 @@ namespace {
 				if (wf > 0.0f) mcMA(windNow, -(1.0f - tail) * wf / fl, fwd, windNow);
 			}
 		}
+		// SJE r_meshClothLiftAir: how far the lift limit opens in this step (SolveConstraints): air from below - the
+		// character's fall against the air, or an updraft - from MC_LIFT_FALL0 to MC_LIFT_FALL1 units/s, or wind over the
+		// ground from MC_LIFT_WIND0 to MC_LIFT_WIND1 (not the character's travel: a run keeps its look). It opens at once
+		// and closes by MC_LIFT_CLOSE per second, so a landing does not snap a raised cape down. No fall, no wind: closed.
+		{
+			float open = 0.0f;
+			if (prm->liftAir > 0.0f) {
+				vec3_t air, ah;
+				mcSub(windNow, in->originVel, air);
+				const float up = mcDot(air, in->up);
+				mcMA(windNow, -mcDot(windNow, in->up), in->up, ah);
+				const float kf = Clamp01((up - MC_LIFT_FALL0) * (1.0f / (MC_LIFT_FALL1 - MC_LIFT_FALL0)));
+				const float kw = Clamp01((mcLen(ah) - MC_LIFT_WIND0) * (1.0f / (MC_LIFT_WIND1 - MC_LIFT_WIND0)));
+				open = Clamp01(prm->liftAir) * (kf > kw ? kf : kw);
+			}
+			const float shut = in->liftAir - MC_LIFT_CLOSE * MC_DT;
+			in->liftAir = open > shut ? open : (shut > 0.0f ? shut : 0.0f);
+			solve.liftAir = in->liftAir;
+			if (solve.liftAir > 0.0f) {
+				mcMA(in->fwd, -mcDot(in->fwd, in->up), in->up, solve.liftFwd);
+				const float fl = mcLen(solve.liftFwd);
+				if (fl > 1e-3f) mcScale(solve.liftFwd, 1.0f / fl, solve.liftFwd); else solve.liftAir = 0.0f;
+				if ((int)g->wrap.size() == g->numParticles && (int)g->under.size() == g->numParticles) { solve.liftWrap = g->wrap.data(); solve.liftUnder = g->under.data(); }
+			}
+		}
 		// flutter (r_meshClothFlutter): the wind's strength also varies across the cloth, in ripples that travel
 		// along it (a phase from each particle's position and the time), so wind flaps a cape instead of
 		// pushing it as one stiff sheet. Worked out once per step, only when there is wind.
@@ -3758,7 +3807,9 @@ namespace {
 			// falling: only part of it counts. All of it throws a cape up to its lift limit, where it piles
 			// up behind the shoulders; with part of it the cape goes light and fills out as its wearer drops
 			const float down = mcDot(airH, in->up);
-			if (down < 0.0f) mcMA(airH, -down * (1.0f - MC_AIR_FALL), in->up, airH);
+			// SJE r_meshClothLiftAir: ... while the lift limit is open (a long fall) more of it counts, up to all of it
+			const float fallK = MC_AIR_FALL + (1.0f - MC_AIR_FALL) * solve.liftAir;
+			if (down < 0.0f) mcMA(airH, -down * (1.0f - fallK), in->up, airH);
 			const float U = mcLen(airH);
 			mcScale(airH, (U > MC_AIR_MAX ? MC_AIR_MAX / U : 1.0f) * h, airH);
 		}

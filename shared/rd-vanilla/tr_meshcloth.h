@@ -148,6 +148,8 @@ struct mcParams_t {
 	int		xpbdIters = 1;	// r_meshClothXPBDIter: XPBD solver passes per substep
 	float	frictionScale = 1.0f;	// r_meshClothFriction: multiplies every surface's friction (0 = frictionless)
 	float	liftLimit = -2.0f;	// r_meshClothLift: overrides every surface's 'lift': -2 = use the config, -1 = no limit, N = units
+	float	liftAir = 1.0f;		// SJE r_meshClothLiftAir: air from below (a fall, an updraft) and strong wind open the lift limit
+							// behind the attached edge, so a cape's hem may flip up (0 = closed, as before)
 	float	liftSlope = 0.3f;	// SJE r_meshClothLiftSlope: the lift limit drops by this much per unit of cloth length from the
 							// attached edge (0 = level with it, as before): no flat sheet at shoulder height in a jump
 	float	breeze = 1.0f;	// SJE r_meshClothBreeze: a light, slowly wandering breeze sways hanging cloth near the camera

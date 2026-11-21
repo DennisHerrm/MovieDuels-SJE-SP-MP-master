@@ -1576,6 +1576,13 @@ void R_UpdateWeatherWind()
 	}
 }
 
+// SJE mesh cloth (r_meshClothBreezeInside): inside a volume the map marks as inside - false on a map without weather
+// brushes (there R_IsOutside counts all of the map as outside, which says nothing about a room)
+bool R_IsInsideMarked(vec3_t pos)
+{
+	return tr.weatherSystem && tr.weatherSystem->numWeatherBrushes > 0 && !R_IsOutside(pos);
+}
+
 bool R_IsOutside(vec3_t pos)
 {
 	if (!tr.weatherSystem)
