@@ -4247,6 +4247,7 @@ static cvar_t* MC_ClothCvar(const char* name, const char* value, const char* des
 //                       flick of the body there and back the cape trails and comes back by itself (under 0 = carried
 //                       at once, wherever it is: it goes round with the body like a part of it and is back with it)
 //  r_meshClothTwistCarry 1 = the part of that excess that is carried (0 = none)
+//  r_meshClothShapeScale 1 = the body shapes' radii follow a character drawn far off its size (Yoda 45 %; 0 = as before)
 //  r_meshClothBreezeInside 0 = no breeze where the map marks the character as inside (still air; 1 = there too)
 //  r_meshClothBreeze    1 = a light, slowly wandering breeze sways hanging cloth near the camera (strength;
 //                       0 = off: in still air the cloth hangs frozen). Cloth in the breeze does not sleep.
@@ -4295,6 +4296,8 @@ static cvar_t* MC_ClothCvar(const char* name, const char* value, const char* des
 //                       finger bones), not along the forearm: with the wrist bent (a hand behind the back) the
 //                       fingers no longer reach out of it through the cape (0 = off)
 //  r_meshClothSleep     1 = cloth at rest on a character standing still stops simulating until something moves it
+//  r_meshClothLimbLie   1 = cloth lying against a still arm is not thrown as 'gone through' it (0 = as before)
+//  r_meshClothSleepShown 1 = cloth the skin has switched off does not keep the cloth awake (0 = as before)
 //  r_meshClothSelfSub   1 = self-collision in every substep, with cloth-on-cloth friction (0 = once per step, old)
 //  r_meshClothRest      1 = cloth lying on a body that holds still is left to rest by the triangle test: cloth draped
 //                       round a leg is not thrown 'back to its own side', and cloth the animation partly holds is
@@ -4358,6 +4361,8 @@ static void MC_SolverParams(mcParams_t& prm)
 	static cvar_t* shd = nullptr;
 	static cvar_t* ova = nullptr;
 	static cvar_t* sl = nullptr;
+	static cvar_t* llie = nullptr;	// SJE r_meshClothLimbLie
+	static cvar_t* slsh = nullptr;	// SJE r_meshClothSleepShown
 	static cvar_t* ss = nullptr;
 	static cvar_t* calm = nullptr;
 	static cvar_t* rst = nullptr;
@@ -4391,6 +4396,8 @@ static void MC_SolverParams(mcParams_t& prm)
 		shd = MC_ClothCvar("r_meshClothShoulders", "1", "Mesh cloth: the drawn cloth is kept over what the shoulder bones carry (no shoulder plate through a cape); 0 off");
 		ova = MC_ClothCvar("r_meshClothOverArms", "1", "Mesh cloth: a cape or cloak (hanging from shoulder height) lies over arms and hands, e.g. a hand behind the back; 0 off");
 		sl = MC_ClothCvar("r_meshClothSleep", "1", "Mesh cloth at rest sleeps until the pose, body, wind or a blast moves it (1 on, 0 off)");
+		llie = MC_ClothCvar("r_meshClothLimbLie", "1", "Mesh cloth: cloth lying against a still arm is not thrown as gone through it (1 on, 0 off)");
+		slsh = MC_ClothCvar("r_meshClothSleepShown", "1", "Mesh cloth: cloth the skin has switched off does not keep the cloth awake (1 on, 0 off)");
 		ss = MC_ClothCvar("r_meshClothSelfSub", "1", "Mesh cloth self-collision in every substep with cloth-on-cloth friction (1 on, 0 once per step)");
 		calm = MC_ClothCvar("r_meshClothCalm", "1", "Mesh cloth on a body that holds still comes to rest: self-collision pairs that shake lose their closing speed, points trembling in place count as at rest; 0 off");
 		rst = MC_ClothCvar("r_meshClothRest", "1", "Mesh cloth lying on a body that holds still is left to rest by the triangle test (no throw back to the animated side for cloth draped round a shape, a collar not held off the arm further than the pose has it); 0 off");
@@ -4449,7 +4456,17 @@ static void MC_SolverParams(mcParams_t& prm)
 	prm.garment = gmt ? gmt->integer : 1;
 	prm.shoulders = shd ? shd->integer : 1;
 	prm.overArms = ova ? ova->integer : 1;
+	{	// SJE r_meshClothInside
+		static cvar_t* ins = nullptr;
+		if (!ins)
+		{
+			ins = MC_ClothCvar("r_meshClothInside", "1", "In strong wind, loose layers the model has under worn cloth (tunic strips under a robe) stay inside it (0 off)");
+		}
+		prm.inside = ins->integer;
+	}
 	prm.sleep = sl ? sl->integer : 0;
+	prm.limbLie = llie ? llie->integer : 1;
+	prm.sleepShown = slsh ? slsh->integer : 1;
 	prm.selfSub = ss ? ss->integer : 0;
 	prm.calm = calm ? calm->integer : 1;
 	prm.rest = rst ? rst->integer : 1;
@@ -4534,6 +4551,36 @@ static void MC_BreezeInside(const trRefEntity_t* ent, mcParams_t& prm)
 	if (R_IsInsideMarked(pos))
 	{
 		prm.breeze = 0.0f;
+	}
+}
+
+// SJE r_meshClothShapeScale: the fitted body shapes (MC_BodyShapesPose) move with the bone matrices, which carry
+// the size the game draws a character at (the NPC's 'scale'), but keep the radius fitted on the model's own mesh.
+// Yoda is drawn at 45 %: his shapes were more than twice as thick as his body and pushed his robe out like a bell,
+// with or without wind. The radii are scaled with the model where it is drawn more than MC_SHAPE_SCALE_OFF off its
+// size; the main characters (Vader 113 %, Dooku 107 %, Kylo 105 %, Sidious 96 %) keep their shapes as tuned.
+static const float MC_SHAPE_SCALE_OFF = 0.2f;
+static void MC_ShapeScale(const trRefEntity_t* ent, mcCapsule_t* c, const int n)
+{
+	static cvar_t* ss = nullptr;
+	if (!ss)
+	{
+		ss = MC_ClothCvar("r_meshClothShapeScale", "1", "1 = the mesh cloth's body shapes follow a character drawn far off its size (Yoda); 0 = as before");
+	}
+	if (!ss || ss->value <= 0.0f || n <= 0)
+	{
+		return;
+	}
+	float s = ent->e.modelScale[0];
+	if (ent->e.modelScale[1] > s) s = ent->e.modelScale[1];
+	if (ent->e.modelScale[2] > s) s = ent->e.modelScale[2];
+	if (s <= 0.0f || fabsf(s - 1.0f) <= MC_SHAPE_SCALE_OFF)
+	{
+		return;	// not scaled (0 = the model's own size) or close to it
+	}
+	for (int i = 0; i < n; i++)
+	{
+		c[i].r *= s;
 	}
 }
 
@@ -4632,6 +4679,84 @@ static void MC_ZoneWind(const trRefEntity_t* ent, const void* key, const int tim
 	MC_ZoneAir(key, timeMs, mins, maxs, prm.zoneWind);
 }
 
+// SJE r_meshClothCarried (bits; 3 = both, 0 = as before): things a character carries that the game draws as models of their
+// own - a gun in a holster on the hip or the back (cg_holster.cpp) - lit from the character's origin (RF_LIGHTING_ORIGIN,
+// lightingOrigin copied from the origin the character is drawn at). r_meshClothOthers took every such model for a character
+// standing there: a body 12 units round and 40 high about a holster on the hip or the back, inside its wearer, pushed the
+// wearer's cape about, and the gun itself was no shape at all: the cape went through it. Bit 1: such a thing is no other
+// character. Bit 2: it pushes its wearer's cloth like a thing bolted to it (r_meshClothHeld): shapes fitted from its own
+// mesh, placed where it is drawn. Main thread.
+static int MC_CarriedBits()
+{
+	static cvar_t* cc = nullptr;
+	if (!cc)
+	{
+		cc = MC_ClothCvar("r_meshClothCarried", "3", "Things a character carries drawn as models of their own (holstered guns): 1 = not taken for other characters, 2 = they push the cloth, 3 = both, 0 = off");
+	}
+	return cc->integer;
+}
+
+// is e a model lit from the point org (drawn on the character standing there)?
+static bool MC_LitFrom(const trRefEntity_t* e, const float* org)
+{
+	if (e->e.reType != RT_MODEL || !e->e.ghoul2 || !(e->e.renderfx & RF_LIGHTING_ORIGIN))
+	{
+		return false;
+	}
+	vec3_t d;
+	VectorSubtract(e->e.lightingOrigin, org, d);
+	return DotProduct(d, d) < 1e-4f;
+}
+
+// is e a thing carried by another model of the scene (lit from that model's origin, not from its own)?
+static bool MC_IsCarried(const trRefdef_t* rd, const trRefEntity_t* e)
+{
+	if (!(MC_CarriedBits() & 1) || !(e->e.renderfx & RF_LIGHTING_ORIGIN) || MC_LitFrom(e, e->e.origin))
+	{
+		return false;
+	}
+	for (int i = 0; i < rd->num_entities; i++)
+	{
+		const trRefEntity_t* o = &rd->entities[i];
+		if (o != e && o->e.reType == RT_MODEL && o->e.ghoul2 && o->e.ghoul2 != e->e.ghoul2 && MC_LitFrom(e, o->e.origin))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+// bit 2: the shapes of the things this character carries, from each one's own mesh (MC_HeldFit), where it is drawn
+static int MC_CarriedShapes(const trRefdef_t* rd, const trRefEntity_t* ent, mcCapsule_t* out)
+{
+	if (!(MC_CarriedBits() & 2) || !rd || (rd->rdflags & RDF_NOWORLDMODEL) || !ent->e.ghoul2)
+	{
+		return 0;
+	}
+	int n = 0;
+	for (int i = 0; i < rd->num_entities && n < MC_MAX_CARRIED; i++)
+	{
+		const trRefEntity_t* e = &rd->entities[i];
+		if (e == ent || e->e.ghoul2 == ent->e.ghoul2 || !MC_LitFrom(e, ent->e.origin) || MC_LitFrom(e, e->e.origin))
+		{
+			continue;	// not drawn on this character, or a drawing of a character itself
+		}
+		CGhoul2Info_v& g2 = *((CGhoul2Info_v*)e->e.ghoul2);
+		if (!g2.IsValid() || !g2.size() || !g2[0].currentModel || !g2[0].mBoneCache)
+		{
+			continue;	// (the bone matrices are there once the thing has been drawn)
+		}
+		const mdxmHeader_t* mdxm = (g2[0].currentModel->data.glm ? g2[0].currentModel->data.glm->header : nullptr);
+		if (!mdxm)
+		{
+			continue;
+		}
+		// posed by its own bone matrices (a model's root bone is turned against the world) and placed where it is drawn
+		n += MC_HeldShapesPose(MC_HeldFit(mdxm), MC_BoneFn, g2[0].mBoneCache, e->e.origin, e->e.axis, out + n, MC_MAX_CARRIED - n);
+	}
+	return n;
+}
+
 // r_meshClothOthers (1 = on, 0 = off): the characters of this scene, listed once a frame, so the ones close
 // to a character push its cloth (tr_meshcloth.cpp MC_NearCharacters). Main thread.
 static int MC_OthersNear(const trRefEntity_t* ent, mcCapsule_t* out)
@@ -4652,7 +4777,7 @@ static int MC_OthersNear(const trRefEntity_t* ent, mcCapsule_t* out)
 		for (int i = 0; i < backEnd.refdef.num_entities; i++)
 		{
 			const trRefEntity_t* e = &backEnd.refdef.entities[i];
-			if (e->e.reType == RT_MODEL && e->e.ghoul2)
+			if (e->e.reType == RT_MODEL && e->e.ghoul2 && !MC_IsCarried((&backEnd.refdef), e))	// SJE r_meshClothCarried
 			{
 				origins.insert(origins.end(), e->e.origin, e->e.origin + 3);
 			}
@@ -5187,6 +5312,8 @@ struct g2ClothPrep_t
 	int numBlades = 0;
 	mcCapsule_t held[MC_MAX_HELD]{};	// things bolted to the character (r_meshClothHeld)
 	int numHeld = 0;
+	mcCapsule_t carried[MC_MAX_CARRIED]{};	// SJE: things the character carries drawn as models of their own (r_meshClothCarried)
+	int numCarried = 0;
 	const void* bodyFit = nullptr;	// r_meshClothBodyFit (MC_BodyFit, fitted on the main thread)
 	bool fistAlong = false;			// SJE r_meshClothFist: this character wears cloth hanging from shoulder height (MC_ClothHangsHigh)
 	const void* ownerBones = nullptr;	// SJE: whose this was prepared for (a character's other cloth surfaces take it over)
@@ -5316,6 +5443,7 @@ static void RB_MeshClothPrepare(CBoneCache* bones, const mdxmSurface_t* surface,
 	cp.numOthers = MC_OthersNear(ent, cp.others);
 	cp.numBlades = MC_BladesNear(ent, cp.blades);
 	cp.numHeld = MC_HeldShapes(ent, cp.axis, cp.held);
+	cp.numCarried = MC_CarriedShapes((&backEnd.refdef), ent, cp.carried);	// SJE r_meshClothCarried
 	// r_meshClothBodyFit (KatarnEngine): only for characters at full cloth detail (inside r_meshClothLodNear)
 	// SJE r_meshClothShown: the surfaces this character has switched on (main thread; kept for the fit below)
 	static std::vector<unsigned char> mcDrawn;
@@ -5338,7 +5466,7 @@ static bool RB_MeshClothBuild(CBoneCache* bones, const mdxmSurface_t* surface, c
 	const vec3_t* axis = cp.axis;
 
 	// capsules: posed bone origin = skin matrix * bind position, then to world
-	mcCapsule_t caps[MC_NUM_COLLIDERS + 4 + MC_MAX_OTHERS + MC_MAX_BLADES + MC_MAX_HELD + 96]{};	// + fitted body shapes (r_meshClothBodyFit)
+	mcCapsule_t caps[MC_NUM_COLLIDERS + 4 + MC_MAX_OTHERS + MC_MAX_BLADES + MC_MAX_HELD + MC_MAX_CARRIED + 96]{};	// + fitted body shapes (r_meshClothBodyFit)
 	int ncaps = 0;
 	const mcBoneLookup_t* lk = &cp.lk;	// copied on the main thread (MC_Lookup is a shared cache)
 	for (int k = 0; k < MC_NUM_COLLIDERS; k++)
@@ -5484,11 +5612,18 @@ static bool RB_MeshClothBuild(CBoneCache* bones, const mdxmSurface_t* surface, c
 	{
 		caps[ncaps++] = cp.held[i];
 	}
+	// things the character carries drawn as models of their own: holstered guns (r_meshClothCarried)
+	for (int i = 0; i < cp.numCarried; i++)
+	{
+		caps[ncaps++] = cp.carried[i];
+	}
 	// the body's real shape, fitted from the model's own mesh (on top of the capsules above)
 	if (cp.bodyFit)
 	{
+		const int nBody = ncaps;
 		ncaps += MC_BodyShapesPose(cp.bodyFit, MC_BoneFn, bones, ent->e.origin, axis, caps + ncaps,
 			static_cast<int>(sizeof(caps) / sizeof(caps[0])) - ncaps);
+		MC_ShapeScale(ent, caps + nBody, ncaps - nBody);	// SJE r_meshClothShapeScale
 	}
 
 	if (cp.ok)

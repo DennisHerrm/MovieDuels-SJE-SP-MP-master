@@ -179,6 +179,10 @@ struct mcParams_t {
 	int		edgeCol = 0;	// r_meshClothEdgeCol: 1 = cloth edges are also pushed off arms, fists and hilts
 	int		faceCol = 0;	// r_meshClothFaceCol: 1 = the cloth's triangles (not only their corners) are kept out of the whole
 							//   body and on their own side of it (replaces edgeCol: the triangles' edges are tested too)
+	int		sleepShown = 1;	// SJE r_meshClothSleepShown: 1 = cloth the skin has switched off (shown) does not keep the rest awake
+	int		limbLie = 1;	// SJE r_meshClothLimbLie: 1 = cloth lying against a still arm is not thrown as 'gone through' it
+	int		inside = 1;		// SJE r_meshClothInside: 1 = in strong wind a loose layer the model has under worn cloth (tunic strips under a
+							//   robe) stays inside that cloth: blown out through it, it is put back; 0 = as before
 	int		sleep = 0;		// r_meshClothSleep: 1 = cloth at rest on a character standing still stops simulating until something moves it
 	int		selfSub = 0;	// r_meshClothSelfSub: 1 = self-collision ('self' surfaces) in every substep, with cloth-on-cloth friction
 	int		rest = 1;		// SJE r_meshClothRest: 1 = cloth lying on a body that holds still is left to rest by the triangle test:
@@ -338,6 +342,7 @@ int  MC_NearCharacters(const float origin[3], mcCapsule_t* out, int max);
 const int MC_MAX_OTHERS = 4;
 const int MC_MAX_HELD = 6;		// SJE: fitted shapes of the things bolted to a character (r_meshClothHeld)
 const int MC_MAX_BLADES = 4;	// SJE: lit lightsaber blades near a character that push its cloth (r_meshClothBlade)
+const int MC_MAX_CARRIED = 6;	// SJE: fitted shapes of the things a character carries drawn as models of their own (r_meshClothCarried)
 
 // r_meshClothBodyFit: collision shapes fitted to the model's own (non-cloth) mesh for the cloth group of
 // clothSurface: each torso, hip, leg, neck and head bone's vertices cut into height slices, each slice a "stadium"
