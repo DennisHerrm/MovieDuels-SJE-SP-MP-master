@@ -3333,6 +3333,7 @@ void R_MeshClothLoadConfig()
 void R_MeshClothShutdown()
 {
 	MC_Clear();
+	MC_WindZonesClear();	// SJE r_meshClothFans: the zones belong to a map (the cgame sends them again)
 }
 
 // Body capsules the cloth collides with, from _humanoid bone names.
@@ -3794,6 +3795,56 @@ static void MC_SolverParams(mcParams_t& prm)
 	prm.aero = ae ? ae->integer : 0;
 }
 
+// SJE r_meshClothLevelWind (1 = on, other values scale it, 0 = off): a cloth wind for one map, from its line in
+// ext_data/meshcloth_wind.dat (tr_meshcloth.h MC_LevelWindParse) - for maps whose wind is not in their weather (a train
+// whose scenery moves past). Read when the world changes. Returns true when the line says "only" (no weather wind there).
+static bool MC_LevelWind(const trRefEntity_t* ent, const void* key, const int timeMs, mcParams_t& prm)
+{
+	static cvar_t* lw = nullptr;
+	static char mapName[MAX_QPATH] = "";
+	static mcLevelWind_t line;
+	if (!lw)
+	{
+		lw = ri.Cvar_Get("r_meshClothLevelWind", "1", CVAR_ARCHIVE_ND);
+	}
+	if (Q_stricmp(mapName, tr.world->name))
+	{
+		Q_strncpyz(mapName, tr.world->name, sizeof(mapName));
+		char* buf = nullptr;
+		const long len = ri.FS_ReadFile("ext_data/meshcloth_wind.dat", reinterpret_cast<void**>(&buf));
+		MC_LevelWindParse(len > 0 && buf ? buf : "", tr.world->name, &line);
+		if (buf)
+		{
+			ri.FS_FreeFile(buf);
+		}
+		if (line.found)
+		{
+			ri.Printf(PRINT_ALL, "Mesh cloth: level wind %.0f %.0f %.0f%s%s for %s\n", line.wind[0], line.wind[1], line.wind[2],
+				line.outside ? " outside" : "", line.only ? " only" : "", tr.world->name);
+		}
+	}
+	if (!line.found || lw->value <= 0.0f)
+	{
+		return false;
+	}
+	float k = lw->value;
+	if (line.outside)
+	{
+		vec3_t org;
+		VectorCopy(ent->e.origin, org);
+		vec3_t up;
+		VectorCopy(org, up);
+		up[2] += 32.0f;	// or at the shoulders: an inside volume can reach a little above a roof (MC_WeatherWind)
+		k *= MC_StrongWindOutside(key, timeMs, R_IsOutside(org) || R_IsOutside(up));	// the game's outside test, eased
+	}
+	VectorMA(prm.wind, k, line.wind, prm.wind);
+	if (line.gust >= 0.0f)
+	{
+		prm.gust = line.gust;
+	}
+	return line.only != 0;
+}
+
 // The weather on one character's cloth (key: its bone cache, the cloth's own key), main thread:
 //  r_meshClothWeatherWind  the map's wind, outside only; fades in and out over ~0.4 s at a shelter edge
 //  r_meshClothWater        in water: heavy drag, the cloth floats up a little (strength; 0 = off)
@@ -3843,17 +3894,64 @@ static void MC_WeatherWind(const trRefEntity_t* ent, const void* key, const int 
 	MC_WeatherState(key, timeMs, outside, wetTarget, &outsideF, &wet);
 	prm.wet = ra->value > 0.0f ? wet * ra->value : 0.0f;
 
-	if (cv->value <= 0.0f || outsideF <= 0.0f)
+	// SJE r_meshClothLevelWind: this map's own cloth wind (ext_data/meshcloth_wind.dat); "only" there = no weather wind
+	if (MC_LevelWind(ent, key, timeMs, prm) || cv->value <= 0.0f)
 	{
 		return;
 	}
 	vec3_t dir;
 	float speed = 0.0f;
+	// SJE r_meshClothStrongWind (1 = on, 0 = off): strong wind, over MC_STRONG_WIND - where the game braces its characters
+	// against it (bg_panimate.cpp TorsoAgainstWindTest) - by the game's own test: R_GetWindSpeed and R_IsOutside at the
+	// character's origin (not 32 units up), standing, jumping or falling alike; at a strength the cloth takes without being
+	// torn into strips (MC_StrongWindSpeed). Weaker wind stays as it was.
+	static cvar_t* sw = nullptr;
+	if (!sw)
+	{
+		sw = ri.Cvar_Get("r_meshClothStrongWind", "1", CVAR_ARCHIVE_ND);
+	}
+	if (sw->integer)
+	{
+		vec3_t org;
+		VectorCopy(ent->e.origin, org);
+		if (R_GetWindSpeed(speed, org) && speed > MC_STRONG_WIND)
+		{
+			// outside at the origin (the game's test) or at the shoulders, 32 units up: a map's inside volume can reach a
+			// little above the roof it ends under - t1_rail's car interiors end at the height of the car roofs, so on a
+			// roof the origin was inside and the cape hung still a few steps off the crates)
+			const float outG = MC_StrongWindOutside(key, timeMs, R_IsOutside(org) || outside);
+			if (outG > 0.0f && R_GetWindVector(dir, org))
+			{
+				VectorMA(prm.wind, MC_StrongWindSpeed(speed, prm.wet) * cv->value * outG, dir, prm.wind);
+			}
+			return;
+		}
+	}
+	if (outsideF <= 0.0f)
+	{
+		return;
+	}
 	if (!R_GetWindVector(dir, pos) || !R_GetWindSpeed(speed, pos) || speed <= 0.0f)
 	{
 		return;
 	}
 	VectorMA(prm.wind, speed * cv->value * outsideF, dir, prm.wind);
+}
+
+// SJE r_meshClothFans: the air of the map's pushers - fans, jump pads, air streams - as the cgame told it (renderer
+// command meshcloth_windzone, cg_clothFans): the zones this character's box touches, kept for a moment after it left
+// them (tr_meshcloth.cpp MC_ZoneAir). No zones (most maps): nothing changes. Main thread.
+static void MC_ZoneWind(const trRefEntity_t* ent, const void* key, const int timeMs, mcParams_t& prm)
+{
+	prm.zoneWind[0] = prm.zoneWind[1] = prm.zoneWind[2] = 0.0f;
+	if (!tr.world || (s_mcRefdef->rdflags & RDF_NOWORLDMODEL))
+	{
+		return;
+	}
+	// the character's box as the game has it: its origin is the middle of a standing body (feet 24 below, head 40 above)
+	const float mins[3] = { ent->e.origin[0] - 16.0f, ent->e.origin[1] - 16.0f, ent->e.origin[2] - 24.0f };
+	const float maxs[3] = { ent->e.origin[0] + 16.0f, ent->e.origin[1] + 16.0f, ent->e.origin[2] + 40.0f };
+	MC_ZoneAir(key, timeMs, mins, maxs, prm.zoneWind);
 }
 
 // r_meshClothOthers (1 = on, 0 = off): the characters of this scene, listed once a frame, so the ones close
@@ -4247,6 +4345,7 @@ static bool RB_MeshClothPrepare(CBoneCache* bones, const mdxmSurface_t* surface,
 	}
 	prm.gust = r_meshClothGust->value;
 	MC_WeatherWind(ent, bones, timeMs, prm);
+	MC_ZoneWind(ent, bones, timeMs, prm);	// SJE r_meshClothFans (cg_clothFans)
 	MC_SolverParams(prm);
 	prm.timeSec = 0.0f;
 

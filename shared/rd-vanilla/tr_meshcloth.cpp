@@ -141,6 +141,10 @@ namespace {
 
 	const int MC_WRAP_K = 4;	// SJE 'wrap': grid triangles each drawn vertex is blended from
 	const float MC_SPRING_BACK = 0.6f;	// SJE 'spring': seconds (time constant) it takes to take hold again after a run
+	const float MC_WIND_DAMP = 0.15f;	// SJE 'damp' in wind of 500 units/s and more: this share of itself (the cape can flap)
+	const float MC_WIND_FLUTTER = 0.9f;	// SJE: ripple strength (as r_meshClothFlutter) the cloth gets in wind of 1500 units/s and more
+	const float MC_STORM_WEIGHT = 1.5f;	// SJE: in a storm lighter cloth is blown as cloth of this weight (the heavy cape's)
+	const float MC_WIND_TAIL = 0.4f;	// SJE: wind from behind pushes cloth by this share of its forward part
 
 	struct mcGroup_t {
 		std::vector<const mdxmSurface_t*>	surfs;
@@ -272,6 +276,7 @@ namespace {
 		vec3_t				originVel = {};		// its velocity (units/s)
 		vec3_t				up = {};				// the character's up direction (world)
 		vec3_t				side = {};			// the character's left direction (world)
+		vec3_t				fwd = {};			// SJE: the character's facing (world, its entity axis; wind from behind)
 		std::vector<float>	pinPrev;		// attached particles' animated positions last frame
 		float				twistRun = 0.0f;	// SJE: how far the attached edge has turned fast in one direction in one go (radians, signed)
 		int					pinTime = 0;
@@ -3548,13 +3553,34 @@ namespace {
 				// over the pose where a free cape rises 21
 				const float wj = Clamp01((fabsf(vu) - 100.0f) * (1.0f / 90.0f));
 				if (wj > want) want = wj;
+				// ... and in wind (the map's weather wind, a level wind, a pusher's air stream), by the same measure: air
+				// going past at walking pace and more lets it go as a run does. Held to the hips, a standing character's
+				// cape hung still in a storm and only blew while he moved. No wind (most maps): nothing changes.
+				{
+					vec3_t air;
+					mcAdd(prm->wind, prm->zoneWind, air);
+					const float ww = Clamp01((mcLen(air) - 100.0f) * (1.0f / 90.0f));
+					if (ww > want) want = ww;
+				}
 				const float tau = want > in->springRun ? 0.15f : MC_SPRING_BACK;
 				in->springRun += (want - in->springRun) * (1.0f - expf(-MC_DT / tau));
 			}
+			// in wind 'damp' gives way (to MC_WIND_DAMP of itself from 500 units/s of air on): it calms the cape's swing
+			// after a stop or a turn, but in wind it also killed the flapping - the cape stood blown out to one side
+			// and stayed there.
+			// No wind: x 1, nothing changes.
+			float dampW = 1.0f;
+			{
+				vec3_t air;
+				mcAdd(prm->wind, prm->zoneWind, air);
+				const float wk = Clamp01((mcLen(air) - 100.0f) * (1.0f / 400.0f));
+				float lo = MC_WIND_DAMP;
+				dampW = 1.0f - wk * (1.0f - lo);
+			}
 			kDampH.resize(g->numParticles); kDampV.resize(g->numParticles); kSpring.resize(g->numParticles);
 			for (int p = 0; p < g->numParticles; p++) {
-				kDampH[p] = g->dampH[p] > 0.0f ? 1.0f - powf(1.0f - g->dampH[p], isub) : 0.0f;
-				kDampV[p] = g->dampV[p] > 0.0f ? 1.0f - powf(1.0f - g->dampV[p], isub) : 0.0f;
+				kDampH[p] = g->dampH[p] > 0.0f ? 1.0f - powf(1.0f - g->dampH[p] * dampW, isub) : 0.0f;
+				kDampV[p] = g->dampV[p] > 0.0f ? 1.0f - powf(1.0f - g->dampV[p] * dampW, isub) : 0.0f;
 				const float ks = g->springK[p] * (1.0f - in->springRun);
 				kSpring[p] = ks > 0.0f ? 1.0f - powf(1.0f - ks, isub) : 0.0f;
 			}
@@ -3668,16 +3694,45 @@ namespace {
 			const float t = prm->timeSec;
 			const float gs = 1.0f + prm->gust * (0.6f * sinf(t * 1.3f) + 0.4f * sinf(t * 3.7f + 1.1f));
 			mcScale(prm->wind, gs, windNow);
+			// SJE r_meshClothFans: the air of pushers / jump pads, not gusted (it outruns the push by a set amount)
+			if (mcDot(prm->zoneWind, prm->zoneWind) > 0.0f) mcAdd(windNow, prm->zoneWind, windNow);
+			// wind from behind pushes the cloth only by MC_WIND_TAIL of its forward part: in full it pressed a cape onto
+			// its wearer's back and legs, where body and wind fought every step - the cape shook and its edges
+			// stretched to more than twice their length
+			float tail = MC_WIND_TAIL;
+			if (tail < 1.0f && mcDot(windNow, windNow) > 1e-4f) {
+				// the character's facing over the ground (its entity axis: the cape's attached edge gives the shoulder
+				// line only roughly - on a collar it can lie front to back)
+				vec3_t fwd;
+				mcMA(in->fwd, -mcDot(in->fwd, in->up), in->up, fwd);
+				const float fl = mcLen(fwd);
+				const float wf = fl > 1e-3f ? mcDot(windNow, fwd) / fl : 0.0f;
+				if (wf > 0.0f) mcMA(windNow, -(1.0f - tail) * wf / fl, fwd, windNow);
+			}
 		}
 		// flutter (r_meshClothFlutter): the wind's strength also varies across the cloth, in ripples that travel
 		// along it (a phase from each particle's position and the time), so wind flaps a cape instead of
 		// pushing it as one stiff sheet. Worked out once per step, only when there is wind.
+		// SJE: strong wind flaps the cloth harder - the ripples grow to MC_WIND_FLUTTER from 500 to 1500 units/s of wind
+		// (with the gentle flutter alone a blown cape stood out to one side and hardly moved). No wind: as before.
+		float flutA = Clamp01(prm->flutter);
+		{
+			float boost = MC_WIND_FLUTTER;
+			const float wb = boost * Clamp01((mcLen(windNow) - 500.0f) * (1.0f / 1000.0f));
+			if (prm->flutter > 0.0f && wb > flutA) flutA = Clamp01(wb);
+		}
+		// SJE: in a storm (the strong weather wind, MC_STRONG_WIND and up) cloth lighter than MC_STORM_WEIGHT is blown as hard
+		// as cloth of that weight, not harder: the storm's strength was set on the heavy cape (weight 1.5); a robe of
+		// weight 1 took half as much again and tore into jagged strips in saber swings and jumps (t1_rail).
+		// Weaker wind and no wind: as before.
+		float stormW = MC_STORM_WEIGHT;
+		const float stormK = Clamp01((mcLen(prm->wind) - MC_STRONG_WIND) * (1.0f / 600.0f));
 		thread_local static std::vector<float> windF;
 		const bool flutter = prm->flutter > 0.0f && mcDot(windNow, windNow) > 1e-4f;
 		if (flutter) {
 			windF.resize(g->numParticles);
 			const float t = prm->timeSec;
-			const float a = Clamp01(prm->flutter);
+			const float a = flutA;
 			for (int p = 0; p < g->numParticles; p++) {
 				const float* pp = &in->p[p * 3];
 				const float ph = t * 7.3f + pp[0] * 0.045f + pp[1] * 0.037f + pp[2] * 0.051f;
@@ -3711,7 +3766,7 @@ namespace {
 			vec3_t air;
 			mcSub(in->originVel, windNow, air);
 			const float U = mcLen(air);
-			const float a = Clamp01(prm->flutter) * Clamp01((U - 40.0f) / 120.0f);	// none in still air
+			const float a = flutA * Clamp01((U - 40.0f) / 120.0f);	// none in still air
 			if (a > 0.01f) {
 				ripple = true;
 				float hz = 0.012f * U;
@@ -3926,7 +3981,13 @@ namespace {
 				if (!underWater) {
 					const float invW = 1.0f / (g->weight[p] * (1.0f + Clamp01(prm->wet)));
 					vec3_t rel;
-					mcMA(v, flutter ? -h * windF[p] : -h, windNow, rel);		// v is per substep, wind is per second
+					float ws = 1.0f;	// SJE: light cloth in a storm (stormK above)
+					if (stormK > 0.0f && g->weight[p] < stormW) ws = 1.0f - stormK * (1.0f - g->weight[p] / stormW);
+					// ... and a layer the model has under other cloth (tunic strips under a robe) is in that cloth's lee: it gets
+					// the wind as it gets the travel air (r_meshClothWornAir). In full the storm blew Ben's tunic strips out from
+					// under his robe as jagged pieces stretched to three times their length. No wind: no effect.
+					if (wornCap && g->under[p]) ws *= prm->wornAir;
+					mcMA(v, (flutter ? -h * windF[p] : -h) * ws, windNow, rel);		// v is per substep, wind is per second
 					const float* nn = &n[p * 3];
 					const float vn = mcDot(rel, nn);
 					float kn = prm->drag * h * invW;
@@ -4063,6 +4124,7 @@ namespace {
 	}
 	static bool RestPoseHolds(const mcInstance_t* in, const std::vector<float>& target, const float* capSig, const mcParams_t* prm) {
 		if (mcDot(prm->wind, prm->wind) > 1e-4f) return false;
+		if (mcDot(prm->zoneWind, prm->zoneWind) > 1e-4f) return false;	// SJE r_meshClothFans
 		if (in->restRef.size() != target.size()) return false;
 		for (int k = 0; k < 8; k++) if (fabsf(capSig[k] - in->restCaps[k]) > MC_REST_DRIFT) return false;
 		const float d2 = MC_REST_DRIFT * MC_REST_DRIFT;
@@ -4241,6 +4303,7 @@ namespace {
 
 	void Simulate(const mcGroup_t* g, mcInstance_t* in, int timeMs, const vec3_t origin, const vec3_t axis[3],
 		const mcCapsule_t* caps, int ncaps, const mcParams_t* prm, mcBoneFn_t boneFn, void* boneCtx) {
+		mcCopy(axis[0], in->fwd);
 		ComputeRootDist(g);
 		// animated (target) positions of every particle, and skinned normals of every vertex
 		std::vector<float>& target = in->scratchTarget;
@@ -6042,6 +6105,244 @@ void MC_WeatherState(const void* instanceKey, int timeMs, bool outside, float we
 	}
 	*outsideOut = w.outside;
 	*wetOut = w.wet;
+}
+
+// SJE r_meshClothStrongWind (see tr_meshcloth.h). Main thread only.
+// A map's strong wind is a speed for its rain and snow (t1_rail's train roof: 5000 units/s): the cloth got all of it and
+// was torn into strips. Over MC_STRONG_WIND (where the game braces its characters against the wind) it rises slowly with
+// the map's speed, up to MC_STRONG_WIND_MAX: strongly blown from that side, still one sheet (the 0.5 gusts on top).
+// Soaked cloth weighs twice as much and the air moves it half as far (t1_rail rains: its heavy cape hardly stirred):
+// the strong wind on it is raised by its wetness, so it is blown as clearly as dry cloth - growing in from nothing at
+// MC_STRONG_WIND to all of it at twice that, so a gusting wind that crosses MC_STRONG_WIND does not jump.
+const float MC_STRONG_WIND_K = 0.15f;		// cloth wind per unit of map wind above MC_STRONG_WIND
+const float MC_STRONG_WIND_MAX = 1600.0f;	// units/s at most (dry cloth)
+float MC_StrongWindSpeed(float mapSpeed, float wet) {
+	if (mapSpeed <= MC_STRONG_WIND) return mapSpeed;
+	float v = MC_STRONG_WIND + MC_STRONG_WIND_K * (mapSpeed - MC_STRONG_WIND);
+	if (v > MC_STRONG_WIND_MAX) v = MC_STRONG_WIND_MAX;
+	return v * (1.0f + Clamp01(wet) * Clamp01((mapSpeed - MC_STRONG_WIND) / MC_STRONG_WIND));
+}
+
+struct mcEase_t {
+	float	value = 0.0f;
+	int		time = 0;
+};
+static std::unordered_map<const void*, mcEase_t> g_strongOut;
+
+float MC_StrongWindOutside(const void* instanceKey, int timeMs, bool outside) {
+	const float o = outside ? 1.0f : 0.0f;
+	auto found = g_strongOut.find(instanceKey);
+	if (found == g_strongOut.end()) {
+		if (g_strongOut.size() > 512) {
+			for (auto it = g_strongOut.begin(); it != g_strongOut.end(); ) {
+				if (timeMs - it->second.time > MC_FORGET_MS || timeMs < it->second.time) it = g_strongOut.erase(it);
+				else ++it;
+			}
+		}
+		mcEase_t e;
+		e.value = o;	// a new character starts where it is, no fade
+		e.time = timeMs;
+		found = g_strongOut.emplace(instanceKey, e).first;
+	}
+	mcEase_t& e = found->second;
+	float dt = (timeMs - e.time) * 0.001f;
+	if (dt < 0.0f || dt > 1.0f) dt = 1.0f;	// a reload or a long pause: catch up at once
+	e.time = timeMs;
+	const float os = dt / 0.4f;
+	e.value = e.value < o ? (e.value + os > o ? o : e.value + os) : (e.value - os < o ? o : e.value - os);
+	return e.value;
+}
+
+// SJE r_meshClothFans: wind zones (see tr_meshcloth.h). Main thread only.
+struct mcZone_t {
+	float	mins[3], maxs[3], air[3];
+	float	ahead[3];	// how far the stream runs ahead of the push it gives (air - the push's velocity)
+	bool	hasAhead;	// false: not told (the stream against the character's own motion is taken instead)
+};
+static std::vector<mcZone_t> g_zones;
+struct mcZoneMem_t {
+	float	rel[3] = { 0.0f, 0.0f, 0.0f };	// the air against its own motion when it was last in a zone
+	int		left = -1;						// when it was last in one (-1: not yet)
+	float	org[3] = { 0.0f, 0.0f, 0.0f };	// the middle of its box, last time
+	float	vel[3] = { 0.0f, 0.0f, 0.0f };	// its velocity (from the last frames, smoothed)
+	int		time = -1;						// ... when
+};
+static std::unordered_map<const void*, mcZoneMem_t> g_zoneMem;
+const int MC_MAX_ZONES = 256;
+const int MC_ZONE_HOLD_MS = 800;	// a character a pusher threw out of its zone keeps the stream this long (a jump pad's
+const int MC_ZONE_FADE_MS = 600;	//   trigger is a thin slab: it is out of it the frame after the throw), then it fades out
+const float MC_ZONE_SWEEP_SPEED = 3000.0f;	// units/s: a move between two frames further than this is a teleport
+
+void MC_WindZoneAdd(const float mins[3], const float maxs[3], const float air[3], const float pushSpeed) {
+	if ((int)g_zones.size() >= MC_MAX_ZONES) return;
+	mcZone_t z;
+	for (int k = 0; k < 3; k++) {
+		z.mins[k] = mins[k] < maxs[k] ? mins[k] : maxs[k];
+		z.maxs[k] = mins[k] < maxs[k] ? maxs[k] : mins[k];
+		z.air[k] = air[k];
+	}
+	const float a = mcLen(z.air);
+	z.hasAhead = pushSpeed >= 0.0f && a > 1e-3f;
+	mcScale(z.air, z.hasAhead ? (a - (pushSpeed < a ? pushSpeed : a)) / a : 1.0f, z.ahead);
+	g_zones.push_back(z);
+}
+
+void MC_WindZonesClear(void) {
+	g_zones.clear();	// the characters' memory stays: one a pusher just threw keeps its stream when the set changes
+}
+
+int MC_WindZoneCount(void) {
+	return (int)g_zones.size();
+}
+
+// does the segment from a to b (a box's middle; h: its half size) touch the zone? (slabs of the zone grown by h)
+static bool MC_ZoneSwept(const mcZone_t& z, const float a[3], const float b[3], const float h[3]) {
+	float t0 = 0.0f, t1 = 1.0f;
+	for (int k = 0; k < 3; k++) {
+		const float lo = z.mins[k] - h[k], hi = z.maxs[k] + h[k], d = b[k] - a[k];
+		if (fabsf(d) < 1e-6f) {
+			if (a[k] < lo || a[k] > hi) return false;
+			continue;
+		}
+		float u0 = (lo - a[k]) / d, u1 = (hi - a[k]) / d;
+		if (u0 > u1) { const float s = u0; u0 = u1; u1 = s; }
+		if (u0 > t0) t0 = u0;
+		if (u1 < t1) t1 = u1;
+		if (t0 > t1) return false;
+	}
+	return true;
+}
+
+bool MC_ZoneAir(const void* instanceKey, int timeMs, const float mins[3], const float maxs[3], float air[3]) {
+	air[0] = air[1] = air[2] = 0.0f;
+	if (g_zones.empty() && g_zoneMem.empty()) return false;
+	auto found = g_zoneMem.find(instanceKey);
+	if (g_zones.empty()) {
+		// no zones (now): only a character that a pusher just threw keeps its stream; the others are let go of
+		if (found == g_zoneMem.end()) return false;
+		if (found->second.left < 0 || timeMs < found->second.time || timeMs - found->second.left >= MC_ZONE_HOLD_MS + MC_ZONE_FADE_MS) {
+			g_zoneMem.erase(found);
+			return false;
+		}
+	}
+	if (found == g_zoneMem.end()) {
+		if (g_zoneMem.size() > 512) {
+			for (auto it = g_zoneMem.begin(); it != g_zoneMem.end(); ) {
+				if (timeMs - it->second.time > MC_FORGET_MS || timeMs < it->second.time) it = g_zoneMem.erase(it);
+				else ++it;
+			}
+		}
+		found = g_zoneMem.emplace(instanceKey, mcZoneMem_t()).first;
+	}
+	mcZoneMem_t& m = found->second;
+	if (m.time >= 0 && timeMs < m.time) m = mcZoneMem_t();	// the time went back (a new map, a load): start over
+	float c[3], h[3];
+	for (int k = 0; k < 3; k++) {
+		c[k] = 0.5f * (mins[k] + maxs[k]);
+		h[k] = 0.5f * (maxs[k] - mins[k]);
+	}
+	// swept from where it was last frame: a jump pad's trigger is a thin slab, and a character thrown at 2000 units/s is
+	// through it between two frames. Not across a teleport (further than it could have flown) or a long gap.
+	const float* from = c;
+	const int dtMs = timeMs - m.time;
+	if (m.time >= 0 && dtMs > 0 && dtMs <= 200) {
+		vec3_t dv;
+		mcSub(c, m.org, dv);
+		const float reach = MC_ZONE_SWEEP_SPEED * dtMs * 0.001f + 64.0f;
+		if (mcDot(dv, dv) <= reach * reach) {
+			from = m.org;
+			mcScale(dv, 1000.0f / dtMs, dv);
+			for (int k = 0; k < 3; k++) m.vel[k] = 0.5f * (m.vel[k] + dv[k]);
+		}
+		else {
+			m.vel[0] = m.vel[1] = m.vel[2] = 0.0f;	// a teleport
+		}
+	}
+	else if (dtMs != 0) {
+		m.vel[0] = m.vel[1] = m.vel[2] = 0.0f;	// first seen, or after a gap
+	}
+	// the strongest of the zones it touches: pushers that overlap are one stream (a shaft has one pusher for the player
+	// and one for the others, both blowing up it)
+	bool in = false;
+	float best = -1.0f;
+	const mcZone_t* bestZone = nullptr;
+	for (const mcZone_t& z : g_zones) {
+		if (!MC_ZoneSwept(z, from, c, h)) continue;
+		const float s = mcDot(z.air, z.air);
+		if (s > best) {
+			best = s;
+			bestZone = &z;
+			mcCopy(z.air, air);
+		}
+		in = true;
+	}
+	mcCopy(c, m.org);
+	m.time = timeMs;
+	if (in) {
+		// how far the stream runs ahead of the push: as the cgame told it, else the stream against its own motion now
+		// (which depends on when it leaves: a character that falls onto a pad and is out of it as soon as it is thrown
+		// would keep the stream against its fall)
+		if (bestZone && bestZone->hasAhead) mcCopy(bestZone->ahead, m.rel);
+		else mcSub(air, m.vel, m.rel);
+		m.left = timeMs;
+		return true;
+	}
+	const int since = timeMs - m.left;
+	if (m.left < 0 || since < 0 || since >= MC_ZONE_HOLD_MS + MC_ZONE_FADE_MS) {
+		m.left = -1;
+		return false;
+	}
+	// thrown out of it: the stream goes along with it, still running ahead of it by as much (whatever its flight does
+	// to its speed), then fades out to still air
+	float k = since <= MC_ZONE_HOLD_MS ? 1.0f : 1.0f - (float)(since - MC_ZONE_HOLD_MS) / (float)MC_ZONE_FADE_MS;
+	k = k * k * (3.0f - 2.0f * k);
+	mcAdd(m.vel, m.rel, air);
+	mcScale(air, k, air);
+	return true;
+}
+
+// SJE r_meshClothLevelWind: ext_data/meshcloth_wind.dat (see tr_meshcloth.h)
+static void MC_BareMapName(const char* in, char* out, const int outSize) {
+	const char* s = in;
+	if (!Q_stricmpn(s, "maps/", 5) || !Q_stricmpn(s, "maps\\", 5)) s += 5;
+	Q_strncpyz(out, s, outSize);
+	const int n = (int)strlen(out);
+	if (n > 4 && !Q_stricmp(out + n - 4, ".bsp")) out[n - 4] = 0;
+}
+
+void MC_LevelWindParse(const char* text, const char* mapName, mcLevelWind_t* out) {
+	*out = mcLevelWind_t();
+	if (!text || !mapName || !mapName[0]) return;
+	char want[MAX_QPATH];
+	MC_BareMapName(mapName, want, sizeof(want));
+#ifdef MC_MP
+	COM_BeginParseSession("meshcloth_wind");
+#else
+	COM_ParseSession session;	// the SP parser refuses to run outside a session
+#endif
+	const char* p = text;
+	while (p) {
+		const char* tok = COM_ParseExt(&p, qtrue);
+		if (!tok[0]) break;
+		if (tok[0] == '#') { while (COM_ParseExt(&p, qfalse)[0]) {} continue; }
+		char name[MAX_QPATH];
+		MC_BareMapName(tok, name, sizeof(name));
+		mcLevelWind_t w;
+		int k;
+		for (k = 0; k < 3; k++) {
+			tok = COM_ParseExt(&p, qfalse);
+			if (!tok[0]) break;
+			w.wind[k] = (float)atof(tok);
+		}
+		if (k < 3) continue;
+		w.found = 1;
+		while ((tok = COM_ParseExt(&p, qfalse))[0]) {
+			if (!Q_stricmp(tok, "outside")) w.outside = 1;
+			else if (!Q_stricmp(tok, "only")) w.only = 1;
+			else if ((tok[0] >= '0' && tok[0] <= '9') || tok[0] == '.') w.gust = Clamp01((float)atof(tok));
+		}
+		if (!Q_stricmp(name, want)) *out = w;	// the last line for the map counts
+	}
 }
 
 // MC_SetCharacters / MC_NearCharacters (r_meshClothOthers): other characters push cloth. Main thread.

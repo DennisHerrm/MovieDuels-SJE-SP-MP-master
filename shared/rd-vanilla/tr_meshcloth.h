@@ -138,6 +138,9 @@ struct mcParams_t {
 							//   speed (1/unit), as real air does: a cape streams out behind a runner and falls back
 							//   when he stops, instead of lying against him at any speed. 0 = off (linear drag only)
 	float	wind[3];		// world wind velocity, units/s (still air = 0 0 0)
+	float	zoneWind[3] = { 0.0f, 0.0f, 0.0f };	// SJE r_meshClothFans: the air of the pushers (fans, jump pads, air streams)
+							//   the character is in or was just thrown by (world, units/s; MC_ZoneAir). Added to the wind,
+							//   but not varied by 'gust': it is made to outrun the push by a set amount
 	float	gust;			// 0..1 how much the wind strength varies over time
 	float	flutter;		// 0..1 how much the wind ripples across the cloth (r_meshClothFlutter; 0 = it pushes it evenly)
 	float	timeSec;		// current time for gusts (filled in by MC_Apply)
@@ -214,6 +217,43 @@ struct mcParams_t {
 //   outside: the weather wind fades in and out over ~0.4 s at a shelter edge instead of switching
 //   wet:     wetTarget 0 = dry, 1 = in the rain (soaks in ~8 s), 2 = in water (soaked at once); dries in ~45 s
 void MC_WeatherState(const void* instanceKey, int timeMs, bool outside, float wetTarget, float* outsideOut, float* wetOut);
+
+// SJE r_meshClothStrongWind: strong weather wind - over MC_STRONG_WIND units/s, where the game has its characters brace
+// against it (bg_panimate.cpp TorsoAgainstWindTest: R_GetWindGusting, R_IsOutside at the character's origin) - blows the
+// cloth by the game's own outside test (at the origin, in the air or on the ground alike), at a strength the cloth takes
+// without being torn into strips: MC_StrongWindSpeed(map speed, the cloth's wetness 0..1 - soaked cloth weighs twice as
+// much, so from twice MC_STRONG_WIND on it gets twice the wind and is blown as clearly). MC_StrongWindOutside eases the
+// game's outside test per character (key) over ~0.4 s, as MC_WeatherState does. Main thread.
+const float MC_STRONG_WIND = 1000.0f;
+float MC_StrongWindSpeed(float mapSpeed, float wet);
+float MC_StrongWindOutside(const void* instanceKey, int timeMs, bool outside);
+
+// SJE r_meshClothFans: wind zones - boxes of moving air (a map's pushers: fans, jump pads, air streams), told by the
+// cgame through the renderer commands meshcloth_windzone / meshcloth_windzones_clear. Main thread.
+// pushSpeed: the speed of the push the zone gives (its air runs ahead of it by the rest); under 0 = not known
+void MC_WindZoneAdd(const float mins[3], const float maxs[3], const float air[3], float pushSpeed = -1.0f);
+void MC_WindZonesClear(void);
+int  MC_WindZoneCount(void);
+// The air of the zones a character's box (world mins / maxs) touches (the strongest). A character that leaves them keeps their
+// air for a moment, fading out (thrown up by a jump pad, the stream goes along for a short way), also when the set of
+// zones changes meanwhile (MC_WindZonesClear forgets the zones only). Returns false when there is none (no zones and no
+// character thrown: nothing is looked up). Main thread.
+bool MC_ZoneAir(const void* instanceKey, int timeMs, const float mins[3], const float maxs[3], float air[3]);
+
+// SJE r_meshClothLevelWind: a wind for one map from ext_data/meshcloth_wind.dat, one line per map:
+//   mapname  x y z  [gust]  [outside]  [only]
+// x y z: world wind, units/s; gust 0..1: how much its strength varies (replaces r_meshClothGust on that map);
+// outside: only where the game counts as outside (R_IsOutside at the character's origin), eased in and out;
+// only: the map's own weather wind does not blow the cloth there (for maps whose weather wind is wrong for cloth).
+// '//' or '#' start a comment. MC_LevelWindParse finds the line for mapName (the bare name, e.g. "t1_rail") in text.
+struct mcLevelWind_t {
+	int		found = 0;
+	float	wind[3] = { 0.0f, 0.0f, 0.0f };
+	float	gust = -1.0f;	// under 0: not given
+	int		outside = 0;
+	int		only = 0;
+};
+void MC_LevelWindParse(const char* text, const char* mapName, mcLevelWind_t* out);
 
 // Returns the 3x4 skinning matrix (model space) for a skeleton bone index.
 typedef const float (*(*mcBoneFn_t)(void* ctx, int boneIndex))[4];

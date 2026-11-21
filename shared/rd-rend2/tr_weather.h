@@ -112,6 +112,12 @@ struct weatherSystem_t
 	vec3_t		windDirection;
 	float		windSpeed;
 
+	// SJE r_weatherSwirlingWind: fx_wind's "swirlingwind", a wind that slowly turns round (thousandths, as the rest;
+	// R_UpdateWeatherWind). The system is allocated zeroed: 0 = none
+	float		swirlSpeed;
+	float		swirlAngle;
+	int			swirlTime;
+
 	float		weatherMVP[16];
 };
 struct srfWeather_t;
