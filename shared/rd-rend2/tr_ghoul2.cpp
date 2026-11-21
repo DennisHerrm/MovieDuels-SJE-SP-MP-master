@@ -4250,6 +4250,12 @@ static cvar_t* MC_ClothCvar(const char* name, const char* value, const char* des
 //                       through the cape when the arm swings back (needs r_meshClothFaceCol; 0 = off)
 //  r_meshClothOverArms 1 = a cape or cloak (cloth hanging from shoulder height) lies over arms and hands: a hand
 //                       put behind the back stays under it (needs r_meshClothFaceCol; 0 = off)
+//  r_meshClothGarment   1 = a body part that is itself a skirt (a tube round both legs that is not cloth: an
+//                       inner robe) takes no part in the body fit: stiff, it swings with the legs and shook
+//                       the cloth worn over it at a run (0 = as before)
+//  r_meshClothNoRoom    1 = worn cloth (a robe, a skirt, the strips under it) takes the shape its wearer's pose
+//                       gives it while it has no room to hang - crouching, kneeling, sitting, lying: it is
+//                       not laid crumpled on the ground round the legs (the value scales the pull; 0 = off)
 //  r_meshClothCarryFloor 1 = the body carry (r_meshClothBodyCarry) takes worn cloth (a robe, a skirt, the strips
 //                       under it) down only as far as it has room above the floor: it is not thrown out over
 //                       the ground when its wearer drops into a crouch (0 = as before)
@@ -4334,6 +4340,8 @@ static void MC_SolverParams(mcParams_t& prm)
 	static cvar_t* wna = nullptr;	// SJE r_meshClothWornAir
 	static cvar_t* shn = nullptr;	// SJE r_meshClothShown
 	static cvar_t* cfl = nullptr;	// SJE r_meshClothCarryFloor
+	static cvar_t* nro = nullptr;	// SJE r_meshClothNoRoom
+	static cvar_t* gmt = nullptr;	// SJE r_meshClothGarment
 	static cvar_t* shd = nullptr;
 	static cvar_t* ova = nullptr;
 	static cvar_t* sl = nullptr;
@@ -4363,6 +4371,8 @@ static void MC_SolverParams(mcParams_t& prm)
 		wna = MC_ClothCvar("r_meshClothWornAir", "0.25", "Mesh cloth worn round the body (a robe, a skirt) catches at most this part of the travel wind; 1 = all of it, as before");
 		shn = MC_ClothCvar("r_meshClothShown", "1", "Mesh cloth: what a character's skin has switched off takes no part - body shapes fitted to the switched-on surfaces only, hidden cloth holds no drawn cloth; 0 = as before");
 		cfl = MC_ClothCvar("r_meshClothCarryFloor", "1", "Mesh cloth: the body carry takes worn cloth (a robe, a skirt, strips under it) down only as far as it has room above the floor, so it is not thrown out over the ground when its wearer drops into a crouch; 0 = as before");
+		nro = MC_ClothCvar("r_meshClothNoRoom", "1", "Mesh cloth worn round the body (a robe, a skirt, strips under it) takes the shape its wearer's pose gives it while it has no room to hang (crouching, kneeling, sitting, lying); the value scales the pull, 0 = off");
+		gmt = MC_ClothCvar("r_meshClothGarment", "1", "Mesh cloth: a body part that is itself a skirt (a tube round both legs that is not cloth, an inner robe) takes no part in the body fit - stiff, it swings with the legs and shook the cloth worn over it at a run; 0 = as before");
 		shd = MC_ClothCvar("r_meshClothShoulders", "1", "Mesh cloth: the drawn cloth is kept over what the shoulder bones carry (no shoulder plate through a cape); 0 off");
 		ova = MC_ClothCvar("r_meshClothOverArms", "1", "Mesh cloth: a cape or cloak (hanging from shoulder height) lies over arms and hands, e.g. a hand behind the back; 0 off");
 		sl = MC_ClothCvar("r_meshClothSleep", "1", "Mesh cloth at rest sleeps until the pose, body, wind or a blast moves it (1 on, 0 off)");
@@ -4418,6 +4428,8 @@ static void MC_SolverParams(mcParams_t& prm)
 	prm.wornAir = wna ? (wna->value > 0.0f ? (wna->value < 1.0f ? wna->value : 1.0f) : 0.0f) : 0.25f;
 	prm.shown = shn ? shn->integer : 1;
 	prm.carryFloor = cfl ? cfl->integer : 1;
+	prm.noRoom = nro ? (nro->value > 0.0f ? (nro->value < 8.0f ? nro->value : 8.0f) : 0.0f) : 1.0f;
+	prm.garment = gmt ? gmt->integer : 1;
 	prm.shoulders = shd ? shd->integer : 1;
 	prm.overArms = ova ? ova->integer : 1;
 	prm.sleep = sl ? sl->integer : 0;
@@ -5176,7 +5188,7 @@ static void RB_MeshClothPrepare(CBoneCache* bones, const mdxmSurface_t* surface,
 	if (r_meshClothBodyFit && r_meshClothBodyFit->integer && !(prm.lodNear > 0.0f && prm.lodDist > prm.lodNear))
 	{
 		const std::vector<int>& cls = MC_BoneClass(bones->header);
-		cp.bodyFit = MC_BodyFit(surface, cls.data(), static_cast<int>(cls.size()), mcDrawnOk ? mcDrawn.data() : nullptr, mcDrawnOk ? static_cast<int>(mcDrawn.size()) : 0);
+		cp.bodyFit = MC_BodyFit(surface, cls.data(), static_cast<int>(cls.size()), mcDrawnOk ? mcDrawn.data() : nullptr, mcDrawnOk ? static_cast<int>(mcDrawn.size()) : 0, prm.garment);
 		cp.fistAlong = cp.bodyFit != nullptr && MC_ClothHangsHigh(surface);
 	}
 }

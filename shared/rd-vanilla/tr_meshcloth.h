@@ -134,6 +134,13 @@ struct mcParams_t {
 	int		carryFloor = 1;	// SJE r_meshClothCarryFloor: 1 = the body carry (bodyCarry) takes cloth worn round the body (a robe,
 							//   a skirt) and loose layers under it down only as far as its lowest point has room above the
 							//   floor: not into the ground when its wearer drops into a crouch; 0 = as before
+	float	noRoom = 1.0f;	// SJE r_meshClothNoRoom: over 0 = cloth worn round the body (a robe, a skirt) and loose layers
+							//   under it take the shape their wearer's pose gives them while they have no room to hang
+							//   (crouching, kneeling, sitting, lying: the attached edge is nearer the floor than the cloth is
+							//   long); the value scales the pull. 0 = as before
+	int		garment = 1;	// SJE r_meshClothGarment: 1 = a body part that is itself a skirt (a tube round both legs, not made
+							//   cloth: an inner robe) takes no part in the body fit - stiff, it swings with the legs and its
+							//   fitted shapes shook the cloth worn over it at a run; 0 = as before
 	int		shoulders = 1;	// SJE r_meshClothShoulders: 1 = the drawn cloth is kept over what the shoulder bones carry
 							//   (a shoulder plate turns with the arm, into the cape lying over it); with faceCol only
 	int		overArms = 1;	// SJE r_meshClothOverArms: 1 = cloth that hangs from shoulder height (a cape, a cloak) lies over
@@ -263,7 +270,7 @@ const int MC_MAX_BLADES = 4;	// SJE: lit lightsaber blades near a character that
 // model. Main thread only. Returns a handle for MC_BodyShapesPose, or nullptr.
 // SJE r_meshClothShown: 'drawn' = one byte per surface of the model (by its index): 1 = switched on for this
 // character (nullptr: not known - the model's own flags decide, as before). One fit per set of them.
-const void* MC_BodyFit(const void* clothSurface, const int* boneClass, int numBones, const unsigned char* drawn = nullptr, int numDrawn = 0);
+const void* MC_BodyFit(const void* clothSurface, const int* boneClass, int numBones, const unsigned char* drawn = nullptr, int numDrawn = 0, int garment = 0);
 // SJE r_meshClothShown: tells a character's cloth which of the model's surfaces are switched on (after MC_Prepare,
 // main thread; nullptr: all). Layer pairs with a switched-off cloth surface are skipped.
 void MC_Shown(const void* clothSurface, const void* instanceKey, const unsigned char* drawn, int numDrawn);

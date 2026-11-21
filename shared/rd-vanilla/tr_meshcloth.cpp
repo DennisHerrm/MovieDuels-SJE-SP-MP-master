@@ -60,6 +60,9 @@ namespace {
 	const float	MC_TWIST_FLICK0 = 150.0f;	// SJE: degrees of fast turn in one go up to which the cloth has its whole lag allowance
 	const float	MC_TWIST_FLICK1 = 300.0f;	// ... and from which it has none (r_meshClothTwistLag: the allowance is for a flick, not a spin)
 	const float	MC_FLOOR_GAP = 0.8f;		// units cloth keeps above the floor
+	const float	MC_NOROOM_FROM = 0.8f;	// SJE r_meshClothNoRoom: worn cloth is drawn to its pose from where its attached edge is
+	const float	MC_NOROOM_SPAN = 0.3f;	// ... under this part of its length above the floor, in full this much further down,
+	const float	MC_NOROOM_SHAPE = 0.05f;	// ... by this part of its distance per 16 ms step
 	const float	MC_WELD = 0.01f;
 	const int	MC_SETTLE_STEPS = 40;
 	const int	MC_SHOW_STEPS = 16;		// SJE r_meshClothSettle: steps over which settled cloth is eased in from the animated pose
@@ -161,6 +164,7 @@ namespace {
 		mutable std::vector<float>			rootS;			// SJE: the same as a part of its sheet's length: 0 at the edge, 1 at the hem (lazy)
 		mutable std::vector<int>			sheetOf;		// SJE per particle: the sheet it belongs to - all cloth joined to it by links (ComputeRootDist, lazy)
 		mutable int							numSheets = 0;
+		mutable std::vector<float>			sheetLen;		// SJE per sheet: its length = the longest bind distance from its attached edge (ComputeRootDist, lazy)
 		mutable std::vector<unsigned char>	high;			// SJE per particle: 1 = it hangs from shoulder height or above (BuildPlatePairs, main thread; read only once plateBuilt is set)
 		mutable std::vector<unsigned char>	wrap;			// SJE per particle: 1 = its surface wraps round the body at its height (ComputeWrap, lazy)
 		mutable std::vector<unsigned char>	under;			// SJE per particle: 1 = a loose layer the model has UNDER worn cloth there (ComputeLayerPairs, lazy)
@@ -621,6 +625,15 @@ namespace {
 		g->proxied = true;
 		g->numDraw = n;
 		g->vertToDraw = r->vertToParticle;
+		// SJE: ... and every vertex has its grid particle (the one whose region its point lies in). The rules added
+		// later read this table for the grid as for a plain group (which surfaces are sewn together, which
+		// surfaces use a particle); without it a model with "proxy" and two cloth surfaces read past an empty
+		// table and crashed when it was loaded.
+		g->vertToParticle.assign(r->vertToParticle.size(), -1);
+		for (size_t v = 0; v < r->vertToParticle.size(); v++) {
+			const int rp = r->vertToParticle[v];
+			if (rp >= 0 && rp < n) g->vertToParticle[v] = region[rp];
+		}
 		g->drawFree = r->freedom;
 		g->drawHangs = r->hangs;
 		g->drawTris = r->tris;
@@ -2072,6 +2085,16 @@ namespace {
 			}
 			move[c] = (capsEnd && capsEnd[c].r > caps[c].r ? capsEnd[c].r : caps[c].r) + m;
 		}
+		// SJE: a shape's middle and half length: a point further from the middle than the half length plus its
+		// reach cannot be within reach of the axis, so the exact test below is only made for shapes near the
+		// point (with a dense cape most point / shape tests were of shapes far away). The list is the same.
+		float mid[MC_NEAR_CAPS][3], half[MC_NEAR_CAPS];
+		for (int c = 0; c < ncaps; c++) {
+			vec3_t ab;
+			mcSub(caps[c].b, caps[c].a, ab);
+			half[c] = 0.5f * mcLen(ab);
+			for (int k = 0; k < 3; k++) mid[c][k] = 0.5f * (caps[c].a[k] + caps[c].b[k]);
+		}
 		const bool kick = in->impulse.size() == in->p.size();
 		for (int p = 0; p < np; p++) {
 			in->ptCapStart[p] = (int)in->ptCaps.size();
@@ -2089,10 +2112,13 @@ namespace {
 			// (0.26: the point test's resting distance of 0.25, and rounding)
 			const float travel = (MC_MARGIN > 0.5f * g->thick[p] ? MC_MARGIN : 0.5f * g->thick[p]) + 0.26f + allow;
 			for (int c = 0; c < ncaps; c++) {
+				const float reach = move[c] + travel;
+				const float far = reach + half[c];
+				mcSub(x, mid[c], d);
+				if (mcDot(d, d) > far * far * 1.0005f + 0.01f) continue;	// out of reach for sure (see above)
 				vec3_t q;
 				ClosestOnAxis(caps[c], x, q);
 				mcSub(x, q, d);
-				const float reach = move[c] + travel;
 				if (mcDot(d, d) <= reach * reach) in->ptCaps.push_back((unsigned char)c);
 			}
 		}
@@ -2687,6 +2713,22 @@ namespace {
 			cells.push_back({ key(cellOf(v, 0), cellOf(v, 1), cellOf(v, 2)), p });
 		}
 		std::sort(cells.begin(), cells.end(), [](const cellEntry_t& x, const cellEntry_t& y) { return x.key < y.key; });
+		// SJE: where each cell's run starts in the sorted list, found through a small hash table instead of a
+		// binary search per neighbour cell (27 searches per point were a third of a dense cape's step set-up).
+		// The runs and their order are the same, so the pairs come out in the same order as before.
+		thread_local static std::vector<int> slot;
+		size_t tabSize = 64;
+		while (tabSize < cells.size() * 2) tabSize <<= 1;
+		slot.assign(tabSize, -1);
+		const size_t tabMask = tabSize - 1;
+		auto slotOf = [&](long long k) { return (size_t)(((unsigned long long)k * 0x9E3779B97F4A7C15ULL) >> 20) & tabMask; };
+		for (size_t i = 0; i < cells.size(); i++) {
+			if (i > 0 && cells[i].key == cells[i - 1].key) continue;
+			size_t s = slotOf(cells[i].key);
+			while (slot[s] >= 0) s = (s + 1) & tabMask;
+			slot[s] = (int)i;
+		}
+		const cellEntry_t* const cellEnd = cells.data() + cells.size();
 		const size_t maxPairs = 65536 * 2;	// safety cap (a broken scale bunching the whole cloth together)
 		for (int p = 0; p < g->numParticles && in->selfPairs.size() < maxPairs; p++) {
 			if (g->freedom[p] <= 0.0f || !g->selfCol[p]) continue;
@@ -2694,8 +2736,10 @@ namespace {
 			const long long cx = cellOf(a, 0), cy = cellOf(a, 1), cz = cellOf(a, 2);
 			for (long long dx = -1; dx <= 1; dx++) for (long long dy = -1; dy <= 1; dy++) for (long long dz = -1; dz <= 1; dz++) {
 				const long long k = key(cx + dx, cy + dy, cz + dz);
-				auto it = std::lower_bound(cells.begin(), cells.end(), k, [](const cellEntry_t& e, long long v) { return e.key < v; });
-				for (; it != cells.end() && it->key == k; ++it) {
+				size_t s = slotOf(k);
+				while (slot[s] >= 0 && cells[slot[s]].key != k) s = (s + 1) & tabMask;
+				if (slot[s] < 0) continue;
+				for (const cellEntry_t* it = cells.data() + slot[s]; it != cellEnd && it->key == k; ++it) {
 					const int q = it->p;
 					if (q <= p) continue;
 					vec3_t bd;
@@ -2800,6 +2844,7 @@ namespace {
 			g->rootS.swap(part);
 			g->numSheets = (int)longest.size();	// SJE r_meshClothCarryFloor
 			g->sheetOf.swap(sheet);
+			g->sheetLen.swap(longest);	// SJE r_meshClothNoRoom
 		}
 	}
 
@@ -3141,6 +3186,57 @@ namespace {
 				const float sp = g->spread[p], sh = g->shape[p] * prm->shapeScale;
 				ksp[p] = sp > 0.0f ? 1.0f - powf(1.0f - Clamp01(sp), isub) : 0.0f;
 				ksh[p] = sh > 0.0f ? 1.0f - powf(1.0f - Clamp01(sh), isub) : 0.0f;
+			}
+			// SJE r_meshClothNoRoom: worn cloth that has no room to hang takes the shape its wearer's pose gives it.
+			// A robe, a skirt or the strips under it are about as long as their wearer's legs. When he crouches, kneels,
+			// sits or lies, their attached edge comes down to half the cloth's length above the floor and the rest has
+			// nowhere to hang: it was laid on the ground as it fell, crumpled and twisted over itself (strips three
+			// points wide fold like paper and read as torn), spread out round the legs, and went on working against
+			// floor and legs for seconds. The pose says where such cloth belongs then: it is skinned to the legs, the
+			// modeller draped it over the knees. So it is drawn towards its animated shape, the more the less room it
+			// has: not at all while its attached edge is higher over the floor than MC_NOROOM_FROM of the room it needs
+			// (standing, walking, running, in the air: as before, bit for bit), in full from MC_NOROOM_FROM -
+			// MC_NOROOM_SPAN down. The room it needs is the sheet's length, or the height its attached edge stands at
+			// in the bind pose where that is less (a robe with a train lies on the ground while its wearer stands and
+			// is not short of room for that; a short skirt has room in a crouch too). Body tests, floor and layers act
+			// as ever. Not capes and cloaks: they are skinned to the back, their pose in a crouch is a board through
+			// the floor; they pile up behind their wearer as before.
+			if (prm->noRoom > 0.0f && prm->floor && g->numSheets > 0 && (int)g->sheetOf.size() == g->numParticles
+				&& (int)g->sheetLen.size() == g->numSheets && (int)g->wrap.size() == g->numParticles
+				&& (int)g->under.size() == g->numParticles && tgtTo.size() == (size_t)g->numParticles * 3
+				&& g->bindPos.size() >= (size_t)g->numParticles * 3) {
+				thread_local static std::vector<float> edgeH, edgeB, crowd;
+				thread_local static std::vector<int> edgeN;
+				edgeH.assign((size_t)g->numSheets, 0.0f);
+				edgeB.assign((size_t)g->numSheets, 0.0f);
+				edgeN.assign((size_t)g->numSheets, 0);
+				for (int p = 0; p < g->numParticles; p++) {
+					if (g->freedom[p] > 0.0f) continue;
+					vec3_t fr;
+					mcSub(&tgtTo[p * 3], prm->floorPt, fr);
+					edgeH[g->sheetOf[p]] += mcDot(fr, prm->floorN);
+					edgeB[g->sheetOf[p]] += g->bindPos[(size_t)p * 3 + 2];	// (bind-pose model units, feet at 0)
+					edgeN[g->sheetOf[p]]++;
+				}
+				crowd.assign((size_t)g->numSheets, 0.0f);
+				bool any = false;
+				const float ls = in->linkScale > 1e-3f ? in->linkScale : 1.0f;
+				for (int sh = 0; sh < g->numSheets; sh++) {
+					if (!edgeN[sh]) continue;
+					float need = g->sheetLen[sh];
+					const float stood = edgeB[sh] / edgeN[sh];
+					if (stood > 1.0f && stood < need) need = stood;
+					need *= ls;
+					if (need < 4.0f) continue;
+					crowd[sh] = Clamp01((MC_NOROOM_FROM * need - edgeH[sh] / edgeN[sh]) / (MC_NOROOM_SPAN * need));
+					if (crowd[sh] > 0.0f) any = true;
+				}
+				if (any) for (int p = 0; p < g->numParticles; p++) {
+					const float c = crowd[g->sheetOf[p]];
+					if (c <= 0.0f || g->freedom[p] <= 0.0f || !(g->wrap[p] || g->under[p])) continue;
+					const float pull = Clamp01(g->shape[p] * prm->shapeScale + prm->noRoom * MC_NOROOM_SHAPE * c);
+					ksh[p] = pull > 0.0f ? 1.0f - powf(1.0f - pull, isub) : 0.0f;
+				}
 			}
 		}
 		std::vector<float>& n = in->scratchN;
@@ -4461,10 +4557,51 @@ namespace {
 		mcCopy(v, axis);
 	}
 
+	// SJE r_meshClothGarment: is this body surface itself a skirt? Some models wear a second, inner robe or the lower
+	// half of a coat as a plain body part: a tube round both legs, bound to the hips and half to each leg. Skinned, it
+	// is stiff and swings with the legs. Fitted like the body (r_meshClothBodyFit) it gave shapes as wide as the cloth
+	// worn over it, at the hips and down both legs, and at a run they shook that cloth at every step (a floor-length
+	// robe: its points' change of move from step to step 1.6 units, a fifth of them turning round; 0.8 and a
+	// twentieth without those shapes, as for other robes). Such a part is no body for cloth to lie on: it is left out
+	// of the fit. The legs under it (their own surfaces, the leg capsules) hold the cloth as on any robed figure.
+	// A skirt here: reaches under the knees (its lower edge under MC_GARMENT_LOW of the model's height), begins at
+	// the waist or lower (its upper edge under MC_GARMENT_TOP: a whole robe from the shoulders down is the body a
+	// cape lies on, and stays), is tall (MC_GARMENT_TALL), and in the lowest part of its own height
+	// (MC_GARMENT_BAND) its vertices lie all round the model's upright axis - in each of eight sectors. Two trouser
+	// legs in one surface leave the sectors in front and behind empty; shorts and knee-length tunics end too high;
+	// one leg lies on one side. (Of 273 models with cloth lines 13 have such a part, by their own flags.)
+	const float MC_GARMENT_LOW = 0.25f, MC_GARMENT_TOP = 0.70f, MC_GARMENT_TALL = 0.20f, MC_GARMENT_BAND = 0.30f;
+	bool FitGarment(const mdxmSurface_t* s, const float top) {
+		if (s->numVerts < 24 || top < 1.0f) return false;
+		const mdxmVertex_t* v = Verts(s);
+		float lo = 1e9f, hi = -1e9f;
+		for (int i = 0; i < s->numVerts; i++) {
+			const float z = v[i].vertCoords[2];
+			if (z < lo) lo = z;
+			if (z > hi) hi = z;
+		}
+		if (lo > MC_GARMENT_LOW * top || hi > MC_GARMENT_TOP * top || hi - lo < MC_GARMENT_TALL * top) return false;
+		float band = lo + MC_GARMENT_BAND * (hi - lo);
+		if (band > MC_GARMENT_LOW * top) band = MC_GARMENT_LOW * top;
+		int sect[8] = {}, n = 0;
+		for (int i = 0; i < s->numVerts; i++) {
+			if (v[i].vertCoords[2] > band) continue;
+			const float x = v[i].vertCoords[0], y = v[i].vertCoords[1];
+			if (x * x + y * y < 1.0f) continue;
+			// (sectors centred on the axes: straight in front, front-left, left ...)
+			const int k = (int)floorf((atan2f(y, x) + 3.14159265f + 0.39269908f) * (8.0f / 6.2831853f));
+			sect[k & 7]++;
+			n++;
+		}
+		if (n < 12) return false;
+		for (int k = 0; k < 8; k++) if (!sect[k]) return false;
+		return true;
+	}
+
 	// SJE r_meshClothShown: 'drawn' (one byte per surface index; nullptr = not known) says which surfaces this
 	// character has switched on. Without it the model's own flags decide - and a model that holds several outfits
 	// has most of them on: a hood, a scarf, hip padding the skin does not draw then pushed the cloth off the body.
-	void FitBody(const mcGroup_t* g, const int* boneClass, int numBones, std::vector<mcFitShape_t>& out, const unsigned char* drawn = nullptr, const int numDrawn = 0) {
+	void FitBody(const mcGroup_t* g, const int* boneClass, int numBones, std::vector<mcFitShape_t>& out, const unsigned char* drawn = nullptr, const int numDrawn = 0, const int garment = 0) {
 		out.clear();
 		if (g->surfs.empty()) return;
 		const mdxmHeader_t* h = HeaderOf(g->surfs[0]);
@@ -4472,6 +4609,11 @@ namespace {
 		char folder[MAX_QPATH];
 		ModelFolder(h->name, folder, sizeof(folder));
 		std::unordered_map<int, std::vector<float>> pts;	// bone -> bind positions
+		float top = 0.0f;	// SJE r_meshClothGarment: the model's height (bind pose: upright, feet at 0)
+		if (garment) for (const mdxmSurface_t* s : LodSurfaces(g->surfs[0])) {
+			const mdxmVertex_t* v = Verts(s);
+			for (int i = 0; i < s->numVerts; i++) if (v[i].vertCoords[2] > top) top = v[i].vertCoords[2];
+		}
 		for (const mdxmSurface_t* s : LodSurfaces(g->surfs[0])) {
 			if (std::find(g->surfs.begin(), g->surfs.end(), s) != g->surfs.end()) continue;	// cloth isn't body
 			const auto sit = g_surfs.find(s);
@@ -4480,6 +4622,9 @@ namespace {
 			if (drawn ? !(s->thisSurfaceIndex >= 0 && s->thisSurfaceIndex < numDrawn && drawn[s->thisSurfaceIndex]) : (sh->flags & (G2SURFACEFLAG_OFF | G2SURFACEFLAG_ISBOLT)) != 0) continue;
 			if (strstr(sh->name, "_cap_") || strstr(sh->name, "_off")) continue;
 			if (FindDef(folder, sh->name)) continue;	// a cloth surface (meshcloth.cfg)
+			if (garment && FitGarment(s, top)) {	// SJE r_meshClothGarment: a stiff skirt is no body
+				continue;
+			}
 			const int* refs = reinterpret_cast<const int*>(reinterpret_cast<const byte*>(s) + s->ofsBoneReferences);
 			const mdxmVertex_t* v = Verts(s);
 			for (int i = 0; i < s->numVerts; i++) {
@@ -4727,7 +4872,7 @@ void MC_Shown(const void* clothSurface, const void* instanceKey, const unsigned 
 	iit->second->offMask = off;
 }
 
-const void* MC_BodyFit(const void* clothSurface, const int* boneClass, int numBones, const unsigned char* drawn, const int numDrawn) {
+const void* MC_BodyFit(const void* clothSurface, const int* boneClass, int numBones, const unsigned char* drawn, const int numDrawn, const int garment) {
 	const auto sit = g_surfs.find(static_cast<const mdxmSurface_t*>(clothSurface));
 	if (sit == g_surfs.end() || !sit->second.group) return nullptr;
 	const mcGroup_t* g = sit->second.group;
@@ -4739,10 +4884,11 @@ const void* MC_BodyFit(const void* clothSurface, const int* boneClass, int numBo
 	// SJE r_meshClothShown: one fit per set of switched-on surfaces (a model's skins: a handful)
 	unsigned long long key = (1469598103934665603ULL ^ (unsigned long long)(size_t)g) * 1099511628211ULL;
 	if (drawn) for (int i = 0; i < numDrawn; i++) key = (key ^ (unsigned long long)(drawn[i] ? 2 : 1)) * 1099511628211ULL;
+	if (garment) key = (key ^ 7ULL) * 1099511628211ULL;	// SJE r_meshClothGarment: its own fit
 	auto fit = g_fits.find(key);
 	if (fit == g_fits.end()) {
 		std::vector<mcFitShape_t> shapes;
-		FitBody(g, boneClass, numBones, shapes, drawn, numDrawn);
+		FitBody(g, boneClass, numBones, shapes, drawn, numDrawn, garment);
 		fit = g_fits.emplace(key, std::move(shapes)).first;
 	}
 	return fit->second.empty() ? nullptr : &fit->second;

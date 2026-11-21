@@ -3457,6 +3457,8 @@ static cvar_t* mc_hiltBack = nullptr;
 static cvar_t* mc_hiltRadius = nullptr;
 static cvar_t* mc_fist = nullptr;	// SJE r_meshClothFist
 static cvar_t* mc_subdivMean = nullptr;	// SJE r_meshClothSubdivMean (see MC_EdgePoint)
+static cvar_t* mc_twoSide = nullptr;	// SJE r_meshClothTwoSide (see RB_SurfaceGhoul)
+static const float MC_TWOSIDE_EDGE = 0.2f;	// ... the normal turns round over this much of facing away (cosine)
 
 // saber hilt collider: the hand bolt tag (*r_hand, *l_hand) is skinned like the engine skins it
 // for bolts; the hilt lies along the blade direction (the bolt's minus Y = the tag triangle's
@@ -3590,6 +3592,12 @@ static bool MC_WaterHeight(const vec3_t origin, float* z)
 //                       through the cape when the arm swings back (needs r_meshClothFaceCol; 0 = off)
 //  r_meshClothOverArms 1 = a cape or cloak (cloth hanging from shoulder height) lies over arms and hands: a hand
 //                       put behind the back stays under it (needs r_meshClothFaceCol; 0 = off)
+//  r_meshClothGarment   1 = a body part that is itself a skirt (a tube round both legs that is not cloth: an
+//                       inner robe) takes no part in the body fit: stiff, it swings with the legs and shook
+//                       the cloth worn over it at a run (0 = as before)
+//  r_meshClothNoRoom    1 = worn cloth (a robe, a skirt, the strips under it) takes the shape its wearer's pose
+//                       gives it while it has no room to hang - crouching, kneeling, sitting, lying: it is
+//                       not laid crumpled on the ground round the legs (the value scales the pull; 0 = off)
 //  r_meshClothCarryFloor 1 = the body carry (r_meshClothBodyCarry) takes worn cloth (a robe, a skirt, the strips
 //                       under it) down only as far as it has room above the floor: it is not thrown out over
 //                       the ground when its wearer drops into a crouch (0 = as before)
@@ -3616,6 +3624,9 @@ static bool MC_WaterHeight(const vec3_t origin, float* z)
 //                       next frames there too)
 //  r_meshClothResume    0 = off; N = cloth out of view for up to N ms carries on where it was instead of
 //                       settling anew
+//  r_meshClothTwoSide   1 = cloth drawn two-sided is lit on the side the camera sees: its inner side, where it
+//                       shows, is no longer lit as if seen from outside (dark jagged patches on folded
+//                       strips and robes; 0 = as before)
 //  r_meshClothSubdivMean 1 = cloth drawn split (r_meshClothSubdiv): the new points take the mean of their edge's
 //                       two normals, so strips and sheared cloth are not lit in patches (0 = as before)
 //  r_meshClothFist      1 = for a character with a cape or cloak the fist shape lies along the hand (towards its
@@ -3670,6 +3681,8 @@ static void MC_SolverParams(mcParams_t& prm)
 	static cvar_t* wna = nullptr;	// SJE r_meshClothWornAir
 	static cvar_t* shn = nullptr;	// SJE r_meshClothShown
 	static cvar_t* cfl = nullptr;	// SJE r_meshClothCarryFloor
+	static cvar_t* nro = nullptr;	// SJE r_meshClothNoRoom
+	static cvar_t* gmt = nullptr;	// SJE r_meshClothGarment
 	static cvar_t* shd = nullptr;
 	static cvar_t* ova = nullptr;
 	static cvar_t* sl = nullptr;
@@ -3699,6 +3712,8 @@ static void MC_SolverParams(mcParams_t& prm)
 		wna = ri.Cvar_Get("r_meshClothWornAir", "0.25", CVAR_ARCHIVE_ND);
 		shn = ri.Cvar_Get("r_meshClothShown", "1", CVAR_ARCHIVE_ND);
 		cfl = ri.Cvar_Get("r_meshClothCarryFloor", "1", CVAR_ARCHIVE_ND);
+		nro = ri.Cvar_Get("r_meshClothNoRoom", "1", CVAR_ARCHIVE_ND);
+		gmt = ri.Cvar_Get("r_meshClothGarment", "1", CVAR_ARCHIVE_ND);
 		shd = ri.Cvar_Get("r_meshClothShoulders", "1", CVAR_ARCHIVE_ND);
 		ova = ri.Cvar_Get("r_meshClothOverArms", "1", CVAR_ARCHIVE_ND);
 		sl = ri.Cvar_Get("r_meshClothSleep", "1", CVAR_ARCHIVE_ND);
@@ -3710,6 +3725,7 @@ static void MC_SolverParams(mcParams_t& prm)
 		ae = ri.Cvar_Get("r_meshClothAero", "0", CVAR_ARCHIVE_ND);
 		mc_fist = ri.Cvar_Get("r_meshClothFist", "1", CVAR_ARCHIVE_ND);
 		mc_subdivMean = ri.Cvar_Get("r_meshClothSubdivMean", "1", CVAR_ARCHIVE_ND);
+		mc_twoSide = ri.Cvar_Get("r_meshClothTwoSide", "1", CVAR_ARCHIVE_ND);
 		mc_hilt = ri.Cvar_Get("r_meshClothHilt", "1", CVAR_ARCHIVE_ND);
 		mc_hiltLen = ri.Cvar_Get("r_meshClothHiltLen", "9", CVAR_ARCHIVE_ND);
 		mc_hiltBack = ri.Cvar_Get("r_meshClothHiltBack", "4", CVAR_ARCHIVE_ND);
@@ -3754,6 +3770,8 @@ static void MC_SolverParams(mcParams_t& prm)
 	prm.wornAir = wna ? (wna->value > 0.0f ? (wna->value < 1.0f ? wna->value : 1.0f) : 0.0f) : 0.25f;
 	prm.shown = shn ? shn->integer : 1;
 	prm.carryFloor = cfl ? cfl->integer : 1;
+	prm.noRoom = nro ? (nro->value > 0.0f ? (nro->value < 8.0f ? nro->value : 8.0f) : 0.0f) : 1.0f;
+	prm.garment = gmt ? gmt->integer : 1;
 	prm.shoulders = shd ? shd->integer : 1;
 	prm.overArms = ova ? ova->integer : 1;
 	prm.sleep = sl ? sl->integer : 0;
@@ -4235,7 +4253,7 @@ static bool RB_MeshClothPrepare(CBoneCache* bones, const mdxmSurface_t* surface,
 	if (r_meshClothBodyFit && r_meshClothBodyFit->integer && !(prm.lodNear > 0.0f && prm.lodDist > prm.lodNear))
 	{
 		const std::vector<int>& cls = MC_BoneClass(bones->header);
-		cp.bodyFit = MC_BodyFit(surface, cls.data(), static_cast<int>(cls.size()), mcDrawnOk ? mcDrawn.data() : nullptr, mcDrawnOk ? static_cast<int>(mcDrawn.size()) : 0);
+		cp.bodyFit = MC_BodyFit(surface, cls.data(), static_cast<int>(cls.size()), mcDrawnOk ? mcDrawn.data() : nullptr, mcDrawnOk ? static_cast<int>(mcDrawn.size()) : 0, prm.garment);
 		cp.fistAlong = cp.bodyFit != nullptr && MC_ClothHangsHigh(surface);
 	}
 	return true;
@@ -5794,6 +5812,30 @@ void RB_SurfaceGhoul(CRenderableSurface* surf)
 	for (int lv = 0; lv < mcLevels; lv++)
 	{
 		RB_MeshClothSubdivide(baseVertex, baseIndex);
+	}
+	// SJE r_meshClothTwoSide: cloth drawn two-sided is lit on the side the camera sees. The vertex lighting takes
+	// the modelled (outer) normal for both sides, so cloth that turns its inner side to the camera - a strip folded
+	// over, a robe panel lying on the ground inner side up - was lit as if seen from its other side: dark jagged
+	// patches in bright cloth, which read as holes ("torn"). Animated cloth never shows its inner side like that;
+	// simulated cloth does. A vertex whose normal points away from the view point gets it turned round, through the
+	// direction to the camera where it lies edge-on (no jump as the cloth turns). Vertices that face the camera are
+	// not touched. rend2 does this per pixel in its shader.
+	if (isCloth && mc_twoSide && mc_twoSide->integer && tess.shader && tess.shader->cullType == CT_TWO_SIDED)
+	{
+		const float* vo = backEnd.ori.viewOrigin;
+		for (int g = baseVertex; g < tess.numVertexes; g++)
+		{
+			float* n = tess.normal[g];
+			vec3_t toView;
+			VectorSubtract(vo, tess.xyz[g], toView);
+			if (VectorNormalize(toView) < 1e-4f) continue;
+			const float d = DotProduct(n, toView);
+			if (d >= 0.0f) continue;
+			const float t = d <= -MC_TWOSIDE_EDGE ? 1.0f : d * (-1.0f / MC_TWOSIDE_EDGE);	// 0 edge-on .. 1 turned away
+			const float a = 1.0f - 2.0f * t, b = 1.0f - fabsf(a);
+			for (int x = 0; x < 3; x++) n[x] = a * n[x] + b * toView[x];
+			VectorNormalize(n);
+		}
 	}
 
 #ifdef G2_PERFORMANCE_ANALYSIS
