@@ -180,6 +180,7 @@ struct mcParams_t {
 	int		faceCol = 0;	// r_meshClothFaceCol: 1 = the cloth's triangles (not only their corners) are kept out of the whole
 							//   body and on their own side of it (replaces edgeCol: the triangles' edges are tested too)
 	int		sleepShown = 1;	// SJE r_meshClothSleepShown: 1 = cloth the skin has switched off (shown) does not keep the rest awake
+	int		armGap = 1;		// SJE r_meshClothArmGap: 1 = a group whose lines have 'armgap G' is kept G further off the arms (0 = ignored)
 	int		limbLie = 1;	// SJE r_meshClothLimbLie: 1 = cloth lying against a still arm is not thrown as 'gone through' it
 	int		inside = 1;		// SJE r_meshClothInside: 1 = in strong wind a loose layer the model has under worn cloth (tunic strips under a
 							//   robe) stays inside that cloth: blown out through it, it is put back; 0 = as before
@@ -336,7 +337,8 @@ void MC_Push(const float center[3], const float dir[3], float strength, float ra
 // Other characters push cloth (r_meshClothOthers). The glue lists every character's origin once a frame
 // (MC_SetCharacters; MC_CharactersListed says if this frame's list is there), then MC_NearCharacters
 // gives up to max standing-body capsules (world space) of the characters close to one character. Main thread.
-void MC_SetCharacters(int frameId, const float (*origins)[3], int count);
+// SJE: scales (optional, one per character): the size each is drawn at, 1 = its own (r_meshClothShapeScale)
+void MC_SetCharacters(int frameId, const float (*origins)[3], int count, const float* scales = nullptr);
 bool MC_CharactersListed(int frameId);
 int  MC_NearCharacters(const float origin[3], mcCapsule_t* out, int max);
 const int MC_MAX_OTHERS = 4;

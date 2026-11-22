@@ -112,6 +112,7 @@ namespace {
 		// SJE: heavy-cape options (all off unless the line asks for them; see MC_LoadConfig)
 		float			dampH = 0.0f, dampV = 0.0f;	// 'damp H V': share of the cloth's speed (in a frame travelling with the character over the ground) taken per 16 ms, sideways / up-down
 		float			ring = 0.0f;		// 'ring D': second tether level - every point further down is tied rigidly to the nearest point D units (along the cloth) below the attached edge
+		float			armGap = 0.0f;	// SJE 'armgap G': arms keep G units more off this cloth, push it out in bigger steps, every substep (a cloak over the arms)
 		float			bell = 0.0f;		// 'bell B': 0..1 the free cloth's animated spot is its bind shape carried by the hip bone alone (a rigid bell), blended in by B x freedom
 		float			spring = 0.0f, springFade = 0.0f;	// 'spring S A': pull per 16 ms toward the animated spot, S x exp(-A x metres along the cloth from the attached edge)
 		bool			wrap = false;		// 'wrap': cloth on a grid ('proxy N') is drawn from the grid's triangles (each drawn vertex bound to the nearest few)
@@ -176,6 +177,7 @@ namespace {
 		// SJE: heavy-cape options (per particle; empty unless a line of the group asks for one - anyHeavy)
 		std::vector<float>					dampH, dampV, bellW, springS, springA, ringD;
 		bool								anyHeavy = false, anyDamp = false, anyBell = false, anySpring = false, anyRing = false;
+		float								armGap = 0.0f;	// SJE 'armgap': the largest of the group's lines (0 = none)
 		mutable std::vector<int>			ringAnchor;		// per particle: the ring point it is tied to (-1 none; ComputeRing, lazy)
 		mutable std::vector<float>			ringLen;		// ... its bind distance along the cloth to it
 		mutable std::vector<float>			springK;		// per particle: spring per 16 ms (ComputeRing, lazy)
@@ -643,7 +645,7 @@ namespace {
 			}
 			mcCopy(&r->bindPos[s * 3], &g->bindPos[i * 3]);
 		}
-		g->anyHeavy = r->anyHeavy; g->anyDamp = r->anyDamp; g->anyBell = r->anyBell; g->anySpring = r->anySpring; g->anyRing = r->anyRing;
+		g->anyHeavy = r->anyHeavy; g->anyDamp = r->anyDamp; g->anyBell = r->anyBell; g->anySpring = r->anySpring; g->anyRing = r->anyRing; g->armGap = r->armGap;
 		// grid links and triangles
 		std::unordered_map<unsigned long long, char> haveLink;
 		std::unordered_map<unsigned long long, int> edgeOther;
@@ -894,6 +896,7 @@ namespace {
 			if (d->bell > 0.0f) g->anyBell = true;
 			if (d->spring > 0.0f) g->anySpring = true;
 			if (d->ring > 0.0f) g->anyRing = true;
+			if (d->armGap > g->armGap) g->armGap = d->armGap;	// SJE 'armgap'
 		}
 		g->anyHeavy = g->anyDamp || g->anyBell || g->anySpring || g->anyRing;
 		for (size_t si = 0; si < g->surfs.size(); si++) {
@@ -1162,7 +1165,7 @@ namespace {
 	}
 
 	static void EdgeCollide(const mcGroup_t* g, mcInstance_t* in, const mcCapsule_t* caps, int ncaps);
-	static void FaceCollide(const mcGroup_t* g, mcInstance_t* in, const mcCapsule_t* caps, int ncaps, int overArms, int rest, int ease, int lie);
+	static void FaceCollide(const mcGroup_t* g, mcInstance_t* in, const mcCapsule_t* caps, int ncaps, int overArms, int rest, int ease, int lie, int armOn);
 
 	// XPBD compliance (Macklin, Mueller & Chentanez 2016) from a 0..1 'give': the fraction of a
 	// constraint's error left over per substep at the reference 6 substeps per 16 ms. Calibrated
@@ -1309,6 +1312,7 @@ namespace {
 		int		rest = 0;		// SJE r_meshClothRest: 1 = on
 		int		ease = 0;		// SJE r_meshClothEase: 1 = on
 		int		limbLie = 0;	// SJE r_meshClothLimbLie: cloth lying against a still arm is not thrown again (FaceCollide)
+		int		armGapOn = 0;	// SJE r_meshClothArmGap: honour the lines' 'armgap'
 		float	tetherK = 0.0f;	// SJE: fraction of the over-tether distance reeled in per substep (per-step constant)
 		const float* bendK = nullptr;	// SJE: per link, old projection's bend fraction per substep (nullptr = work it out)
 		int		bendModel = 0;	// SJE: 1 = isometric bending stencils instead of the bend links; 2 = for loose cloth only, each
@@ -1735,7 +1739,7 @@ namespace {
 #endif
 			}
 		}
-		if (sv.faceCol & 1) { if (sv.faceNow) FaceCollide(g, in, caps, ncaps, sv.overArms, sv.rest, sv.ease, sv.limbLie); }	// SJE: triangles against the whole body (covers the edges too)
+		if (sv.faceCol & 1) { if (sv.faceNow) FaceCollide(g, in, caps, ncaps, sv.overArms, sv.rest, sv.ease, sv.limbLie, sv.armGapOn); }	// SJE: triangles against the whole body (covers the edges too)
 		else if (sv.edgeCol && !MCDBG_OFF("NOEDGECOL")) EdgeCollide(g, in, caps, ncaps);
 	}
 
@@ -1847,6 +1851,7 @@ namespace {
 	const float MC_FACE_TIGHT = 0.75f;	// ... if the cloth lies this near the body shape (skin-tight), or
 	const float MC_LIE_EPS = 0.05f;	// SJE r_meshClothLimbLie: a triangle this near its clearance off an arm (or further) lies against it
 	const float MC_LIE_MOVE = 1.0f;	// ... if no corner has moved more than this since the step began
+	const float MC_ARMGAP_STEP = 3.0f;	// SJE 'armgap': arms push such cloth out up to this many times MC_FACE_STEP per substep
 	const float MC_FACE_SLACK = 16.0f;	// ... if the cloth there is nearer than this to its attached edge (bind units along the cloth)
 	// SJE: the body's own travel inside its animation (the attached edge's centre against the character's origin).
 	// Slower than MC_BODY_SLOW units/s (a stride's bob, a lean, a swing) the cloth feels all of it; from
@@ -2683,7 +2688,9 @@ namespace {
 		std::stable_partition(out.begin(), out.end(), [caps](const mcFacePair_t& fp) { return caps[fp.cap].hard != 1 && caps[fp.cap].hard != 2 && caps[fp.cap].hard != 4; });
 	}
 
-	static void FaceCollide(const mcGroup_t* g, mcInstance_t* in, const mcCapsule_t* caps, int ncaps, int overArms, int rest, int ease, int lie) {
+	static void FaceCollide(const mcGroup_t* g, mcInstance_t* in, const mcCapsule_t* caps, int ncaps, int overArms, int rest, int ease, int lie, int armOn) {
+		// SJE 'armgap' (r_meshClothArmGap): a cloak over the arms is kept further off them and pushed out harder
+		const float armG = armOn && g->armGap > 0.0f ? g->armGap * in->linkScale : 0.0f;
 		if (in->facePairs.empty()) return;
 		const int nt = (int)(g->tris.size() / 3);
 		std::vector<float>& sph = in->triSphere;
@@ -2722,7 +2729,7 @@ namespace {
 			float* x[3] = { &in->p[id[0] * 3], &in->p[id[1] * 3], &in->p[id[2] * 3] };
 			// held things are kept a little further off: cloth pressed against a hilt or a blade by the travel wind
 			// (a cape edge swinging round the saber hand, walking backwards) sat up to 0.6 units in their surface
-			const float minD = cap.r + margin + (tool ? MC_FACE_TOOL : 0.0f);
+			const float minD = cap.r + margin + (tool ? MC_FACE_TOOL : 0.0f) + (limb && !tool ? armG : 0.0f);	// SJE 'armgap'
 			float* S = &sph[(size_t)(fp.tri / 3) * 5];
 			if (S[3] < 0.0f) {
 				S[0] = S[1] = S[2] = 0.0f;
@@ -3041,7 +3048,8 @@ namespace {
 				mcScale(nv, 1.0f / dist, dir);
 			}
 			if (depth <= 0.0f) continue;
-			if (depth > MC_FACE_STEP) depth = MC_FACE_STEP;
+			const float fStep = limb && !tool ? MC_FACE_STEP * (armG > 0.0f ? MC_ARMGAP_STEP : 1.0f) : MC_FACE_STEP;	// SJE 'armgap'
+			if (depth > fStep) depth = fStep;
 			// shared by the free corners by their weight in the closest point; where it is mostly at attached
 			// corners, the animation holds it
 			float kk[3], ksum = 0.0f, den = 0.0f;
@@ -3056,7 +3064,7 @@ namespace {
 				// a hand on the hip threw the robe's top corners out). The body and the shoulders keep it: the cape
 				// over the shoulder armour hangs from attached corners and has to be lifted clear by the free one.
 				if (hand && mv > depth) mv = depth;
-				if (mv > MC_FACE_STEP) mv = MC_FACE_STEP;
+				if (mv > fStep) mv = fStep;
 				mv *= sc[k];	// SJE r_meshClothEase: a point that is being let go
 				// SJE r_meshClothEase: a point the shake watchdog let go (FightUpdate) was given back after about 3 s at the
 				// test's full strength. Where the cloth had come to rest in a place two body shapes dispute (the strip under
@@ -3722,6 +3730,7 @@ namespace {
 		solve.ease = prm->ease != 0;
 		solve.limbLie = prm->limbLie;
 		// SJE: heavy-cape options ('damp', 'spring', 'bell', 'ring'; only groups with a line that asks for one).
+		solve.armGapOn = prm->armGap;	// SJE r_meshClothArmGap
 		// Per substep each point gets its animated spot (in->anchor): the animated pose, with the hip-carried shape
 		// blended in where the line has 'bell' (BellPose), never under the floor.
 		const bool heavy = g->anyHeavy && (int)g->dampH.size() == g->numParticles && (int)g->springK.size() == g->numParticles;
@@ -4321,7 +4330,7 @@ namespace {
 				}
 				cs = capsSub;
 			}
-			solve.faceNow = (s & 1) || s == sub - 1;
+			solve.faceNow = (s & 1) || s == sub - 1 || (solve.armGapOn && g->armGap > 0.0f);	// SJE 'armgap'
 			SolveConstraints(g, in, cs, ncaps, solve);
 			if (selfSub) SolveSelfPairs(g, in, prm->frictionScale, prm->calm != 0, MC_FIGHT_TRIP, fineSelf);
 			if (prm->layers && !g->layerPairs.empty()) SolveLayerPairs(g, in, prm);	// SJE: cloth layers keep their order
@@ -5461,6 +5470,7 @@ int MC_LoadConfig(const char* text) {
 			}
 			else if (!Q_stricmp(tok, "ring")) { d.ring = (float)atof(COM_ParseExt(&p, qfalse)); if (d.ring < 0.0f) d.ring = 0.0f; }
 			else if (!Q_stricmp(tok, "bell")) d.bell = Clamp01((float)atof(COM_ParseExt(&p, qfalse)));
+			else if (!Q_stricmp(tok, "armgap")) { d.armGap = (float)atof(COM_ParseExt(&p, qfalse)); if (d.armGap < 0.0f) d.armGap = 0.0f; if (d.armGap > 4.0f) d.armGap = 4.0f; }	// SJE
 			else if (!Q_stricmp(tok, "wrap")) d.wrap = true;
 			else if (!Q_stricmp(tok, "spring")) {
 				d.spring = (float)atof(COM_ParseExt(&p, qfalse)); d.springFade = (float)atof(COM_ParseExt(&p, qfalse));
@@ -6581,9 +6591,12 @@ void MC_LevelWindParse(const char* text, const char* mapName, mcLevelWind_t* out
 
 // MC_SetCharacters / MC_NearCharacters (r_meshClothOthers): other characters push cloth. Main thread.
 static std::vector<float> g_charOrigins;
+static std::vector<float> g_charScales;	// SJE r_meshClothShapeScale: the size each character is drawn at (empty = all 1)
 static int g_charFrame = -1;
 
-void MC_SetCharacters(int frameId, const float (*origins)[3], int count) {
+void MC_SetCharacters(int frameId, const float (*origins)[3], int count, const float* scales) {
+	if (scales && count > 0) g_charScales.assign(scales, scales + count);
+	else g_charScales.clear();
 	g_charFrame = frameId;
 	g_charOrigins.assign(&origins[0][0], &origins[0][0] + count * 3);
 }
@@ -6604,10 +6617,12 @@ int MC_NearCharacters(const float origin[3], mcCapsule_t* out, int max) {
 		const float d2 = dx * dx + dy * dy;
 		if (d2 < 1.0f && fabsf(dz) < 1.0f) continue;	// this character itself
 		if (d2 > NEAR * NEAR || fabsf(dz) > 64.0f) continue;
+		// SJE r_meshClothShapeScale: the column follows the other's drawn size (Yoda at 45 % stood as a full-size column)
+		const float s = (int)g_charScales.size() == count ? g_charScales[i] : 1.0f;
 		mcCapsule_t& c = out[n++];
-		c.a[0] = o[0]; c.a[1] = o[1]; c.a[2] = o[2] - 12.0f;
-		c.b[0] = o[0]; c.b[1] = o[1]; c.b[2] = o[2] + 28.0f;
-		c.r = 12.0f;
+		c.a[0] = o[0]; c.a[1] = o[1]; c.a[2] = o[2] - 12.0f * s;
+		c.b[0] = o[0]; c.b[1] = o[1]; c.b[2] = o[2] + 28.0f * s;
+		c.r = 12.0f * s;
 		c.hard = 0;
 	}
 	return n;

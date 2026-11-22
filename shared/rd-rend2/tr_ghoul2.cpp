@@ -4466,6 +4466,14 @@ static void MC_SolverParams(mcParams_t& prm)
 	}
 	prm.sleep = sl ? sl->integer : 0;
 	prm.limbLie = llie ? llie->integer : 1;
+	{	// SJE r_meshClothArmGap
+		static cvar_t* agc = nullptr;
+		if (!agc)
+		{
+			agc = MC_ClothCvar("r_meshClothArmGap", "1", "1 = mesh cloth lines with 'armgap G' (a cloak over the arms) are kept G units further off the arms and pushed out harder; 0 = ignored");
+		}
+		prm.armGap = agc ? agc->integer : 1;
+	}
 	prm.sleepShown = slsh ? slsh->integer : 1;
 	prm.selfSub = ss ? ss->integer : 0;
 	prm.calm = calm ? calm->integer : 1;
@@ -4560,9 +4568,18 @@ static void MC_BreezeInside(const trRefEntity_t* ent, mcParams_t& prm)
 // with or without wind. The radii are scaled with the model where it is drawn more than MC_SHAPE_SCALE_OFF off its
 // size; the main characters (Vader 113 %, Dooku 107 %, Kylo 105 %, Sidious 96 %) keep their shapes as tuned.
 static const float MC_SHAPE_SCALE_OFF = 0.2f;
+static cvar_t* s_mcShapeScaleCv = nullptr;	// r_meshClothShapeScale (made by MC_ShapeScale, read by the nearby-characters list)
+// the factor itself: the size the entity is drawn at where it is more than MC_SHAPE_SCALE_OFF off, else 1
+static float MC_ShapeScaleOf(const trRefEntity_t* ent)
+{
+	float s = ent->e.modelScale[0];
+	if (ent->e.modelScale[1] > s) s = ent->e.modelScale[1];
+	if (ent->e.modelScale[2] > s) s = ent->e.modelScale[2];
+	return s <= 0.0f || fabsf(s - 1.0f) <= MC_SHAPE_SCALE_OFF ? 1.0f : s;
+}
 static void MC_ShapeScale(const trRefEntity_t* ent, mcCapsule_t* c, const int n)
 {
-	static cvar_t* ss = nullptr;
+	cvar_t*& ss = s_mcShapeScaleCv;
 	if (!ss)
 	{
 		ss = MC_ClothCvar("r_meshClothShapeScale", "1", "1 = the mesh cloth's body shapes follow a character drawn far off its size (Yoda); 0 = as before");
@@ -4571,10 +4588,8 @@ static void MC_ShapeScale(const trRefEntity_t* ent, mcCapsule_t* c, const int n)
 	{
 		return;
 	}
-	float s = ent->e.modelScale[0];
-	if (ent->e.modelScale[1] > s) s = ent->e.modelScale[1];
-	if (ent->e.modelScale[2] > s) s = ent->e.modelScale[2];
-	if (s <= 0.0f || fabsf(s - 1.0f) <= MC_SHAPE_SCALE_OFF)
+	const float s = MC_ShapeScaleOf(ent);
+	if (s == 1.0f)
 	{
 		return;	// not scaled (0 = the model's own size) or close to it
 	}
@@ -4772,17 +4787,20 @@ static int MC_OthersNear(const trRefEntity_t* ent, mcCapsule_t* out)
 	}
 	if (!MC_CharactersListed(tr.frameCount))
 	{
-		static std::vector<float> origins;
+		static std::vector<float> origins, scales;	// SJE r_meshClothShapeScale: a nearby character's column follows its size
 		origins.clear();
+		scales.clear();
 		for (int i = 0; i < backEnd.refdef.num_entities; i++)
 		{
 			const trRefEntity_t* e = &backEnd.refdef.entities[i];
 			if (e->e.reType == RT_MODEL && e->e.ghoul2 && !MC_IsCarried((&backEnd.refdef), e))	// SJE r_meshClothCarried
 			{
 				origins.insert(origins.end(), e->e.origin, e->e.origin + 3);
+				scales.push_back(MC_ShapeScaleOf(e));
 			}
 		}
-		MC_SetCharacters(tr.frameCount, reinterpret_cast<const float(*)[3]>(origins.data()), static_cast<int>(origins.size() / 3));
+		MC_SetCharacters(tr.frameCount, reinterpret_cast<const float(*)[3]>(origins.data()), static_cast<int>(origins.size() / 3),
+			!s_mcShapeScaleCv || s_mcShapeScaleCv->value > 0.0f ? scales.data() : nullptr);
 	}
 	return MC_NearCharacters(ent->e.origin, out, MC_MAX_OTHERS);
 }
