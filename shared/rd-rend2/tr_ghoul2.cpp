@@ -4466,6 +4466,14 @@ static void MC_SolverParams(mcParams_t& prm)
 	}
 	prm.sleep = sl ? sl->integer : 0;
 	prm.limbLie = llie ? llie->integer : 1;
+	{	// SJE r_meshClothBlastGain (MC_Blast, from the renderer commands; read here once a frame)
+		static cvar_t* bgc = nullptr;
+		if (!bgc)
+		{
+			bgc = MC_ClothCvar("r_meshClothBlastGain", "3", "Mesh cloth: how hard explosions blow capes and robes (3; 1 = the old strength, 0 = off)");
+		}
+		MC_SetBlastGain(bgc ? bgc->value : 3.0f);
+	}
 	{	// SJE r_meshClothArmGap
 		static cvar_t* agc = nullptr;
 		if (!agc)
