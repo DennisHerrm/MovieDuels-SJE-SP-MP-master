@@ -7533,7 +7533,9 @@ static void UI_UpdateSaberCvars()
 		Cvar_Set("g_NPCsabertwocolor", Cvar_VariableString("ui_npc_sabertwocolor"));
 	}
 
-	if (TranslateSaberColor(Cvar_VariableString("ui_saber_color")) >= SABER_RGB)
+	// SJE: only a colour the menu really set (an empty one, as in a fresh profile, came out as custom RGB black "x000000":
+	// the first drawn saber was a white core without colour or glow)
+	if (Cvar_VariableString("ui_saber_color")[0] && TranslateSaberColor(Cvar_VariableString("ui_saber_color")) >= SABER_RGB)
 	{
 		char rgbColor[8];
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber_red"),
@@ -7549,7 +7551,7 @@ static void UI_UpdateSaberCvars()
 		}
 	}
 
-	if (TranslateSaberColor(Cvar_VariableString("ui_saber2_color")) >= SABER_RGB)
+	if (Cvar_VariableString("ui_saber2_color")[0] && TranslateSaberColor(Cvar_VariableString("ui_saber2_color")) >= SABER_RGB)
 	{
 		char rgbColor[8];
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber2_red"),

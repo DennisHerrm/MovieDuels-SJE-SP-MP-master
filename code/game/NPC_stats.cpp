@@ -49,6 +49,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../qcommon/md_animsets.h"
 
 extern void WP_RemoveSaber(gentity_t* ent, int saberNum);
+extern void WP_RemoveSecondSaber(gentity_t* ent, int saberNum);
 extern qboolean NPCsPrecached;
 extern vec3_t playerMins;
 extern vec3_t playerMaxs;
@@ -2469,6 +2470,8 @@ qboolean NPC_ParseParms(const char* npc_name, gentity_t* npc)
 			return qfalse;
 		}
 
+		// SJE: whether this file names a second saber (a new first saber without one drops one left from before)
+		bool parsed_saber2 = false;
 		// parse the NPC info block
 		while (true)
 		{
@@ -4211,6 +4214,13 @@ qboolean NPC_ParseParms(const char* npc_name, gentity_t* npc)
 				}
 				const char* saber_name = G_NewString(value);
 				WP_SaberParseParms(saber_name, &npc->client->ps.saber[0]);
+				// SJE: a new first saber from this file - a second saber left from the character before goes, unless this file
+				// names its own (a script changing the player from Ahsoka to Dooku: Dooku held her second saber). A new NPC
+				// has none to drop.
+				if (!parsed_saber2 && npc->client->ps.dualSabers)
+				{
+					WP_RemoveSecondSaber(npc, 1);
+				}
 				//if it requires a specific style, make sure we know how to use it
 				if (npc->client->ps.saber[0].stylesLearned)
 				{
@@ -4226,6 +4236,7 @@ qboolean NPC_ParseParms(const char* npc_name, gentity_t* npc)
 			//second saber name
 			if (!Q_stricmp(token, "saber2"))
 			{
+				parsed_saber2 = true;	// SJE
 				if (COM_ParseString(&p, &value))
 				{
 					continue;
