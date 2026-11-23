@@ -1108,7 +1108,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 	else if (G_InKnockDown(&self->client->ps))
 	{
 		//since these happen a lot, let's handle them case by case
-		int anim_length = bgAllAnims[self->localAnimIndex].anims[self->client->ps.legsAnim].numFrames * fabs(
+		int anim_length = G_EntAnims(self)[self->client->ps.legsAnim].numFrames * fabs(
 			bgHumanoidAnimations[self->client->ps.legsAnim].frameLerp);
 		switch (self->client->ps.legsAnim)
 		{
@@ -3237,8 +3237,10 @@ static void G_AwardStreaks(gentity_t* self, gentity_t* attacker)
 
 extern void G_Shop_Died(gentity_t* victim, gentity_t* attacker);
 
+extern void G_DynDiffDeath(const gentity_t* self, const gentity_t* attacker); // w_saberblocking.c
 void player_die(gentity_t* self, const gentity_t* inflictor, gentity_t* attacker, const int damage, const int means_of_death)
 {
+	G_DynDiffDeath(self, attacker); // g_dynamicDifficulty (2026-11-22)
 	const int gun_shot = s_die_gun_shot;
 	s_die_gun_shot = GUN_SHOT_NONE;
 	int killer = 0;

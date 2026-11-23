@@ -4654,6 +4654,7 @@ void BG_PlayerStateToEntityState(playerState_t* ps, entityState_t* s, const qboo
 	s->SaberSmashStartTime = ps->SaberSmashStartTime;
 	s->SaberSmashLastStartTime = ps->SaberSmashLastStartTime;
 	s->Smash_Count = ps->Smash_Count;
+	s->animStyle = ps->animStyle; // cgame plays this style's versions (BG_StyledAnims, 2026-11-22)
 
 	s->powerups = 0;
 	for (int i = 0; i < MAX_POWERUPS; i++)
@@ -4881,6 +4882,7 @@ void BG_PlayerStateToEntityStateExtraPolate(playerState_t* ps, entityState_t* s,
 	s->SaberSmashStartTime = ps->SaberSmashStartTime;
 	s->SaberSmashLastStartTime = ps->SaberSmashLastStartTime;
 	s->Smash_Count = ps->Smash_Count;
+	s->animStyle = ps->animStyle; // cgame plays this style's versions (BG_StyledAnims, 2026-11-22)
 
 	s->powerups = 0;
 	for (int i = 0; i < MAX_POWERUPS; i++)
@@ -4985,16 +4987,16 @@ int BG_ModelCache(const char* model_name, const char* skin_name)
 #if defined(_GAME)
 	// Server: NPCs, animation structs, saber data, AI pools, Increase for more NPCs/Bots
 //#define MAX_POOL_SIZE 4194304    // 4 MB
-#define MAX_POOL_SIZE   8388608    // 8 MB
-//#define MAX_POOL_SIZE 12582912   // 12 MB
+//#define MAX_POOL_SIZE   8388608    // 8 MB
+#define MAX_POOL_SIZE 12582912   // 12 MB (MovieDuels 2026-11-22: animation sets are ~86 KB each since the Master set variants)
 //#define MAX_POOL_SIZE 15728640   // 15 MB
 //#define MAX_POOL_SIZE 20971520   // 20 MB
 #elif defined(_CGAME)
 	// Client game: less needed, but still safe
-#define MAX_POOL_SIZE   8388608    // 8 MB (MovieDuels: Classic animation style loads every model's own animation set, about 60 KB each)
+#define MAX_POOL_SIZE   12582912   // 12 MB (MovieDuels: Classic animation style loads every model's own animation set, ~86 KB each since the 2026-11-22 Master set variants)
 #elif defined(UI_BUILD)
 	// UI: only G2 menu models + small allocations
-#define MAX_POOL_SIZE   1048576    // 1 MB
+#define MAX_POOL_SIZE   4194304    // 4 MB (MovieDuels 2026-11-22: each preview animation set is ~86 KB since the Master set variants; was 1 MB)
 //#define MAX_POOL_SIZE   2097152    // 2 MB Increase for larger menu count
 #endif
 

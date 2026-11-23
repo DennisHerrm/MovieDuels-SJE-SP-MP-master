@@ -2090,6 +2090,7 @@ typedef struct entityState_s {
 	int SaberSmashStartTime;
 	int SaberSmashLastStartTime;
 	int Smash_Count;
+	int animStyle; // MovieDuels 2026-11-22: the animation style (ANIMSTYLE_*) of a player / bot / NPC, so cgame plays its style's versions (BG_StyledAnims)
 } entityState_t; //any additions here must also be added to entityStateFields in msg.cpp and netf_overrides.txt in ext-data/ mp
 
 typedef enum {

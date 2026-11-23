@@ -101,6 +101,7 @@ extern cvar_t* g_HitTracking;
 void wp_block_points_regenerate_over_ride(const gentity_t* self, int override_amt);
 extern qboolean NPC_IsOversized(const gentity_t* self);
 extern void npc_check_speak(gentity_t* speaker_npc);
+extern int G_DynSkill(int base); // wp_saberblocking.cpp (g_dynamicDifficulty)
 extern qboolean WP_SaberBladeUseSecondBladeStyle(const saberInfo_t* saber, int bladeNum);
 extern qboolean WP_SaberBladeDoTransitionDamage(const saberInfo_t* saber, int bladeNum);
 extern qboolean Q3_TaskIDPending(const gentity_t* ent, taskID_t taskType);
@@ -5472,7 +5473,7 @@ static qboolean WP_SaberDamageForTrace(const int ignore,
 						attacker->client->NPC_class == CLASS_ALORA ||
 						(attacker->NPC &&
 							(attacker->NPC->aiFlags & NPCAI_BOSS_CHARACTER ||
-								attacker->NPC->aiFlags & NPCAI_BOSS_SERENITYJEDIENGINE)))))
+								NPC_IsSJEBoss(attacker))))))
 			{
 				use_radius_for_damage = SABER_RADIUS_DAMAGE_DIST;
 			}
@@ -11208,8 +11209,7 @@ static void wp_saber_damage_trace_amd(gentity_t* ent, int saberNum, int bladeNum
 					hit_owner
 					&& hit_owner->client
 					&& hit_owner->NPC
-					&& (hit_owner->NPC->aiFlags & NPCAI_BOSS_CHARACTER || hit_owner->NPC->aiFlags &
-						NPCAI_BOSS_SERENITYJEDIENGINE))
+					&& (hit_owner->NPC->aiFlags & NPCAI_BOSS_CHARACTER || NPC_IsSJEBoss(hit_owner)))
 					//or if blocked by a Boss character FIXME: or base on defense level?
 				{
 					//knock it aside and turn it off
@@ -12620,8 +12620,7 @@ static void WP_SaberDamageTrace_MD(gentity_t* ent, int saberNum, int bladeNum)
 					hit_owner
 					&& hit_owner->client
 					&& hit_owner->NPC
-					&& (hit_owner->NPC->aiFlags & NPCAI_BOSS_CHARACTER || hit_owner->NPC->aiFlags &
-						NPCAI_BOSS_SERENITYJEDIENGINE))
+					&& (hit_owner->NPC->aiFlags & NPCAI_BOSS_CHARACTER || NPC_IsSJEBoss(hit_owner)))
 					//or if blocked by a Boss character FIXME: or base on defense level?
 				{
 					//knock it aside and turn it off
@@ -14051,7 +14050,7 @@ static void WP_SaberImpact(gentity_t* owner, gentity_t* saber, trace_t* trace)
 		other->health > 0 &&
 		((other->NPC &&
 			((other->NPC->aiFlags & NPCAI_BOSS_CHARACTER) ||
-				(other->NPC->aiFlags & NPCAI_BOSS_SERENITYJEDIENGINE))) ||
+				(NPC_IsSJEBoss(other)))) ||
 			other->client->NPC_class == CLASS_BOBAFETT ||
 			other->client->NPC_class == CLASS_JANGO ||
 			other->client->NPC_class == CLASS_JANGODUAL ||
@@ -24565,7 +24564,7 @@ static void WP_SaberBlasterAI(gentity_t* ent, usercmd_t* ucmd)
 		return;
 	}
 
-	const int skill = g_spskill->integer < 0 ? 0 : g_spskill->integer > 3 ? 3 : g_spskill->integer;
+	const int skill = G_DynSkill(g_spskill->integer < 0 ? 0 : g_spskill->integer > 3 ? 3 : g_spskill->integer);
 	const float range = g_saberBlasterAimRange->value;
 	qboolean want_gun;
 	if (saberBlasterAIGun[ent_num])
@@ -26037,8 +26036,7 @@ void WP_ResistForcePush(gentity_t* self, const gentity_t* pusher, const qboolean
 	}
 
 	if ((!self->s.number
-		|| self->NPC && (self->NPC->aiFlags & NPCAI_BOSS_CHARACTER || self->NPC->aiFlags &
-			NPCAI_BOSS_SERENITYJEDIENGINE)
+		|| self->NPC && (self->NPC->aiFlags & NPCAI_BOSS_CHARACTER || NPC_IsSJEBoss(self))
 		|| self->client && self->client->NPC_class == CLASS_SHADOWTROOPER
 		|| (self->flags & FL_NOTARGET || self->client->noclip))
 		&& (VectorLengthSquared(self->client->ps.velocity) > 10000 || self->client->ps.forcePowerLevel[FP_PUSH] >=

@@ -5695,6 +5695,11 @@ typedef enum //# animNumber_e
 	BOTH_FORCEJUMPDASH_ATTACK,
 	BOTH_FORCEJUMPDASH_LAND,
 
+	// every humanoid set's own versions merged into the Master _humanoid (2026-11-22), e.g. BOTH_RUN2_ANI
+#define ANIM_VARIANT(x) x,
+#include "game/anims_variants.h"
+#undef ANIM_VARIANT
+
 	//# #eol
 	MAX_ANIMATIONS,
 	MAX_TOTALANIMATIONS,

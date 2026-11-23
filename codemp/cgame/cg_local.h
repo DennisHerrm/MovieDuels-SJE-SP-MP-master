@@ -2294,6 +2294,7 @@ int FindGender(const char* model_path, const centity_t* cent);
 void CG_DestroyNPCClient(clientInfo_t** ci);
 
 void CG_Player(centity_t* cent);
+animation_t* CG_EntAnims(const centity_t* cent); // cg_players.c: the anim table this entity plays (its style's copy of the Master set)
 void CG_ResetPlayerEntity(centity_t* cent);
 qboolean CG_SaberSliceApply(centity_t* cent, refEntity_t* ent);
 qboolean CG_SaberSlicePiece(centity_t* cent);

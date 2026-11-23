@@ -1182,7 +1182,8 @@ netField_t entityStateFields[] =
 
 	{ NETF(SaberSmashStartTime), 32 },
 	{ NETF(SaberSmashLastStartTime), 32 },
-	{ NETF(Smash_Count), 32 }
+	{ NETF(Smash_Count), 32 },
+	{ NETF(animStyle), 5 } // MovieDuels 2026-11-22: ANIMSTYLE_* (0..24)
 };
 
 // if (int)f == f and (int)f + ( 1<<(FLOAT_INT_BITS-1) ) < ( 1 << FLOAT_INT_BITS )

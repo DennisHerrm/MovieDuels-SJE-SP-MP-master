@@ -1050,7 +1050,7 @@ static qboolean UI_IsHumanoidPath(const char* path)
 
 	return qfalse;
 }
-static char UIPAFtext[200000];
+static char UIPAFtext[1048576]; // was 200000: the Master _humanoid animation.cfg is ~426 KB since the 2026-11-22 set variants (game side: BG_ANIM_TEXT_BUFFER_SIZE)
 
 int UI_ParseAnimationFile(const char* filename, animation_t* animset, qboolean is_humanoid)
 {
@@ -1172,7 +1172,7 @@ int UI_ParseAnimationFile(const char* filename, animation_t* animset, qboolean i
 		if (!token || !token[0])
 			break;
 
-		const int animNum = GetIDForString(animTable, token);
+		const int animNum = AnimTable_GetID(token);
 		if (animNum == -1)
 			continue;
 
@@ -2371,8 +2371,8 @@ void UI_LoadMenus(const char* menuFile, const qboolean reset)
 	Com_Printf("----------------------- MovieDuels-SJE-MP -----------------------\n");
 	Com_Printf("-----------------------------------------------------------------\n");
 	Com_Printf("-------------------------- Update 9.0 ---------------------------\n");
-	Com_Printf("--------------------- Build Date 21/11/2026 ---------------------\n");// build date
-	Com_Printf("--------------------------- Build 12 ----------------------------\n");
+	Com_Printf("--------------------- Build Date 23/11/2026 ---------------------\n");// build date
+	Com_Printf("--------------------------- Build 13 ----------------------------\n");
 	Com_Printf("-----------------------------------------------------------------\n");
 	Com_Printf("-------------------------- Lightsaber ---------------------------\n");
 	Com_Printf("---------- An elegant weapon for a more civilized age -----------\n");

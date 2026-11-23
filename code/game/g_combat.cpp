@@ -5282,9 +5282,11 @@ static void G_AwardStreaks(gentity_t* self, gentity_t* attacker)
 
 extern void G_Shop_Died(gentity_t* victim, gentity_t* attacker);
 
+extern void G_DynDiffDeath(const gentity_t* self, const gentity_t* attacker); // wp_saberblocking.cpp
 void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker,
 	const int damage, const int means_of_death, const int dflags, const int hit_loc)
 {
+	G_DynDiffDeath(self, attacker); // g_dynamicDifficulty (2026-11-22)
 	// a wampa or rancor dying with a victim in its hand: no saber slice on it in this death (s_noSliceDying, DH 2026-11-11)
 	const NoSliceDyingGuard no_slice_dying(self->client && (self->client->NPC_class == CLASS_WAMPA || self->client->NPC_class == CLASS_RANCOR)
 		&& self->count && self->activator ? self : s_noSliceDying);

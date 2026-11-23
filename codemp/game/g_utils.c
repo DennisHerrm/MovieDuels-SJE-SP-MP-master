@@ -701,6 +701,13 @@ void G_CleanAllFakeClients(void)
 		i++;
 	}
 }
+// The anim table an entity plays (2026-11-22): its animation style's copy of the Master set (BG_StyledAnims) when it is
+// on the Master set, else its own set's table. The callers check localAnimIndex as they did for bgAllAnims[].anims.
+animation_t* G_EntAnims(const gentity_t* ent)
+{
+	animation_t* anims = bgAllAnims[ent->localAnimIndex].anims;
+	return BG_StyledAnims(anims, ent->client ? ent->client->ps.animStyle : ANIMSTYLE_DEFAULT);
+}
 
 /*
 =============
@@ -721,7 +728,7 @@ void G_SetAnim(gentity_t* ent, usercmd_t* ucmd, int setAnimParts, int anim, int 
 
 	memset(&pmv, 0, sizeof(pmv));
 	pmv.ps = &ent->client->ps;
-	pmv.animations = bgAllAnims[ent->localAnimIndex].anims;
+	pmv.animations = G_EntAnims(ent);
 	if (!ucmd)
 	{
 		pmv.cmd = ent->client->pers.cmd;
@@ -739,7 +746,7 @@ void G_SetAnim(gentity_t* ent, usercmd_t* ucmd, int setAnimParts, int anim, int 
 	PM_SetAnim(setAnimParts, anim, setAnimFlags, blendTime);
 #else //new clean and shining way!
 	assert(ent->client);
-	BG_SetAnim(&ent->client->ps, bgAllAnims[ent->localAnimIndex].anims, setAnimParts, anim, setAnimFlags);
+	BG_SetAnim(&ent->client->ps, G_EntAnims(ent), setAnimParts, anim, setAnimFlags);
 #endif
 }
 
@@ -1393,6 +1400,8 @@ Marks the entity as free
 */
 extern qboolean EjectAll(Vehicle_t* p_veh);
 
+extern void G_ForgetAlertOwner(const gentity_t* owner);
+
 void G_FreeEntity(gentity_t* ed)
 {	if (ed->isSaberEntity)
 	{
@@ -1411,6 +1420,8 @@ void G_FreeEntity(gentity_t* ed)
 	trap->UnlinkEntity((sharedEntity_t*)ed); // unlink from world
 
 	trap->ICARUS_FreeEnt((sharedEntity_t*)ed); //ICARUS information must be added after this point
+
+	G_ForgetAlertOwner(ed); // JA:R fix: no NPC reacts to a stale alert from this slot's next owner
 
 	if (ed->neverFree)
 	{

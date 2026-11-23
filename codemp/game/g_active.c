@@ -3862,7 +3862,7 @@ static int G_GunAnim(const gentity_t* ent, const gunAnimKind_t kind)
 		anim = flags.isBattleDroid ? rifleDroid[kind] : rifle[kind];
 	}
 
-	if (ent->localAnimIndex < 0 || bgAllAnims[ent->localAnimIndex].anims[anim].numFrames <= 0)
+	if (ent->localAnimIndex < 0 || G_EntAnims(ent)[anim].numFrames <= 0)
 	{
 		return generic[kind];
 	}
@@ -4590,8 +4590,8 @@ static void ClientThink_real(gentity_t* ent)
 
 	// This code was moved here from clientThink to fix a problem with g_synchronousClients
 	// being set to 1 when in vehicles.
-	// (an AI pilot of the space maps' ships, ai_fighter.c, drives his the same way)
-	if ((ent->s.number < MAX_CLIENTS || ent->NPC && ent->classname && !Q_stricmp(ent->classname, "fighter_pilot"))
+	// (an AI pilot drives his the same way, as in SP: the space maps' ships, ai_fighter.c, and the swoop riders, AI_Vehicle.c)
+	if ((ent->s.number < MAX_CLIENTS || ent->NPC && ent->client->NPC_class != CLASS_VEHICLE)
 		&& ent->client->ps.m_iVehicleNum)
 	{
 		//driving a vehicle
@@ -6084,25 +6084,25 @@ static void ClientThink_real(gentity_t* ent)
 		}
 		else if (IsPressingKickButton(ent))
 		{
-			if (client->ps.kickstartTime <= 0 && level.time - client->ps.kicklaststartTime >= 1500)
+			// A kick press opens a 0.5 s window for the kick / slap to start. The 1.5 s spacing between kicks starts
+			// only when one really starts, so a press made while no kick can happen (mid swing, blocking, rolling,
+			// knocked down...) is not used up and the next press works (DH 2026-11-23: kicks took up to 3 tries).
+			if (client->ps.kickstartTime > 0
+				&& (PM_KickMove(client->ps.saberMove) || PM_KickingAnim(client->ps.legsAnim) || PM_KickingAnim(client->ps.torsoAnim)))
 			{
-				// They just pressed kick. Mark the time... 5000 wait between allowed kicks.
-				client->ps.kickstartTime = level.time;
 				client->ps.kicklaststartTime = level.time;
-
-				if (!(client->ps.communicatingflags & 1 << CF_KICKING))
-				{
-					client->ps.communicatingflags |= 1 << CF_KICKING;
-				}
+				client->ps.kickstartTime = 0;
+				client->ps.communicatingflags &= ~(1 << CF_KICKING);
 			}
-			else
+			else if (client->ps.kickstartTime <= 0 && level.time - client->ps.kicklaststartTime >= 1500)
 			{
-				if (level.time - client->ps.kicklaststartTime >= 500)
-				{
-					// When kick was pressed, wait 3000 before letting go.
-					client->ps.kickstartTime = 0;
-					client->ps.communicatingflags &= ~(1 << CF_KICKING);
-				}
+				client->ps.kickstartTime = level.time;
+				client->ps.communicatingflags |= 1 << CF_KICKING;
+			}
+			else if (client->ps.kickstartTime > 0 && level.time - client->ps.kickstartTime >= 500)
+			{
+				client->ps.kickstartTime = 0;
+				client->ps.communicatingflags &= ~(1 << CF_KICKING);
 			}
 		}
 		else if (client->ps.weapon == WP_STUN_BATON && ucmd->buttons & BUTTON_ALT_ATTACK)
@@ -6583,7 +6583,7 @@ static void ClientThink_real(gentity_t* ent)
 	pmove.pmove_msec = pmove_msec.integer;
 	pmove.pmove_float = pmove_float.integer;
 
-	pmove.animations = bgAllAnims[ent->localAnimIndex].anims; //NULL;
+	pmove.animations = G_EntAnims(ent); //NULL;
 
 	//rww - bgghoul2
 	pmove.ghoul2 = NULL;
@@ -7820,7 +7820,7 @@ void ClientEndFrame(gentity_t* ent)
 	}
 	if (ent->client->ps.pm_type == PM_DEAD && ent->waterlevel >= 2
 		&& (ent->client->ps.legsAnim == BOTH_DEATH19
-			? BG_WaterDeathFrame(&ent->client->ps, bgAllAnims[ent->localAnimIndex].anims) >= 45.0f	// BOTH_DEATH19: from its frame 45
+			? BG_WaterDeathFrame(&ent->client->ps, G_EntAnims(ent)) >= 45.0f	// BOTH_DEATH19: from its frame 45
 			: ent->client->ps.legsTimer <= 0))	// after the death anim
 	{	// dead in water: ragdoll (the body floats, bg_pmove PM_WaterMove) (DH 2026-10-25)
 		ent->client->ps.eFlags |= EF_RAG;

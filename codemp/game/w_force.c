@@ -9403,10 +9403,10 @@ static void SJE_RepulseRelease(gentity_t* self, const int chargeTime)
 	// floating (the charge lifted him): the whole body throws
 	G_SetAnim(self, NULL, self->client->ps.groundEntityNum == ENTITYNUM_NONE ? SETANIM_BOTH : SETANIM_TORSO, REPULSE_THROW_ANIM,
 		SJE_FP_STUN_BOTH_FLAGS, 0);
-	if (self->localAnimIndex >= 0 && self->localAnimIndex < MAX_ANIM_FILES && bgAllAnims[self->localAnimIndex].anims
-		&& bgAllAnims[self->localAnimIndex].anims[REPULSE_THROW_ANIM].numFrames > REPULSE_THROW_FRAME)
+	if (self->localAnimIndex >= 0 && self->localAnimIndex < MAX_ANIM_FILES && G_EntAnims(self)
+		&& G_EntAnims(self)[REPULSE_THROW_ANIM].numFrames > REPULSE_THROW_FRAME)
 	{
-		const animation_t* anim = &bgAllAnims[self->localAnimIndex].anims[REPULSE_THROW_ANIM];
+		const animation_t* anim = &G_EntAnims(self)[REPULSE_THROW_ANIM];
 		throwDelay = abs(anim->frameLerp) * REPULSE_THROW_FRAME;
 		animLength = abs(anim->frameLerp) * anim->numFrames;
 	}

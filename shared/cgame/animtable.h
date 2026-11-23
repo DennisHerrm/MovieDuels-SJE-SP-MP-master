@@ -3736,6 +3736,73 @@ stringID_table_t animTable[MAX_ANIMATIONS + 1] =
 	ENUM2STRING(BOTH_FORCEJUMPDASH_LAND),
 	ENUM2STRING(BOTH_FORCEJUMPDASH_START),
 
+	// every humanoid set's own versions merged into the Master _humanoid (2026-11-22)
+#define ANIM_VARIANT(x) ENUM2STRING(x),
+#include "game/anims_variants.h"
+#undef ANIM_VARIANT
+
 	//must be terminated
 	{ NULL, -1 }
 };
+
+// Fast animation name -> id for the animation.cfg parsers (2026-11-22): the table has ~9500 names since the humanoid
+// set variants were merged into the Master _humanoid, too many for GetIDForString's linear search on every row.
+// Same answer as GetIDForString(animTable, name): the first table entry with that name (any case), -1 if none.
+static const stringID_table_t* animTableSorted[ARRAY_LEN(animTable)];
+static int animTableSortedNum = 0;
+
+static int AnimTable_SortCompare(const void* a, const void* b)
+{
+	const stringID_table_t* const ea = *(const stringID_table_t* const*)a;
+	const stringID_table_t* const eb = *(const stringID_table_t* const*)b;
+	const int c = Q_stricmp(ea->name, eb->name);
+
+	if (c)
+	{
+		return c;
+	}
+	return (ea < eb) ? -1 : (ea > eb) ? 1 : 0; // same name: table order, so the first entry wins as in GetIDForString
+}
+
+int AnimTable_GetID(const char* name)
+{
+	int lo = 0;
+	int found = -1;
+
+	if (!name || !name[0])
+	{
+		return -1;
+	}
+	if (animTableSortedNum == 0)
+	{
+		while (animTableSortedNum < (int)ARRAY_LEN(animTableSorted) && animTable[animTableSortedNum].name
+			&& animTable[animTableSortedNum].name[0])
+		{
+			animTableSorted[animTableSortedNum] = &animTable[animTableSortedNum];
+			animTableSortedNum++;
+		}
+		qsort((void*)animTableSorted, animTableSortedNum, sizeof animTableSorted[0], AnimTable_SortCompare);
+	}
+
+	int hi = animTableSortedNum - 1;
+
+	while (lo <= hi)
+	{
+		const int mid = (lo + hi) / 2;
+		const int c = Q_stricmp(name, animTableSorted[mid]->name);
+
+		if (c <= 0)
+		{
+			if (c == 0)
+			{
+				found = mid; // keep looking left for the first one
+			}
+			hi = mid - 1;
+		}
+		else
+		{
+			lo = mid + 1;
+		}
+	}
+	return found >= 0 ? animTableSorted[found]->id : -1;
+}

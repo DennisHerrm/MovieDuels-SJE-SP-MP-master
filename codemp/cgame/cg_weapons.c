@@ -188,7 +188,7 @@ CG_MapTorsoToWeaponFrame
 */
 static int CG_MapTorsoToWeaponFrame(const int frame, const int anim_num)
 {
-	const animation_t* animations = bgHumanoidAnimations;
+	const animation_t* animations = BG_StyledAnims(bgHumanoidAnimations, cg.predictedPlayerState.animStyle); // his style's copy (2026-11-22)
 #ifdef WEAPON_FORCE_BUSY_HOLSTER
 	if (cg.snap->ps.forceHandExtend != HANDEXTEND_NONE || cgWeapFrameTime > cg.time)
 	{

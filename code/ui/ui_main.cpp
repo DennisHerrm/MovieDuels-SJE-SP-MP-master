@@ -46,6 +46,7 @@ USER INTERFACE MAIN
 #include "../game/bg_public.h"
 #include "../game/anims.h"
 extern stringID_table_t animTable[MAX_ANIMATIONS + 1];
+extern int AnimTable_GetID(const char* name); // cgame/animtable.h: fast name -> id for the cfg parsers
 
 #include "qcommon/stringed_ingame.h"
 #include "../qcommon/stv_version.h"
@@ -4803,7 +4804,7 @@ static qboolean UI_ParseAnimationFile(const char* af_filename)
 			break; // EOF
 		}
 
-		const int animNum = GetIDForString(animTable, token);
+		const int animNum = AnimTable_GetID(token);
 		if (animNum < 0 || animNum >= MAX_ANIMATIONS)
 		{
 			// Skip unknown tokens until end of line
@@ -5923,8 +5924,8 @@ void UI_LoadMenus(const char* menuFile, const qboolean reset)
 	Com_Printf("----------------------- MovieDuels-SJE-SP -----------------------\n");
 	Com_Printf("-----------------------------------------------------------------\n");
 	Com_Printf("-------------------------- Update 9.0 ---------------------------\n");
-	Com_Printf("--------------------- Build Date 21/11/2026 ---------------------\n");// build date
-	Com_Printf("--------------------------- Build 12 ----------------------------\n");
+	Com_Printf("--------------------- Build Date 23/11/2026 ---------------------\n");// build date
+	Com_Printf("--------------------------- Build 13 ----------------------------\n");
 	Com_Printf("-----------------------------------------------------------------\n");
 	Com_Printf("-------------------------- Lightsaber ---------------------------\n");
 	Com_Printf("---------- An elegant weapon for a more civilized age -----------\n");
@@ -7533,7 +7534,9 @@ static void UI_UpdateSaberCvars()
 		Cvar_Set("g_NPCsabertwocolor", Cvar_VariableString("ui_npc_sabertwocolor"));
 	}
 
-	if (TranslateSaberColor(Cvar_VariableString("ui_saber_color")) >= SABER_RGB)
+	// SJE: only a colour the menu really set (an empty one, as in a fresh profile, came out as custom RGB black "x000000":
+	// the first drawn saber was a white core without colour or glow)
+	if (Cvar_VariableString("ui_saber_color")[0] && TranslateSaberColor(Cvar_VariableString("ui_saber_color")) >= SABER_RGB)
 	{
 		char rgbColor[8];
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber_red"),
@@ -7549,7 +7552,7 @@ static void UI_UpdateSaberCvars()
 		}
 	}
 
-	if (TranslateSaberColor(Cvar_VariableString("ui_saber2_color")) >= SABER_RGB)
+	if (Cvar_VariableString("ui_saber2_color")[0] && TranslateSaberColor(Cvar_VariableString("ui_saber2_color")) >= SABER_RGB)
 	{
 		char rgbColor[8];
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber2_red"),

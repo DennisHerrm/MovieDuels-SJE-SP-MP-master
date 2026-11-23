@@ -4998,6 +4998,7 @@ void BG_InitAnimsets(void)
 {
 	memset(&bgAllAnims, 0, sizeof bgAllAnims);
 	bgpa_ftext_loaded = qfalse; // FIXME - The PC doesn't seem to need this, but why?
+	BG_ResetStyledAnims(); // the styles' copies of the Master set were in the BG pool
 }
 
 //ALWAYS call on game/cgame shutdown
@@ -5031,10 +5032,10 @@ static int BG_AnimsetFullFallback(const char* filename)
 	return 0;
 }
 
-// The master _humanoid files SP and MP share are big (animation.cfg ~128 KB, animevents.cfg ~96 KB);
-// SP reads them into growing buffers, MP uses fixed ones (bgAnimEvtTextBuffer, bgpa_ftext): keep them
-// well above the file sizes.
-#define BG_ANIM_TEXT_BUFFER_SIZE 524288
+// The master _humanoid files SP and MP share are big (animation.cfg ~426 KB since the 2026-11-22 set variants,
+// animevents.cfg ~96 KB); SP reads them into growing buffers, MP uses fixed ones (bgAnimEvtTextBuffer, bgpa_ftext,
+// ui_main.c UIPAFtext): keep them well above the file sizes.
+#define BG_ANIM_TEXT_BUFFER_SIZE 1048576
 
 #ifdef _CGAME //none of this is actually needed server side. Could just be moved to cgame code but it's here since it used to tie in a lot with the anim loading stuff.
 
@@ -5290,7 +5291,7 @@ static void ParseAnimationEvtBlock(const char* aeb_filename, animevent_t* anim_e
 		//	just need offsets.
 		//This way when animation numbers change, this table won't have to be updated,
 		//	at least not much.
-		const int anim_num = GetIDForString(animTable, token);
+		const int anim_num = AnimTable_GetID(token);
 		if (anim_num == -1)
 		{
 			//Unrecognized ANIM ENUM name, or we're skipping this line, keep going till you get a good one
@@ -5822,6 +5823,16 @@ int BG_ParseAnimationEvtFile(const char* as_filename, const int animFileIndex, c
 		}
 	}
 
+	// The Master set's NAME_SET anims (each humanoid set's own versions, 2026-11-22) have their sets' events in
+	// models/players/_humanoid/styles/animevents.cfg (SP reads it into each style's copy of the Master set); MP's
+	// animation styles play those anims by their own ids (BG_StyleAnim), so they all go into the Master set's events
+	if (bg_animParseIncluding <= 0 && !Q_stricmp(as_filename, "models/players/_humanoid/"))
+	{
+		bg_animParseIncluding++;
+		BG_ParseAnimationEvtFile("models/players/_humanoid/styles/", animFileIndex, forced_index);
+		bg_animParseIncluding--;
+	}
+
 	used_index = forced_index;
 
 finish:
@@ -6008,7 +6019,7 @@ int bg_parse_animation_file(const char* filename, animation_t* anim_set, const q
 			break;
 		}
 
-		const int anim_num = GetIDForString(animTable, token);
+		const int anim_num = AnimTable_GetID(token);
 		if (anim_num == -1)
 		{
 #ifdef _DEBUG
@@ -6635,7 +6646,7 @@ static int BG_AnimSetIndexFor(const animation_t* animations)
 	{
 		return -1;
 	}
-	if (animations == bgHumanoidAnimations)
+	if (BG_IsHumanoidAnims(animations))
 	{
 		return 0;
 	}
@@ -6651,7 +6662,7 @@ static int BG_AnimSetIndexFor(const animation_t* animations)
 
 int BG_ResolveOwnSkelAnim(const animation_t* animations, const int anim, const qboolean legs)
 {
-	if (!animations || anim < 0 || anim >= MAX_ANIMATIONS || animations == bgHumanoidAnimations ||
+	if (!animations || anim < 0 || anim >= MAX_ANIMATIONS || BG_IsHumanoidAnims(animations) ||
 		animations[anim].numFrames > 0)
 	{
 		return anim;
@@ -7765,20 +7776,27 @@ static void BG_BuildStyleAnims(void)
 		bgStyleBase[a] = -1;
 	}
 
-	while (numAnims < MAX_ANIMATIONS && animTable[numAnims].name)
+	// The humanoid sets' own versions merged into the Master _humanoid on 2026-11-22 (game/anims_variants.h, enum
+	// entries after BOTH_FORCEJUMPDASH_LAND, e.g. BOTH_RUN2_ANI) are not swapped in by id here: each style plays them
+	// through its own copy of the Master set's table (BG_StyledAnims below, as SP's G_StyledAnimFileIndex).
+	for (int t = 0; numAnims < MAX_ANIMATIONS && animTable[t].name; t++)
 	{
-		sorted[numAnims] = &animTable[numAnims];
+		if (animTable[t].id > BOTH_FORCEJUMPDASH_LAND)
+		{
+			continue;
+		}
+		sorted[numAnims] = &animTable[t];
 		numAnims++;
 	}
 	qsort((void*)sorted, numAnims, sizeof sorted[0], BG_AnimNameCompare); // (void*): the array holds pointers to const entries
 
-	for (int i = 0; i < numAnims; i++)
+	for (int i = 0; animTable[i].name; i++)
 	{
 		const char* base = animTable[i].name;
 		const int baseId = animTable[i].id;
 		qboolean family = qfalse;
 
-		if (baseId < 0 || baseId >= MAX_ANIMATIONS)
+		if (baseId < 0 || baseId >= MAX_ANIMATIONS || baseId > BOTH_FORCEJUMPDASH_LAND) // last: a merged set version (see above)
 		{
 			continue;
 		}
@@ -7897,6 +7915,157 @@ static qboolean BG_StyleAnimKept(const int anim)
 	return qfalse;
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Each style's copy of the Master animation set (2026-11-22, as SP's NPC_stats.cpp G_StyledAnimFileIndex): the Master
+// _humanoid holds every humanoid set's own version of an anim as NAME_SET (BOTH_RUN2_ANI...). In a style's copy, every
+// base anim its set has a version of takes that version's frames and timing, so every model plays what its own set
+// gave it, with the base anim ids (every check, timer and event works as before). Who plays which copy: pmove and the
+// server code through G_EntAnims (ps.animStyle), cgame through CG_EntAnims (entityState.animStyle).
+// ---------------------------------------------------------------------------------------------------------------------
+static animation_t* bgStyledAnims[ANIMSTYLE_COUNT];
+static short bgStyleVariantBase[MAX_ANIMATIONS];        // NAME_SET id -> NAME id (-1: none)
+static signed char bgStyleVariantStyle[MAX_ANIMATIONS]; // NAME_SET id -> its style
+static qboolean bgStyleVariantsBuilt = qfalse;
+
+// the copies live in the BG pool, which every game / cgame init empties (BG_InitAnimsets)
+void BG_ResetStyledAnims(void)
+{
+	memset(bgStyledAnims, 0, sizeof bgStyledAnims);
+}
+
+static void BG_BuildStyleVariants(void)
+{
+	if (bgStyleVariantsBuilt)
+	{
+		return;
+	}
+	for (int a = 0; a < MAX_ANIMATIONS; a++)
+	{
+		bgStyleVariantBase[a] = -1;
+		bgStyleVariantStyle[a] = ANIMSTYLE_DEFAULT;
+	}
+	for (int i = 0; animTable[i].name; i++)
+	{
+		const int id = animTable[i].id;
+		const char* name = animTable[i].name;
+		const int len = (int)strlen(name);
+
+		if (id <= BOTH_FORCEJUMPDASH_LAND || id >= MAX_ANIMATIONS)
+		{
+			continue;
+		}
+		for (int s = ANIMSTYLE_DEFAULT + 1; s < ANIMSTYLE_COUNT; s++)
+		{
+			const int sufLen = (int)strlen(bgAnimStyleSuffix[s]);
+			char baseName[MAX_QPATH];
+
+			if (len <= sufLen + 1 || name[len - sufLen - 1] != '_' || Q_stricmp(name + len - sufLen, bgAnimStyleSuffix[s]))
+			{
+				continue;
+			}
+			Q_strncpyz(baseName, name, len - sufLen < MAX_QPATH ? len - sufLen : MAX_QPATH);
+			{
+				const int base = AnimTable_GetID(baseName);
+				if (base >= 0 && base < MAX_ANIMATIONS)
+				{
+					bgStyleVariantBase[id] = (short)base;
+					bgStyleVariantStyle[id] = (signed char)s;
+					break;
+				}
+			}
+		}
+	}
+	bgStyleVariantsBuilt = qtrue;
+}
+
+qboolean BG_IsHumanoidAnims(const animation_t* animations)
+{
+	if (!animations)
+	{
+		return qfalse;
+	}
+	if (animations == bgHumanoidAnimations)
+	{
+		return qtrue;
+	}
+	for (int s = 0; s < ANIMSTYLE_COUNT; s++)
+	{
+		if (bgStyledAnims[s] && animations == bgStyledAnims[s])
+		{
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+// The table a character with this style plays: its style's copy of the Master set when it is on the Master set (or on
+// another style's copy of it), else the table it has
+animation_t* BG_StyledAnims(animation_t* animations, const int animStyle)
+{
+	if (!animations || !BG_IsHumanoidAnims(animations))
+	{
+		return animations;
+	}
+	if (animStyle <= ANIMSTYLE_DEFAULT || animStyle >= ANIMSTYLE_COUNT || !BG_MasterAnimStyleActive())
+	{
+		return bgHumanoidAnimations;
+	}
+	if (!bgStyledAnims[animStyle])
+	{
+		animation_t* copy = (animation_t*)BG_Alloc(sizeof(animation_t) * MAX_TOTALANIMATIONS);
+		if (!copy)
+		{
+			return bgHumanoidAnimations;
+		}
+		char realisticBlockingBuf[16];
+		trap->Cvar_VariableStringBuffer("bg_realisticBlocking", realisticBlockingBuf, sizeof realisticBlockingBuf);
+		const qboolean slowSaber = g_SaberAttackSpeedMD.integer && atoi(realisticBlockingBuf) ? qtrue : qfalse;
+
+		BG_BuildStyleVariants();
+		memcpy(copy, bgHumanoidAnimations, sizeof(animation_t) * MAX_TOTALANIMATIONS);
+		for (int v = BOTH_FORCEJUMPDASH_LAND + 1; v < MAX_ANIMATIONS; v++)
+		{
+			const int base = bgStyleVariantBase[v];
+			if (bgStyleVariantStyle[v] != animStyle || base < 0 || copy[v].numFrames <= 0)
+			{
+				continue;
+			}
+			copy[base] = copy[v];
+			if (slowSaber)
+			{
+				// the realistic blocking saber slowdown the base anim got when it was read (bg_parse_animation_file)
+				for (int x = 4; x < LS_MOVE_MAX; x++)
+				{
+					if (saberMoveData[x].animToUse + SABER_ANIM_GROUP_SIZE * 4 == base)
+					{
+						copy[base].frameLerp = (short)(copy[base].frameLerp * 1.2f);
+						break;
+					}
+					if (saberMoveData[x].animToUse + SABER_ANIM_GROUP_SIZE * 5 == base ||
+						saberMoveData[x].animToUse + SABER_ANIM_GROUP_SIZE * 6 == base)
+					{
+						copy[base].frameLerp = (short)(copy[base].frameLerp * 1.1f);
+						break;
+					}
+				}
+			}
+		}
+		bgStyledAnims[animStyle] = copy;
+		char devBuf[8];
+		trap->Cvar_VariableStringBuffer("developer", devBuf, sizeof devBuf);
+		if (atoi(devBuf))
+		{
+			int swapped = 0;
+			for (int v = BOTH_FORCEJUMPDASH_LAND + 1; v < MAX_ANIMATIONS; v++)
+			{
+				swapped += bgStyleVariantStyle[v] == animStyle && bgStyleVariantBase[v] >= 0 && copy[v].numFrames > 0;
+			}
+			Com_Printf("Animation style table %s: %d anims take the style's version\n", bgAnimStyleSuffix[animStyle], swapped);
+		}
+	}
+	return bgStyledAnims[animStyle];
+}
+
 // The anim this style plays for anim (anim itself when the style has no version of it, or the set lacks the frames)
 int BG_StyleAnim(const int animStyle, const animation_t* animations, const int anim)
 {
@@ -7969,7 +8138,7 @@ void BG_SetAnim(playerState_t* ps, const animation_t* animations, int setAnimPar
 
 	// MovieDuels: a model on its own skeleton plays what its set has for an anim it lacks (SP's choice for MP's class
 	// anims, the set's own death/knockdown/jump... variants) instead of freezing in its last pose
-	if (animations != bgHumanoidAnimations && anim >= 0 && anim < MAX_ANIMATIONS && animations[anim].numFrames <= 0)
+	if (!BG_IsHumanoidAnims(animations) && anim >= 0 && anim < MAX_ANIMATIONS && animations[anim].numFrames <= 0)
 	{
 		const int legsAnim = BG_ResolveOwnSkelAnim(animations, anim, qtrue);
 		const int torsoAnim = BG_ResolveOwnSkelAnim(animations, anim, qfalse);

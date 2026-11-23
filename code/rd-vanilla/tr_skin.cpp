@@ -224,9 +224,9 @@ bool RE_SplitSkins(const char* i_nname, char* skinhead, char* skintorso, char* s
 		*p = 0;
 		p++;
 		//fill in the base path
-		strcpy(skinhead, name);
-		strcpy(skintorso, name);
-		strcpy(skinlower, name);
+		Q_strncpyz(skinhead, name, MAX_QPATH); // callers' buffers are MAX_QPATH: a long skin name overflowed them
+		Q_strncpyz(skintorso, name, MAX_QPATH); // callers' buffers are MAX_QPATH: a long skin name overflowed them
+		Q_strncpyz(skinlower, name, MAX_QPATH); // callers' buffers are MAX_QPATH: a long skin name overflowed them
 
 		//now get the the individual files
 
@@ -238,8 +238,8 @@ bool RE_SplitSkins(const char* i_nname, char* skinhead, char* skintorso, char* s
 		}
 		*p2 = 0;
 		p2++;
-		strcat(skinhead, p);
-		strcat(skinhead, ".skin");
+		Q_strcat(skinhead, MAX_QPATH, p);
+		Q_strcat(skinhead, MAX_QPATH, ".skin");
 
 		//advance to third
 		p = strchr(p2, '|');
@@ -249,11 +249,11 @@ bool RE_SplitSkins(const char* i_nname, char* skinhead, char* skintorso, char* s
 		}
 		*p = 0;
 		p++;
-		strcat(skintorso, p2);
-		strcat(skintorso, ".skin");
+		Q_strcat(skintorso, MAX_QPATH, p2);
+		Q_strcat(skintorso, MAX_QPATH, ".skin");
 
-		strcat(skinlower, p);
-		strcat(skinlower, ".skin");
+		Q_strcat(skinlower, MAX_QPATH, p);
+		Q_strcat(skinlower, MAX_QPATH, ".skin");
 
 		return true;
 	}

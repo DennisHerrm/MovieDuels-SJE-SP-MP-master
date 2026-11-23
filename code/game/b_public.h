@@ -66,7 +66,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define NPCAI_JUMP				0x20000000	//Jump Now
 #define NPCAI_BOSS_CHARACTER	0x40000000	//Boss NPC flag for certain immunities/defenses
 #define NPCAI_NO_JEDI_DELAY		0x80000000	//Reborn/Jedi don't taunt enemy before attacking
-#define	NPCAI_BOSS_SERENITYJEDIENGINE  0x160000000	//Trying to fix lightningblock with this new one
+// NPCAI_BOSS_SERENITYJEDIENGINE (2026-11-22) did not fit the 32-bit aiFlags: SJE's 0x100000000 was never set, and a test
+// of it was true for any NPC with NPCAI_NO_JEDI_DELAY (bit 31, sign extension); MD 9's 0x160000000 set NPCAI_JUMP +
+// NPCAI_BOSS_CHARACTER instead, so every Reborn etc. was a full boss. The "SJE boss" is now worked out from the NPC
+// (NPC_spawn.cpp NPC_IsSJEBoss): no flag bit, nothing in the save game.
+qboolean NPC_IsSJEBoss(const gentity_t* ent);	//Trying to fix lightningblock with this new one
 
 //Script flags
 #define	SCF_CROUCHED		0x00000001	//Force ucmd.upmove to be -127

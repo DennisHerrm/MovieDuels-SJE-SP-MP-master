@@ -6236,7 +6236,16 @@ void MC_Apply(const void* surfacePtr, const void* instanceKey, int timeMs,
 	MC_Run(&run, surfacePtr, timeMs, origin, axis, caps, ncaps, prm, boneFn, boneCtx, xyz, normal);
 }
 
+// SJE r_meshClothBlastGain: a blast wave throws light cloth far harder than the body it knocks back. At 1 an exploding
+// crate (600 / 160) moved Vader's cape 3.5 units at 90 units off - his heavy cape's damping and spring swallowed the push
+// while the game threw him away; at 3 it is blown 12 units (stretch as before). Set each frame by the glue.
+static float g_blastGain = 3.0f;
+void MC_SetBlastGain(float gain) {
+	g_blastGain = gain > 0.0f ? gain : 0.0f;
+}
+
 void MC_Blast(const float center[3], float strength, float radius, mcVisibleFn_t visible) {
+	strength *= g_blastGain;	// SJE r_meshClothBlastGain
 	if (radius <= 1.0f) return;
 	for (auto& kv : g_instances) {
 		mcInstance_t* in = kv.second;

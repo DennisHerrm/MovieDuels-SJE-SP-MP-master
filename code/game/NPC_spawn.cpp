@@ -285,7 +285,7 @@ static void G_ClassSetDontFlee(const gentity_t* self)
 	default:
 		break;
 	}
-	if (self->NPC->aiFlags & NPCAI_BOSS_SERENITYJEDIENGINE)
+	if (NPC_IsSJEBoss(self))
 	{
 		self->NPC->scriptFlags |= SCF_DONT_FLEE;
 	}
@@ -531,10 +531,8 @@ static void NPC_SetMiscDefaultData(gentity_t* ent)
 		ent->NPC->aiFlags |= SCF_CLASS_GUARD;
 	}
 
-	if (ent->client->NPC_class == CLASS_SITHLORD)
-	{
-		ent->NPC->aiFlags |= SCF_DONT_FIRE;
-	}
+	// (CLASS_SITHLORD: "aiFlags |= SCF_DONT_FIRE" removed 2026-11-22: a scriptFlags value in aiFlags, it set
+	// NPCAI_SHIELDS (0x4000) on every Sith lord)
 
 	if (!Q_stricmp("Ep7_Snoke", ent->NPC_type) ||
 		!Q_stricmp("Ep8_Snoke", ent->NPC_type) ||
@@ -603,19 +601,14 @@ static void NPC_SetMiscDefaultData(gentity_t* ent)
 		ent->flags |= FL_NO_IMPACT_DMG;
 		ent->NPC->scriptFlags |= SCF_NAV_CAN_JUMP; // These jokers can jump
 	}
-	if (ent->client->NPC_class == CLASS_DESANN
-		//|| ent->client->NPC_class == CLASS_VADER
-		|| ent->client->NPC_class == CLASS_YODA
-		|| ent->client->NPC_class == CLASS_TAVION
-		|| ent->client->NPC_class == CLASS_LUKE
-		|| ent->client->NPC_class == CLASS_KYLE
-		|| ent->client->NPC_class == CLASS_REBORN
+	// Desann, Yoda, Tavion, Luke, Kyle, tavion_scepter, alora_dual: SJE bosses (NPC_IsSJEBoss) and boss characters below.
+	// Reborn, Calo Nord and Boc were on that list too, and the 33-bit flag made them full NPCAI_BOSS_CHARACTERs by
+	// accident (boss saber damage cap, always out of knockdowns, never flee). DH (2026-11-22): sub-boss status instead.
+	if (ent->client->NPC_class == CLASS_REBORN
 		|| ent->client->NPC_class == CLASS_CALONORD
-		|| ent->client->NPC_class == CLASS_BOC
-		|| Q_stricmp("tavion_scepter", ent->NPC_type) == 0
-		|| Q_stricmp("alora_dual", ent->NPC_type) == 0)
+		|| ent->client->NPC_class == CLASS_BOC)
 	{
-		ent->NPC->aiFlags |= NPCAI_BOSS_SERENITYJEDIENGINE;
+		ent->NPC->aiFlags |= NPCAI_SUBBOSS_CHARACTER;
 	}
 	if (ent->client->NPC_class == CLASS_DESANN
 		//|| ent->client->NPC_class == CLASS_VADER
@@ -6570,4 +6563,31 @@ void G_CivilianReset(void)
 	memset(civilianEnts, 0, sizeof civilianEnts);
 	civilianNextSpawn = 0;
 	civilianBadTypes = 0;
+}
+
+// The "SJE boss" (lightning absorb, boss saber reach, kick / push immunity ... in AI_Jedi.cpp, wp_saber.cpp,
+// NPC_behavior.cpp): Desann, Yoda, Tavion, Luke, Kyle, tavion_scepter, alora_dual (2026-11-22, replaces the
+// NPCAI_BOSS_SERENITYJEDIENGINE flag; Reborn, Calo Nord and Boc are sub-bosses now, DH)
+qboolean NPC_IsSJEBoss(const gentity_t* ent)
+{
+	if (!ent || !ent->client || !ent->NPC)
+	{
+		return qfalse;
+	}
+	switch (ent->client->NPC_class)
+	{
+	case CLASS_DESANN:
+	case CLASS_YODA:
+	case CLASS_TAVION:
+	case CLASS_LUKE:
+	case CLASS_KYLE:
+		return qtrue;
+	default:
+		break;
+	}
+	if (!ent->NPC_type)
+	{
+		return qfalse;
+	}
+	return !Q_stricmp("tavion_scepter", ent->NPC_type) || !Q_stricmp("alora_dual", ent->NPC_type) ? qtrue : qfalse;
 }

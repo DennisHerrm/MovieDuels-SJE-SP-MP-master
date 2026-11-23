@@ -1,4 +1,4 @@
-﻿/*
+/*
 ===========================================================================
 Copyright (C) 1999 - 2005, Id Software, Inc.
 Copyright (C) 2000 - 2013, Raven Software, Inc.
@@ -37,6 +37,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_classmodels.h" // model -> bot class + scale table
 #include "bg_classmodel.h" // SJE->MD parity (2026-10-13): BG_ClassModelIndex, BG_ModelBlocked (shared with the ui)
 #include "g_animstyles.h" // model -> SP animation style table
+#include "qcommon/md_animstyle_sets.h" // model.glm's humanoid set -> animation style (2026-11-22)
 #include "g_pazaak.h"
 #include "ghoul2/G2.h"
 #include "bg_saga.h"
@@ -1649,8 +1650,8 @@ static qboolean CopyToBodyQue(gentity_t* ent)
 		// (DH 2026-10-25)
 		if (ent->client->ps.legsAnim == BOTH_DEATH19)
 		{	// BOTH_DEATH19: floats from its frame 20, ragdolls from its frame 45 (genericValue3: when)
-			const float frame = BG_WaterDeathFrame(&ent->client->ps, bgAllAnims[ent->localAnimIndex].anims);
-			const float msPerFrame = fabs(bgAllAnims[ent->localAnimIndex].anims[BOTH_DEATH19].frameLerp) / 0.75f;
+			const float frame = BG_WaterDeathFrame(&ent->client->ps, G_EntAnims(ent));
+			const float msPerFrame = fabs(G_EntAnims(ent)[BOTH_DEATH19].frameLerp) / 0.75f;
 			floatDelay = frame < 20.0f ? (int)((20.0f - frame) * msPerFrame) + 1 : 1;
 			body->genericValue3 = level.time + (frame < 45.0f ? (int)((45.0f - frame) * msPerFrame) : 0);
 		}
@@ -2421,6 +2422,7 @@ void* g2SaberInstance = NULL;
 qboolean BG_IsValidCharacterModel(const char* model_name, const char* skin_name);
 qboolean BG_ValidateSkinForTeam(const char* model_name, char* skin_name, int team, float* colors);
 void BG_GetVehicleModelName(char* modelName, const char* vehicleName, size_t len);
+const char* BG_VehicleSkinName(const char* skinList, int entNum);
 // Prefixes that count as humanoid
 static const char* humanoid_prefixes[] =
 {
@@ -2557,7 +2559,7 @@ void SetupGameGhoul2Model(gentity_t* ent, char* modelname, char* skinName)
 					&& ent->m_pVehicle->m_pVehicleInfo->skin[0])
 				{
 					skinHandle = trap->R_RegisterSkin(va("models/players/%s/model_%s.skin", realModelName,
-						ent->m_pVehicle->m_pVehicleInfo->skin));
+						BG_VehicleSkinName(ent->m_pVehicle->m_pVehicleInfo->skin, ent->s.number)));
 				}
 				else
 				{
@@ -2759,7 +2761,7 @@ void SetupGameGhoul2Model(gentity_t* ent, char* modelname, char* skinName)
 			}
 		}
 
-		if (ent->localAnimIndex < 0 || ent->localAnimIndex >= MAX_ANIM_FILES || !bgAllAnims[ent->localAnimIndex].anims)
+		if (ent->localAnimIndex < 0 || ent->localAnimIndex >= MAX_ANIM_FILES || !G_EntAnims(ent))
 		{
 			// MovieDuels: was a map-dropping Com_Error ("NPC had an invalid GLA"); the clients fall back the same way
 			// (CG_SafeAnimIndex), so server and client agree on the humanoid set
@@ -3352,6 +3354,48 @@ const char* G_AnimStyleName(const int style)
 	return style >= 0 && style < ANIMSTYLE_COUNT ? g_animStyleNames[style] : "?";
 }
 
+// The style of the humanoid set a model folder's model.glm names (md_animstyle_sets.h), 0 for none; read once per folder
+static int G_ModelSetStyle(const char* folder)
+{
+	static char cachedName[256][MAX_QPATH];
+	static int cachedStyle[256];
+	static int numCached = 0;
+	char path[MAX_QPATH], buf[136], animName[MAX_QPATH];
+	fileHandle_t f = 0;
+	int style = 0;
+
+	if (!folder || !folder[0])
+	{
+		return 0;
+	}
+	for (int i = 0; i < numCached; i++)
+	{
+		if (!Q_stricmp(cachedName[i], folder))
+		{
+			return cachedStyle[i];
+		}
+	}
+	Com_sprintf(path, sizeof path, "models/players/%s/model.glm", folder);
+	const int len = trap->FS_Open(path, &f, FS_READ);
+	if (len > 0 && f)
+	{
+		const int got = len < (int)sizeof buf ? len : (int)sizeof buf;
+		trap->FS_Read(buf, got, f);
+		MD_GlmAnimName(buf, got, animName, sizeof animName);
+		style = MD_StyleForAnimSet(animName);
+	}
+	if (f)
+	{
+		trap->FS_Close(f);
+	}
+	if (numCached < 256)
+	{
+		Q_strncpyz(cachedName[numCached], folder, sizeof cachedName[0]);
+		cachedStyle[numCached++] = style;
+	}
+	return style;
+}
+
 // The SP animation style of a model string (table: g_animstyles.h): the exact model ("folder" / "folder/skin"), else
 // its folder; ANIMSTYLE_DEFAULT when neither is listed or the Master animation style is not in force (Classic: every
 // model plays its own dedicated animation set, which has no style variants).
@@ -3391,6 +3435,16 @@ static int G_AnimStyleForModel(const char* model)
 		}
 	}
 
+	// the humanoid set the model was made for (its model.glm) decides first (2026-11-22, md_animstyle_sets.h): right
+	// for every model, also ones the table below misses, and after the per-character set folders are gone
+	{
+		const int setStyle = G_ModelSetStyle(folder);
+		if (setStyle > ANIMSTYLE_DEFAULT && setStyle < ANIMSTYLE_COUNT)
+		{
+			return setStyle;
+		}
+	}
+
 	for (int i = 0; i < (int)ARRAY_LEN(modelAnimStyles); i++)
 	{
 		if (!Q_stricmp(modelAnimStyles[i].model, clean))
@@ -3420,9 +3474,9 @@ static int G_AnimStyleForClient(const gentity_t* ent, const char* model)
 	{
 		return ANIMSTYLE_DEFAULT;
 	}
-	if (ent->s.number < MAX_CLIENTS && !(ent->r.svFlags & SVF_BOT))
+	if (ent->s.number < MAX_CLIENTS && !(ent->r.svFlags & SVF_BOT) && g_ActivateAnimationStyle.integer == 1)
 	{
-		// a human player, online too (DH 2026-11-02): the style picked in his menu (userinfo md_animstyle; the host's
+		// a human player picking his style (g_ActivateAnimationStyle 1; 0 = his model's own), online too (DH 2026-11-02): the style picked in his menu (userinfo md_animstyle; the host's
 		// console g_PlayerAnimationStyle when his userinfo has none), "default" = his own model's style
 		char userinfo[MAX_INFO_STRING];
 		const char* picked;
@@ -3479,6 +3533,22 @@ int G_NPCAnimStyle(const char* model, const int parsed)
 	if (!g_mdAnimStyleActive || !model || BG_IsOwnSkeletonModel(model))
 	{
 		return ANIMSTYLE_DEFAULT;
+	}
+	{
+		// the humanoid set its model was made for decides first (2026-11-22), as in SP; the NPC file's style is for
+		// models on the plain _humanoid set
+		char folder[MAX_QPATH];
+		Q_strncpyz(folder, model, sizeof folder);
+		char* slash = strchr(folder, '/');
+		if (slash)
+		{
+			*slash = 0;
+		}
+		const int setStyle = G_ModelSetStyle(folder);
+		if (setStyle > ANIMSTYLE_DEFAULT && setStyle < ANIMSTYLE_COUNT)
+		{
+			return setStyle;
+		}
 	}
 	if (parsed >= 0 && parsed < ANIMSTYLE_COUNT)
 	{
@@ -4740,8 +4810,8 @@ void G_UpdateClientAnims(gentity_t* self, float animSpeedScale)
 
 	if (self->localAnimIndex > 0)
 	{// own skeleton: the anims its set plays for these (an anim set directly by game code may be one it lacks)
-		legsAnim = BG_ResolveOwnSkelAnim(bgAllAnims[self->localAnimIndex].anims, legsAnim, qtrue);
-		torsoAnim = BG_ResolveOwnSkelAnim(bgAllAnims[self->localAnimIndex].anims, torsoAnim, qfalse);
+		legsAnim = BG_ResolveOwnSkelAnim(G_EntAnims(self), legsAnim, qtrue);
+		torsoAnim = BG_ResolveOwnSkelAnim(G_EntAnims(self), torsoAnim, qfalse);
 	}
 
 	if (self->client->ps.saberLockFrame)
@@ -4759,8 +4829,8 @@ void G_UpdateClientAnims(gentity_t* self, float animSpeedScale)
 	}
 
 	if (self->localAnimIndex > 1 &&
-		bgAllAnims[self->localAnimIndex].anims[legsAnim].firstFrame == 0 &&
-		bgAllAnims[self->localAnimIndex].anims[legsAnim].numFrames == 0)
+		G_EntAnims(self)[legsAnim].firstFrame == 0 &&
+		G_EntAnims(self)[legsAnim].numFrames == 0)
 	{
 		//We'll allow this for non-humanoids.
 		goto tryTorso;
@@ -4768,10 +4838,10 @@ void G_UpdateClientAnims(gentity_t* self, float animSpeedScale)
 
 	if (self->client->legsAnimExecute != legsAnim || self->client->legsLastFlip != self->client->ps.legsFlip)
 	{
-		animSpeed = 50.0f / bgAllAnims[self->localAnimIndex].anims[legsAnim].frameLerp;
+		animSpeed = 50.0f / G_EntAnims(self)[legsAnim].frameLerp;
 		lAnimSpeedScale = animSpeed *= animSpeedScale;
 
-		if (bgAllAnims[self->localAnimIndex].anims[legsAnim].loopFrames != -1)
+		if (G_EntAnims(self)[legsAnim].loopFrames != -1)
 		{
 			aFlags = BONE_ANIM_OVERRIDE_LOOP;
 		}
@@ -4782,15 +4852,15 @@ void G_UpdateClientAnims(gentity_t* self, float animSpeedScale)
 
 		if (animSpeed < 0)
 		{
-			lastFrame = bgAllAnims[self->localAnimIndex].anims[legsAnim].firstFrame;
+			lastFrame = G_EntAnims(self)[legsAnim].firstFrame;
 			// MovieDuels: its own last frame, as in the cgame (firstFrame + numFrames can be past the end of the GLA)
-			firstFrame = bgAllAnims[self->localAnimIndex].anims[legsAnim].firstFrame + (bgAllAnims[self->localAnimIndex].anims[legsAnim].numFrames > 0
-				? bgAllAnims[self->localAnimIndex].anims[legsAnim].numFrames - 1 : 0);
+			firstFrame = G_EntAnims(self)[legsAnim].firstFrame + (G_EntAnims(self)[legsAnim].numFrames > 0
+				? G_EntAnims(self)[legsAnim].numFrames - 1 : 0);
 		}
 		else
 		{
-			firstFrame = bgAllAnims[self->localAnimIndex].anims[legsAnim].firstFrame;
-			lastFrame = bgAllAnims[self->localAnimIndex].anims[legsAnim].firstFrame + bgAllAnims[self->localAnimIndex].
+			firstFrame = G_EntAnims(self)[legsAnim].firstFrame;
+			lastFrame = G_EntAnims(self)[legsAnim].firstFrame + bgAllAnims[self->localAnimIndex].
 				anims[legsAnim].numFrames;
 		}
 
@@ -4806,8 +4876,8 @@ void G_UpdateClientAnims(gentity_t* self, float animSpeedScale)
 tryTorso:
 	{
 		if (self->localAnimIndex > 1 &&
-			bgAllAnims[self->localAnimIndex].anims[torsoAnim].firstFrame == 0 &&
-			bgAllAnims[self->localAnimIndex].anims[torsoAnim].numFrames == 0)
+			G_EntAnims(self)[torsoAnim].firstFrame == 0 &&
+			G_EntAnims(self)[torsoAnim].numFrames == 0)
 
 		{
 			//If this fails as well just return.
@@ -4832,10 +4902,10 @@ tryTorso:
 
 		PM_SaberStartTransAnim(self->s.number, self->client->ps.fd.saberAnimLevel, self->client->ps.weapon, f, &animSpeedScale, self->client->ps.userInt3);
 
-		animSpeed = 50.0f / bgAllAnims[self->localAnimIndex].anims[f].frameLerp;
+		animSpeed = 50.0f / G_EntAnims(self)[f].frameLerp;
 		lAnimSpeedScale = animSpeed *= animSpeedScale;
 
-		if (bgAllAnims[self->localAnimIndex].anims[f].loopFrames != -1)
+		if (G_EntAnims(self)[f].loopFrames != -1)
 		{
 			aFlags = BONE_ANIM_OVERRIDE_LOOP;
 		}
@@ -4849,15 +4919,15 @@ tryTorso:
 
 		if (animSpeed < 0)
 		{
-			lastFrame = bgAllAnims[self->localAnimIndex].anims[f].firstFrame;
+			lastFrame = G_EntAnims(self)[f].firstFrame;
 			// MovieDuels: its own last frame, as in the cgame (firstFrame + numFrames can be past the end of the GLA)
-			firstFrame = bgAllAnims[self->localAnimIndex].anims[f].firstFrame + (bgAllAnims[self->localAnimIndex].anims[f].numFrames > 0
-				? bgAllAnims[self->localAnimIndex].anims[f].numFrames - 1 : 0);
+			firstFrame = G_EntAnims(self)[f].firstFrame + (G_EntAnims(self)[f].numFrames > 0
+				? G_EntAnims(self)[f].numFrames - 1 : 0);
 		}
 		else
 		{
-			firstFrame = bgAllAnims[self->localAnimIndex].anims[f].firstFrame;
-			lastFrame = bgAllAnims[self->localAnimIndex].anims[f].firstFrame + bgAllAnims[self->localAnimIndex].anims[f]
+			firstFrame = G_EntAnims(self)[f].firstFrame;
+			lastFrame = G_EntAnims(self)[f].firstFrame + G_EntAnims(self)[f]
 				.numFrames;
 		}
 
@@ -4892,7 +4962,7 @@ tryTorso:
 			int armFlags = 0;
 			float armAnimSpeed;
 
-			armAnim = &bgAllAnims[self->localAnimIndex].anims[BOTH_DEAD21];
+			armAnim = &G_EntAnims(self)[BOTH_DEAD21];
 			self->client->brokenLimbs = self->client->ps.brokenLimbs;
 
 			armFirstFrame = armAnim->firstFrame;
@@ -4932,7 +5002,7 @@ tryTorso:
 					self->client->ps.weapon == WP_JANGO ||
 					self->client->ps.weapon == WP_CLONEPISTOL)
 				{ //don't affect this arm if holding a gun, just make the other arm support it
-					armAnim = &bgAllAnims[self->localAnimIndex].anims[BOTH_ATTACK2];
+					armAnim = &G_EntAnims(self)[BOTH_ATTACK2];
 
 					//armFirstFrame = armAnim->firstFrame;
 					armFirstFrame = armAnim->firstFrame + armAnim->numFrames;
@@ -4960,7 +5030,7 @@ tryTorso:
 					(BG_UnstyleAnim(self->client->ps.torsoAnim) == TORSO_WEAPONREADY2 || BG_UnstyleAnim(self->client->ps.torsoAnim) == BOTH_ATTACK2 || self->client->ps.weapon < WP_BRYAR_PISTOL))
 				{
 					//Now set the left arm to "support" the right one
-					armAnim = &bgAllAnims[self->localAnimIndex].anims[BOTH_STAND2];
+					armAnim = &G_EntAnims(self)[BOTH_STAND2];
 					armFirstFrame = armAnim->firstFrame;
 					armLastFrame = armAnim->firstFrame + armAnim->numFrames;
 					armAnimSpeed = 50.0f / armAnim->frameLerp;
@@ -8167,6 +8237,8 @@ void G_ClearTeamVote(const gentity_t* ent, const int team)
 	}
 }
 
+extern void G_ForgetAlertOwner(const gentity_t* owner);
+
 void ClientDisconnect(const int clientNum)
 {
 	// cleanup if we are kicking a bot that
@@ -8180,6 +8252,8 @@ void ClientDisconnect(const int clientNum)
 	{
 		return;
 	}
+
+	G_ForgetAlertOwner(ent); // JA:R fix: drop this client's alerts before the slot is reused
 
 	int i = 0;
 

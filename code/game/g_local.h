@@ -144,6 +144,10 @@ static_assert(MAX_ANIMATIONS <= 65536, "legsAnim/torsoAnim are networked with 16
 static_assert(SABER_ANIM_GROUP_SIZE == 77, "G_ParseAnimationFile assumes a saber anim group stride of 77");
 
 extern stringID_table_t animTable[MAX_ANIMATIONS + 1];
+extern int AnimTable_GetID(const char* name); // cgame/animtable.h: fast name -> id for the cfg parsers
+int G_StyledAnimFileIndex(int file_index, int style); // NPC_stats.cpp: a style's copy of the Master animation set
+struct gentity_s;
+void G_SyncAnimStyleSet(const struct gentity_s* ent);  // NPC_stats.cpp: keep a client on its style's animation set
 
 //Interest points
 

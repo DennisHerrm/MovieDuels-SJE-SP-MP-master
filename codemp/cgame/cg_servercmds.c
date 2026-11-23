@@ -1294,26 +1294,26 @@ static void CG_BodyQueueCopy(centity_t* cent, int client_num, int knownWeapon)
 		int aNum = 0;
 		qboolean fallBack = qfalse;
 
-		//anim = &bgAllAnims[cent->localAnimIndex].anims[ cent->currentState.torsoAnim ];
+		//anim = &CG_EntAnims(cent)[ cent->currentState.torsoAnim ];
 		if (!BG_InDeathAnim(source->currentState.torsoAnim))
 		{ //then just snap the corpse into a default
-			anim = &bgAllAnims[cent->localAnimIndex].anims[BOTH_DEAD1];
+			anim = &CG_EntAnims(cent)[BOTH_DEAD1];
 			fallBack = qtrue;
 		}
 		else
 		{
-			anim = &bgAllAnims[cent->localAnimIndex].anims[source->currentState.torsoAnim];
+			anim = &CG_EntAnims(cent)[source->currentState.torsoAnim];
 		}
 		// MovieDuels (port of SJE MP): a skeleton without this death anim (gonk and other droids: 0 frames) made the frame
 		// below -1 (Debug assert startFrame >= 0 in G2_Get_Bone_Anim via CG_TriggerAnimSounds when the corpse was drawn;
 		// a bad frame in Release): its BOTH_DEAD1 then, else its standing pose
 		if (anim->num_frames <= 0)
 		{
-			anim = &bgAllAnims[cent->localAnimIndex].anims[BOTH_DEAD1];
+			anim = &CG_EntAnims(cent)[BOTH_DEAD1];
 			fallBack = qtrue;
 			if (anim->num_frames <= 0)
 			{
-				anim = &bgAllAnims[cent->localAnimIndex].anims[BOTH_STAND1];
+				anim = &CG_EntAnims(cent)[BOTH_STAND1];
 			}
 		}
 		anim_speed = anim->frameLerp ? 50.0f / anim->frameLerp : 1.0f; // MovieDuels: a set without the anim has frameLerp 0

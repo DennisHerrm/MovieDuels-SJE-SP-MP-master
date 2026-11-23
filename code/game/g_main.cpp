@@ -1039,6 +1039,21 @@ static void G_InitCvars()
 	g_saberPerfectParry = gi.cvar("g_saberPerfectParry", "1", CVAR_ARCHIVE);
 	g_saberHitConfirm = gi.cvar("g_saberHitConfirm", "0", CVAR_ARCHIVE);
 	g_saberAIAdapt = gi.cvar("g_saberAIAdapt", "1", CVAR_ARCHIVE);
+	// 2026-11-23: the AI cvars of changelog 473-485 are read through local gi.cvar getters; register them here as well,
+	// so they exist with their defaults (and the setup menu shows them) from the start of the game
+	gi.cvar("g_npcEvasionFix", "1", CVAR_ARCHIVE);
+	gi.cvar("g_saberAITurtleBreak", "1", CVAR_ARCHIVE);
+	gi.cvar("g_saberAISpamPunish", "1", CVAR_ARCHIVE);
+	gi.cvar("g_saberAIFinisher", "1", CVAR_ARCHIVE);
+	gi.cvar("g_saberAIAdaptTypes", "1", CVAR_ARCHIVE);
+	gi.cvar("g_saberAIRhythm", "1", CVAR_ARCHIVE);
+	gi.cvar("g_squadCasualtyReact", "1", CVAR_ARCHIVE);
+	gi.cvar("g_npcReactionDelay", "1", CVAR_ARCHIVE);
+	gi.cvar("g_npcLastKnownSearch", "1", CVAR_ARCHIVE);
+	gi.cvar("g_npcDangerAvoid", "1", CVAR_ARCHIVE);
+	gi.cvar("g_allyTactics", "1", CVAR_ARCHIVE);
+	gi.cvar("g_dynamicDifficulty", "0", CVAR_ARCHIVE);
+	gi.cvar("g_dynamicDifficultyDebug", "0", 0);
 	g_saberAIRecover = gi.cvar("g_saberAIRecover", "1", CVAR_ARCHIVE);
 	g_saberAITactics = gi.cvar("g_saberAITactics", "1", CVAR_ARCHIVE);
 	g_saberNPCBlockBox = gi.cvar("g_saberNPCBlockBox", "1", CVAR_ARCHIVE);
@@ -2511,10 +2526,23 @@ void G_EnforceUpdateSettings()
 // all use the same style, and the models are only loaded at map load. So the player's setting is copied
 // into the active style once, at map load (new map, map change or loaded save), and the game and the
 // renderers only read the active style. A change in the middle of a map waits for the next map load.
+// 2026-11-22 (DH: every model on the Master set only, the per-character set folders go): Update 9 always uses the
+// Master set, every character plays its own style's versions there (NPC_stats.cpp G_StyledAnimFileIndex), which is
+// what the per-character sets gave it. g_ActivateAnimationStyle now only decides the player's style: 1 = the style
+// picked in the menu (g_PlayerAnimationStyle), 0 = his own model's style (G_PlayerAnimationStyleFor). Update 8 keeps
+// the per-character sets.
+static int G_WantedAnimationStyle()
+{
+	if (md_update && md_update->integer < 9)
+	{
+		return g_ActivateAnimationStyleSetting->integer == 1 ? 1 : 0;
+	}
+	return 1;
+}
+
 static void G_LatchAnimationStyle()
 {
-	const int style = g_ActivateAnimationStyleSetting->integer == 1 ? 1 : 0;
-	gi.cvar_set(MD_ANIMSTYLE_ACTIVE_CVAR, va("%i", style));
+	gi.cvar_set(MD_ANIMSTYLE_ACTIVE_CVAR, va("%i", G_WantedAnimationStyle()));
 }
 
 extern qboolean GameAllowedToSaveHere();
@@ -2528,7 +2556,7 @@ static void G_CheckAnimationStyleChange()
 	static int next_request_time = 0;
 	static int save_allowed_since = 0;
 
-	const int setting = g_ActivateAnimationStyleSetting->integer == 1 ? 1 : 0;
+	const int setting = G_WantedAnimationStyle(); // Update 9: always 1, the setting only changes the player's style
 
 	if (setting == g_ActivateAnimationStyle->integer)
 	{
@@ -2685,7 +2713,8 @@ Animationstyles_t G_PlayerAnimationStyleFor(const gentity_t* ent)
 	{
 		return CS_DEFAULT;
 	}
-	if (g_ActivateAnimationStyle && g_ActivateAnimationStyle->integer == 1 && g_PlayerAnimationStyle)
+	if (g_ActivateAnimationStyle && g_ActivateAnimationStyle->integer == 1 && g_PlayerAnimationStyle
+		&& g_ActivateAnimationStyleSetting && g_ActivateAnimationStyleSetting->integer == 1) // 0: his model's own style
 	{
 		const int chosen = GetIDForString(AnimationstylesTable, g_PlayerAnimationStyle->string);
 		if (chosen > CS_DEFAULT && chosen < CS_NUM_ANIMATION_STYLES)
@@ -2704,22 +2733,31 @@ Animationstyles_t G_PlayerAnimationStyleFor(const gentity_t* ent)
 static void G_ApplyPlayerAnimationStyle()
 {
 	static int applied_modification = -1;
+	static int applied_setting_modification = -1;
 
 	if (g_ActivateAnimationStyle->integer != 1)
 	{
-		return; // Classic: every character keeps its own animations
+		return; // Update 8 Classic: every character keeps its own animation set
 	}
 	gentity_t* player_ent = &g_entities[0];
 	if (!player_ent->inuse || !player_ent->client)
 	{
 		return; // not spawned yet
 	}
-	if (g_playerAnimStyleApplied && applied_modification == g_PlayerAnimationStyle->modificationCount)
+	if (g_playerAnimStyleApplied && applied_modification == g_PlayerAnimationStyle->modificationCount
+		&& applied_setting_modification == g_ActivateAnimationStyleSetting->modificationCount)
 	{
 		return; // nothing new
 	}
 	g_playerAnimStyleApplied = qtrue;
 	applied_modification = g_PlayerAnimationStyle->modificationCount;
+	applied_setting_modification = g_ActivateAnimationStyleSetting->modificationCount;
+
+	if (g_ActivateAnimationStyleSetting->integer != 1)
+	{
+		player_ent->client->animationstyle = G_PlayerAnimationStyleFor(player_ent); // his model's own style
+		return;
+	}
 
 	const int style = GetIDForString(AnimationstylesTable, g_PlayerAnimationStyle->string);
 	if (style < CS_DEFAULT || style >= CS_NUM_ANIMATION_STYLES)

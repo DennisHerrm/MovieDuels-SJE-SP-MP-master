@@ -9914,7 +9914,7 @@ static void Item_TextScroll_BuildLines(itemDef_t* item)
 
 	qboolean bIsTrailingPunctuation;
 
-	if (!psText)
+	if (!psText || !scrollPtr) // TaystJK fix: an invalid menu item has no textscroll data
 	{
 		return;
 	}

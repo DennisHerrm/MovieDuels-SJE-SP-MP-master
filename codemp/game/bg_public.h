@@ -147,7 +147,7 @@ animFlags_t BG_AnimStyleFlags(int animStyle);
 #define DEFAULT_REDTEAM_NAME	"Empire"
 #define DEFAULT_BLUETEAM_NAME	"Rebellion"
 
-#define CURRENT_MD_CLIENTVERSION		"Day-21,Month-11,Year-26,BuildNum-12" // build date
+#define CURRENT_MD_CLIENTVERSION		"Day-23,Month-11,Year-26,BuildNum-13" // build date
 
 #define	STEPSIZE		18
 
@@ -452,7 +452,7 @@ movement on the server game.
 
 #pragma pack(push, 1)
 typedef struct animation_s {
-	unsigned short		firstFrame;
+	int					firstFrame;			// was unsigned short: the Master _humanoid.gla has over 65535 frames (2026-11-22 set variants)
 	unsigned short		numFrames;
 	short				frameLerp;			// msec between frames
 	//initialLerp is abs(frameLerp)
@@ -461,6 +461,9 @@ typedef struct animation_s {
 
 // the animation style's own version of an anim (bg_panimate.c; animStyle_t above)
 int BG_StyleAnim(int animStyle, const animation_t* animations, int anim);
+animation_t* BG_StyledAnims(animation_t* animations, int animStyle); // a style's copy of the Master set (2026-11-22)
+qboolean BG_IsHumanoidAnims(const animation_t* animations);          // the Master set or a style's copy of it
+void BG_ResetStyledAnims(void);
 void BG_KeepStyleAnim(int anim); // an anim chosen by ported SP style code: BG_StyleAnim leaves it alone this pmove (-1 clears)
 int BG_StyleSaberAnimToBase(int anim, int saberAnimLevel); // a character's own anim -> the base anim it replaces (SP PM_StyleSaberAnimToBase + BG_StyleAnim's)
 int BG_UnstyleAnim(int anim); // the same, for checks that don't care about Dooku's style
@@ -470,7 +473,7 @@ extern qboolean			bgpa_ftext_loaded;
 extern animation_t		bgHumanoidAnimations[MAX_TOTALANIMATIONS];
 
 #define MAX_ANIM_FILES	64 // MovieDuels: Classic animation style, one set per dedicated humanoid set + the own-skeleton and creature sets
-#define MAX_ANIM_EVENTS 1000 // per block (UPPEREVENTS / LOWEREVENTS), the same as SP: the master _humanoid animevents.cfg has over 600 LOWEREVENTS
+#define MAX_ANIM_EVENTS 2048 // per block (UPPEREVENTS / LOWEREVENTS): the master _humanoid has ~680 LOWEREVENTS plus ~990 of its NAME_SET anims (styles/animevents.cfg, 2026-11-22); SP keeps 1000 (one style per set copy)
 
 typedef enum
 {
@@ -541,7 +544,7 @@ typedef enum
 typedef struct animevent_s
 {
 	animEventType_t	eventType;
-	unsigned short	keyFrame;			//Frame to play event on
+	int				keyFrame;			//Frame to play event on (absolute GLA frame; int since the Master GLA passed 65535 frames, -1 = unused)
 	signed short	eventData[AED_ARRAY_SIZE];	//Unique IDs, can be soundIndex of sound file to play OR effect index or footstep type, etc.
 	char* stringData;		//we allow storage of one string, temporarily (in case we have to look up an index later, then make sure to set stringData to NULL so we only do the look-up once)
 	int				ambtime;

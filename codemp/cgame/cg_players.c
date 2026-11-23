@@ -34,6 +34,14 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include <game/anims.h>
 #include <game/bg_public.h>
 #include <game/bg_vehicles.h>
+
+// The anim table an entity plays (2026-11-22): its animation style's (entityState.animStyle, from the server's
+// ps.animStyle) copy of the Master set (BG_StyledAnims) when it is on the Master set, else its own set's table.
+// The callers check localAnimIndex as they did for bgAllAnims[].anims.
+animation_t* CG_EntAnims(const centity_t* cent)
+{
+	return BG_StyledAnims(bgAllAnims[cent->localAnimIndex].anims, cent->currentState.animStyle);
+}
 #include <game/bg_weapons.h>
 #include <game/surfaceflags.h>
 #include <game/teams.h>
@@ -2592,7 +2600,7 @@ void CG_NewClientInfo(int clientNum, qboolean entities_initialized)
 			// Ensure animation index is valid before indexing bgHumanoidAnimations.
 			if (legsAnimIndex >= 0 && legsAnimIndex < MAX_ANIMATIONS)
 			{
-				animation_t* anim = &bgHumanoidAnimations[legsAnimIndex];
+				animation_t* anim = &CG_EntAnims(cent)[legsAnimIndex];
 				int flags = BONE_ANIM_OVERRIDE_FREEZE;
 				const int first_frame = anim->firstFrame;
 				int setFrame = -1;
@@ -2637,7 +2645,7 @@ void CG_NewClientInfo(int clientNum, qboolean entities_initialized)
 			// Ensure animation index is valid before indexing bgHumanoidAnimations.
 			if (torsoAnimIndex >= 0 && torsoAnimIndex < MAX_ANIMATIONS)
 			{
-				animation_t* anim = &bgHumanoidAnimations[torsoAnimIndex];
+				animation_t* anim = &CG_EntAnims(cent)[torsoAnimIndex];
 				int flags = BONE_ANIM_OVERRIDE_FREEZE;
 				const int first_frame = anim->firstFrame;
 				int setFrame = -1;
@@ -2816,7 +2824,8 @@ static void player_foot_step(const vec3_t origin,
 	VectorCopy(origin, end);
 	end[2] -= FOOTSTEP_DISTANCE;
 
-	trap->CM_Trace(&trace, origin, end, mins, maxs, 0, MASK_PLAYERSOLID, 0);
+	// TaystJK fix: CG_Trace also hits func_ entities (lifts, doors, bridges), the world-only CM_Trace missed them
+	CG_Trace(&trace, origin, mins, maxs, end, cent->currentState.number, MASK_PLAYERSOLID);
 
 	// No ground hit → no footstep
 	if (trace.fraction >= 1.0f)
@@ -3622,7 +3631,7 @@ static void CG_TriggerAnimSounds(centity_t* cent)
 
 	// MovieDuels: never index the anim / event tables with a bad slot (was only an assert; the Release build crashed
 	// with many NPCs / npc kill all when an NPC's anim set failed to load)
-	if (cent->localAnimIndex < 0 || cent->localAnimIndex >= MAX_ANIM_FILES || !bgAllAnims[cent->localAnimIndex].anims)
+	if (cent->localAnimIndex < 0 || cent->localAnimIndex >= MAX_ANIM_FILES || !CG_EntAnims(cent))
 	{
 		cent->localAnimIndex = 0;
 	}
@@ -3700,16 +3709,16 @@ static void CG_SetLerpFrameAnimation(centity_t* cent, clientInfo_t* ci, lerpFram
 		trap->Error(ERR_DROP, "Bad animation number: %i", new_animation);
 	}
 
-	animation_t* anim = &bgAllAnims[cent->localAnimIndex].anims[new_animation];
+	animation_t* anim = &CG_EntAnims(cent)[new_animation];
 
 	if (anim->numFrames <= 0 && new_animation < MAX_ANIMATIONS)
 	{
 		// safety net (game code that set an anim directly, an older server): a model on its own skeleton plays what
 		// its set has for an anim it lacks (bg_panimate.c BG_ResolveOwnSkelAnim), instead of freezing in its last pose.
 		// lf->animationNumber keeps the networked anim, so the change detection still works.
-		const int resolved = BG_ResolveOwnSkelAnim(bgAllAnims[cent->localAnimIndex].anims, new_animation,
+		const int resolved = BG_ResolveOwnSkelAnim(CG_EntAnims(cent), new_animation,
 			lf == &cent->pe.legs ? qtrue : qfalse);
-		anim = &bgAllAnims[cent->localAnimIndex].anims[resolved];
+		anim = &CG_EntAnims(cent)[resolved];
 	}
 
 	lf->animation = anim;
@@ -3978,7 +3987,7 @@ static void CG_SetLerpFrameAnimation(centity_t* cent, clientInfo_t* ci, lerpFram
 			int armFlags = 0;
 			float armAnimSpeed;
 
-			armAnim = &bgAllAnims[cent->localAnimIndex].anims[BOTH_DEAD21];
+			armAnim = &CG_EntAnims(cent)[BOTH_DEAD21];
 			ci->brokenLimbs = cent->currentState.brokenLimbs;
 
 			armFirstFrame = armAnim->firstFrame;
@@ -4018,7 +4027,7 @@ static void CG_SetLerpFrameAnimation(centity_t* cent, clientInfo_t* ci, lerpFram
 
 				if (cent->currentState.weapon == WP_MELEE || cent->currentState.weapon == WP_SABER)
 				{ //don't affect this arm if holding a gun, just make the other arm support it
-					armAnim = &bgAllAnims[cent->localAnimIndex].anims[BOTH_ATTACK2];
+					armAnim = &CG_EntAnims(cent)[BOTH_ATTACK2];
 
 					//armFirstFrame = armAnim->firstFrame;
 					armFirstFrame = armAnim->firstFrame + armAnim->numFrames;
@@ -4048,7 +4057,7 @@ static void CG_SetLerpFrameAnimation(centity_t* cent, clientInfo_t* ci, lerpFram
 					(BG_UnstyleAnim(newAnimation) == TORSO_WEAPONREADY2 || BG_UnstyleAnim(newAnimation) == BOTH_ATTACK2 || cent->currentState.weapon < WP_BRYAR_PISTOL))
 				{
 					//Now set the left arm to "support" the right one
-					armAnim = &bgAllAnims[cent->localAnimIndex].anims[BOTH_STAND2];
+					armAnim = &CG_EntAnims(cent)[BOTH_STAND2];
 					armFirstFrame = armAnim->firstFrame;
 					armLastFrame = armAnim->firstFrame + armAnim->numFrames;
 					armAnimSpeed = 50.0f / armAnim->frameLerp;
@@ -4302,7 +4311,7 @@ static float CG_NoFootSlideScale(const centity_t* cent, const int anim)
 	// 0.01 and 1.5 (1.5 = 30 frames a second), so a 45 fps sprint anim plays slower than its file rate. The anim
 	// code here multiplies the anim's own 50 / frameLerp by the value returned, so return playback / base.
 	{
-		const animation_t* anims = bgAllAnims[cent->localAnimIndex].anims;
+		const animation_t* anims = CG_EntAnims(cent);
 		const float frameLerp = anims ? fabsf((float)anims[anim].frameLerp) : 50.0f;
 		const float base = 50.0f / (frameLerp > 0.0f ? frameLerp : 50.0f);
 		// force speed: SP runs the world slower (the player's anims faster by 1 / timescale), MP the player 1.7x
@@ -4719,7 +4728,7 @@ qboolean CG_RagDoll(centity_t* cent, vec3_t forced_angles)
 		if (!in_something)
 		{
 			const int anim = cent->currentState.legsAnim;
-			const animation_t* legs_anim = &bgAllAnims[cent->localAnimIndex].anims[anim];
+			const animation_t* legs_anim = &CG_EntAnims(cent)[anim];
 
 			const int dur = (legs_anim->numFrames - 1) *
 				(int)fabs(legs_anim->frameLerp);
@@ -4854,9 +4863,9 @@ qboolean CG_RagDoll(centity_t* cent, vec3_t forced_angles)
 		}
 
 		// Base frames for ragdoll settling
-		t_parms.startFrame = bgAllAnims[cent->localAnimIndex].anims[rag_anim].firstFrame;
-		t_parms.endFrame = bgAllAnims[cent->localAnimIndex].anims[rag_anim].firstFrame +
-			bgAllAnims[cent->localAnimIndex].anims[rag_anim].numFrames;
+		t_parms.startFrame = CG_EntAnims(cent)[rag_anim].firstFrame;
+		t_parms.endFrame = CG_EntAnims(cent)[rag_anim].firstFrame +
+			CG_EntAnims(cent)[rag_anim].numFrames;
 
 #if 1 // Continue current anim and lock it for ragdoll base
 		{
@@ -4872,7 +4881,7 @@ qboolean CG_RagDoll(centity_t* cent, vec3_t forced_angles)
 			{
 				const int blendTime = 500;
 				animation_t* cur_anim =
-					&bgAllAnims[cent->localAnimIndex].anims[cent->currentState.legsAnim];
+					&CG_EntAnims(cent)[cent->currentState.legsAnim];
 
 				if (currentFrame >= cur_anim->firstFrame + cur_anim->numFrames - 1)
 				{
@@ -5252,7 +5261,7 @@ CG_G2SetHeadAnims
 */
 static void CG_G2SetHeadAnim(const centity_t* cent, const int anim)
 {
-	const animation_t* animations = bgAllAnims[cent->localAnimIndex].anims;
+	const animation_t* animations = CG_EntAnims(cent);
 	int anim_flags = BONE_ANIM_OVERRIDE;
 	const float time_scale_mod = timescale.value ? 1.0 / timescale.value : 1.0;
 	const float animSpeed = 50.0f / animations[anim].frameLerp * time_scale_mod;
@@ -15818,6 +15827,7 @@ int CG_HandleAppendedSkin(const char* model_name)
 
 //Create a temporary ghoul2 instance and get the gla name so we can try loading animation data and sounds.
 void BG_GetVehicleModelName(char* modelName, const char* vehicleName, size_t len);
+const char* BG_VehicleSkinName(const char* skinList, int entNum);
 void BG_GetVehicleSkinName(char* skinname, int len);
 
 void CG_CacheG2AnimInfo(const char* model_name)
@@ -15941,6 +15951,43 @@ extern void G_CreateFighterNPC(Vehicle_t** p_veh, const char* strType);
 
 extern playerState_t* cgSendPS[MAX_GENTITIES];
 
+// TaystJK fix: NPC entity slots are reused, so recompute the lumbar / face bone flags for
+// the model now in the slot instead of keeping the previous NPC's qtrue (wrong torso / face anims).
+static void CG_UpdateNPCBoneAvailability(centity_t* cent)
+{
+	if (cent->currentState.eType != ET_NPC)
+	{
+		return;
+	}
+
+	if (cent->currentState.NPC_class == CLASS_VEHICLE)
+	{
+		cent->noLumbar = qtrue;
+		cent->noFace = qtrue;
+		return;
+	}
+
+	cent->noLumbar = qfalse;
+	cent->noFace = qfalse;
+
+	if (!cent->ghoul2)
+	{
+		return;
+	}
+
+	if (trap->G2API_AddBolt(cent->ghoul2, 0, "lower_lumbar") == -1)
+	{
+		//check now to see if we have this bone for setting anims and such
+		cent->noLumbar = qtrue;
+	}
+
+	if (trap->G2API_AddBolt(cent->ghoul2, 0, "face") == -1)
+	{
+		//check now to see if we have this bone for setting anims and such
+		cent->noFace = qtrue;
+	}
+}
+
 static void CG_G2AnimEntModelLoad(centity_t* cent)
 {
 	const char* cModelName = CG_ConfigString(CS_MODELS + cent->currentState.modelIndex);
@@ -16002,7 +16049,7 @@ static void CG_G2AnimEntModelLoad(centity_t* cent)
 				cent->m_pVehicle->m_pVehicleInfo->skin[0])
 			{
 				//use a custom skin
-				skinID = trap->R_RegisterSkin(va("models/players/%s/model_%s.skin", modelName, cent->m_pVehicle->m_pVehicleInfo->skin));
+				skinID = trap->R_RegisterSkin(va("models/players/%s/model_%s.skin", modelName, BG_VehicleSkinName(cent->m_pVehicle->m_pVehicleInfo->skin, cent->currentState.number)));
 			}
 			else
 			{
@@ -16187,26 +16234,8 @@ static void CG_G2AnimEntModelLoad(centity_t* cent)
 				trap->G2API_AddBolt(cent->ghoul2, 0, "Motion");
 			}
 
-			// If this is a not vehicle...
-			if (cent->currentState.NPC_class != CLASS_VEHICLE)
-			{
-				if (trap->G2API_AddBolt(cent->ghoul2, 0, "lower_lumbar") == -1)
-				{
-					//check now to see if we have this bone for setting anims and such
-					cent->noLumbar = qtrue;
-				}
-
-				if (trap->G2API_AddBolt(cent->ghoul2, 0, "face") == -1)
-				{
-					//check now to see if we have this bone for setting anims and such
-					cent->noFace = qtrue;
-				}
-			}
-			else
-			{
-				cent->noLumbar = qtrue;
-				cent->noFace = qtrue;
-			}
+			// lumbar / face bone flags, reset for this model (vehicles have neither)
+			CG_UpdateNPCBoneAvailability(cent);
 
 			// MovieDuels: a failed anim set load (no animation.cfg, no free slot...) left -1 here, which later indexed
 			// bgAllAnims[-1] (crash with many NPCs / npc kill all): use the humanoid set instead
@@ -16615,7 +16644,7 @@ static void CG_ForceFPLSPlayerModel(centity_t* cent, clientInfo_t* ci)
 	// ------------------------------------------------------------
 	// LEGS ANIMATION
 	// ------------------------------------------------------------
-	anim = &bgAllAnims[cent->localAnimIndex].anims[cent->currentState.legsAnim];
+	anim = &CG_EntAnims(cent)[cent->currentState.legsAnim];
 	if (anim)
 	{
 		int flags = (anim->loopFrames != -1) ? BONE_ANIM_OVERRIDE_LOOP : BONE_ANIM_OVERRIDE_FREEZE;
@@ -16639,7 +16668,7 @@ static void CG_ForceFPLSPlayerModel(centity_t* cent, clientInfo_t* ci)
 	// ------------------------------------------------------------
 	// TORSO ANIMATION
 	// ------------------------------------------------------------
-	anim = &bgAllAnims[cent->localAnimIndex].anims[cent->currentState.torsoAnim];
+	anim = &CG_EntAnims(cent)[cent->currentState.torsoAnim];
 	if (anim)
 	{
 		int flags = (anim->loopFrames != -1) ? BONE_ANIM_OVERRIDE_LOOP : BONE_ANIM_OVERRIDE_FREEZE;
@@ -18489,7 +18518,7 @@ static void CG_SaberBlasterArmPose(centity_t* cent) // not const: the Ghoul2 cal
 	int body_frame = -1;
 
 	if (cent->saberBlasterPistol && cent->ghoul2 && !(es->eFlags & EF_DEAD)
-		&& cent->localAnimIndex >= 0 && cent->localAnimIndex < MAX_ANIM_FILES && bgAllAnims[cent->localAnimIndex].anims
+		&& cent->localAnimIndex >= 0 && cent->localAnimIndex < MAX_ANIM_FILES && CG_EntAnims(cent)
 		&& BG_AnimSetIsHumanoidLike(cent->localAnimIndex)
 		&& !es->brokenLimbs
 		&& !BG_InKnockDown(es->legsAnim) && !BG_InKnockDown(es->torsoAnim)
@@ -18501,7 +18530,7 @@ static void CG_SaberBlasterArmPose(centity_t* cent) // not const: the Ghoul2 cal
 		&& es->saberMove <= LS_READY // swings, parries, blocks: the body's own anims, the arm only idle or shooting (DH)
 		&& !(es->ManualBlockingFlags & 1 << MBF_HOLDINGBLOCK))
 	{
-		const animation_t* anims = bgAllAnims[cent->localAnimIndex].anims;
+		const animation_t* anims = CG_EntAnims(cent);
 		const animation_t* arm = &anims[BOTH_ATTACK_FP_JANGO];
 		if (arm->numFrames <= 0)
 		{
@@ -21259,7 +21288,7 @@ void CG_Player(centity_t* cent)
 
 	// MovieDuels: every bgAllAnims[cent->localAnimIndex] / bgAllEvents[cent->eventAnimIndex] below needs a valid slot
 	// (a failed anim set load left -1: crash with many NPCs / npc kill all)
-	if (cent->localAnimIndex < 0 || cent->localAnimIndex >= MAX_ANIM_FILES || !bgAllAnims[cent->localAnimIndex].anims)
+	if (cent->localAnimIndex < 0 || cent->localAnimIndex >= MAX_ANIM_FILES || !CG_EntAnims(cent))
 	{
 		cent->localAnimIndex = 0;
 	}
@@ -24854,6 +24883,7 @@ void CG_ResetPlayerEntity(centity_t* cent)
 		//already set.
 		cent->npcLocalSurfOff = 0;
 		cent->npcLocalSurfOn = 0;
+		CG_UpdateNPCBoneAvailability(cent); // TaystJK fix: don't keep the previous NPC's bone flags
 	}
 	else
 	{

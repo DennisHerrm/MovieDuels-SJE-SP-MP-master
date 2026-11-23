@@ -1550,6 +1550,7 @@ qboolean G_PlayerHasCustomSkeleton(gentity_t* ent);
 // MovieDuels animation style (g_main.c / g_client.c)
 extern int g_mdAnimStyleActive;				// 1 = Master style in force for this map (g_animationStyleActive), 0 = Classic
 void G_SetClientAnimStyle(gentity_t* ent);
+animation_t* G_EntAnims(const gentity_t* ent); // g_utils.c: the anim table this entity plays (its style's copy of the Master set)
 int G_AnimStyleFromCSName(const char* name);	// "CS_MACE_WINDU" / "mace_windu" -> ANIMSTYLE_*, -1 when unknown
 int G_NPCAnimStyle(const char* model, int parsed);	// an NPC's style: its NPC file's line, else its model's (DH 2026-11-02)	// the client's animation style for its model / the solo player's menu choice
 int G_AnimStyleFromName(const char* name);	// "default", "yoda"... (SP AnimationstylesTable) -> ANIMSTYLE_*, -1 if unknown

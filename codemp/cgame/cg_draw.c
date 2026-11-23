@@ -16581,11 +16581,11 @@ static float CG_SaberLockMeterProgress(float* time_frac)
 		return -1.0f;
 	}
 	if (!PM_InSaberLock(ps->torsoAnim) || cent->localAnimIndex < 0 || cent->localAnimIndex >= MAX_ANIM_FILES
-		|| !bgAllAnims[cent->localAnimIndex].anims)
+		|| !CG_EntAnims(cent))
 	{
 		return -1.0f;
 	}
-	const animation_t* anim = &bgAllAnims[cent->localAnimIndex].anims[ps->torsoAnim];
+	const animation_t* anim = &CG_EntAnims(cent)[ps->torsoAnim];
 	if (anim->numFrames <= 1)
 	{
 		return -1.0f;

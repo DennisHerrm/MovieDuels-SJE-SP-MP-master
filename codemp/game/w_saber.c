@@ -1969,11 +1969,11 @@ static QINLINE qboolean WP_SabersCheckLock2(gentity_t* attacker, gentity_t* defe
 
 	G_SetAnim(attacker, NULL, SETANIM_BOTH, attAnim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
 
-	attacker->client->ps.saberLockFrame = bgAllAnims[attacker->localAnimIndex].anims[attAnim].firstFrame + bgAllAnims[attacker->localAnimIndex].anims[attAnim].numFrames * attStart;
+	attacker->client->ps.saberLockFrame = G_EntAnims(attacker)[attAnim].firstFrame + G_EntAnims(attacker)[attAnim].numFrames * attStart;
 
 	G_SetAnim(defender, NULL, SETANIM_BOTH, defAnim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0);
 
-	defender->client->ps.saberLockFrame = bgAllAnims[defender->localAnimIndex].anims[defAnim].firstFrame + bgAllAnims[defender->localAnimIndex].anims[defAnim].numFrames * defStart;
+	defender->client->ps.saberLockFrame = G_EntAnims(defender)[defAnim].firstFrame + G_EntAnims(defender)[defAnim].numFrames * defStart;
 
 	attacker->client->ps.saberLockHits = 0;
 	defender->client->ps.saberLockHits = 0;
@@ -10501,8 +10501,8 @@ static void UpdateClientRenderinfo(gentity_t* self, vec3_t render_origin, vec3_t
 		VectorCopy(self->client->ps.viewangles, self->client->renderInfo.eyeAngles);
 
 		//we'll just say the legs/torso are whatever the first frame of our current anim is.
-		ri->torsoFrame = bgAllAnims[self->localAnimIndex].anims[self->client->ps.torsoAnim].firstFrame;
-		ri->legsFrame = bgAllAnims[self->localAnimIndex].anims[self->client->ps.legsAnim].firstFrame;
+		ri->torsoFrame = G_EntAnims(self)[self->client->ps.torsoAnim].firstFrame;
+		ri->legsFrame = G_EntAnims(self)[self->client->ps.legsAnim].firstFrame;
 		if (g_debugServerSkel.integer)
 		{
 			//Alright, I was doing this, but it's just too slow to do every frame.

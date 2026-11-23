@@ -1325,7 +1325,7 @@ void CG_PredictPlayerState(void)
 				pmove_msec.integer;
 		}
 
-		cg_pmove.animations = bgAllAnims[pEnt->localAnimIndex].anims;
+		cg_pmove.animations = BG_StyledAnims(bgAllAnims[pEnt->localAnimIndex].anims, cg_pmove.ps ? cg_pmove.ps->animStyle : ANIMSTYLE_DEFAULT); // its style's copy of the Master set (2026-11-22)
 		cg_pmove.gametype = cgs.gametype;
 
 		cg_pmove.stepSlideFix = cgs.stepSlideFix;

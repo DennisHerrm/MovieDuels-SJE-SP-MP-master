@@ -47,8 +47,12 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include <cassert>
 #include <string.h>
 #include "../qcommon/md_animsets.h"
+#include "qcommon/md_animstyle_sets.h"
+#include <map>
+#include <string>
 
 extern void WP_RemoveSaber(gentity_t* ent, int saberNum);
+extern void WP_RemoveSecondSaber(gentity_t* ent, int saberNum);
 extern qboolean NPCsPrecached;
 extern vec3_t playerMins;
 extern vec3_t playerMaxs;
@@ -543,6 +547,130 @@ static int CG_CheckAnimFrameForEventType(const animevent_t* anim_events, const i
 	return -1;
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Animation styles on the Master _humanoid set (2026-11-22, g_ActivateAnimationStyle 1)
+// The Master set holds every humanoid set's own version of an anim as NAME_SET (BOTH_RUN2_ANI = _humanoid_ani's
+// BOTH_RUN2; game/anims_variants.h, enum ids after BOTH_FORCEJUMPDASH_LAND). Each style gets its own copy of the
+// Master animation set ("_humanoid@ANI"...) in which the base anim takes its style's frames and timing, plus that
+// set's own anim events (models/players/_humanoid/styles/animevents.cfg). The anim ids stay the base ones, so every
+// anim check, timer and event works as it did with the character's own set. The style comes from the NPC file
+// (animationstyle CS_*), or the player's choice, through client->animationstyle; G_SyncAnimStyleSet keeps the
+// client's animFileIndex on its style's copy. The hand-made style anims (BOTH_RUN1_VADER...) are not touched.
+// ---------------------------------------------------------------------------------------------------------------------
+
+// Suffix of each style's own humanoid set (the NPC files pair every CS_* style with one set: CS_ANAKIN -> _humanoid_ani)
+static const char* const g_animStyleSetSuffix[CS_NUM_ANIMATION_STYLES] =
+{
+	nullptr,  // CS_DEFAULT: the Master set itself
+	"ANI",    // CS_ANAKIN
+	"BDROID", // CS_BATTLEDROID
+	"BEN",    // CS_BENKENOBI
+	"CAL",    // CS_CAL_KESTIS
+	"CLO",    // CS_CLONETROOPER
+	"DF2",    // CS_DARKFORCES2
+	"DOOKU",  // CS_COUNT_DOOKU
+	"GALEN",  // CS_GALEN_MAREK
+	"GON",    // CS_QUI_GON_JINN
+	"GRIEV",  // CS_GRIEVOUS
+	"JANGO",  // CS_JANGO
+	"KOTOR",  // CS_KOTOR
+	"LUKE",   // CS_LUKE_SKYWALKER
+	"MACE",   // CS_MACE_WINDU
+	"MAUL",   // CS_MAUL
+	"MD",     // CS_MOVIEDUELS
+	"OBI",    // CS_OBIWAN
+	"OBI3",   // CS_OBIWAN_EP3
+	"PAL",    // CS_PALPATINE
+	"REB",    // CS_REBELS
+	"REN",    // CS_KYLO_REN
+	"REY",    // CS_REY
+	"VADER",  // CS_VADER
+	"YODA"    // CS_YODA
+};
+
+#define MD_STYLE_SET_PREFIX "_humanoid@"
+#define MD_STYLE_EVENTS_DIR "_humanoid/styles"
+
+static short g_styleVariantBase[MAX_ANIMATIONS];        // NAME_SET id -> NAME id (-1: not a style variant)
+static signed char g_styleVariantStyle[MAX_ANIMATIONS]; // NAME_SET id -> its CS_* style
+static qboolean g_styleVariantsBuilt = qfalse;
+static int g_animEvtStyleFilter = CS_DEFAULT;           // ParseAnimationEvtBlock: only this style's variants
+static char g_styleSharedFrames[MAX_ANIMATIONS];        // the style version plays Master's own frames (other timing / events)
+
+// Drops a block's events on frames first .. first + num - 1 (the set-wide ones of the set's own GLA; per-model events
+// stay): a style version on Master's frames brings its set's events for them instead of Master's
+static void G_PurgeAnimEvents(animevent_t* anim_events, int& count, const int first, const int num)
+{
+	int w = 0;
+	for (int r = 0; r < count; r++)
+	{
+		const bool drop = anim_events[r].glaIndex == 0 && anim_events[r].modelOnly == 0
+			&& anim_events[r].keyFrame >= first && anim_events[r].keyFrame < first + num;
+		if (!drop)
+		{
+			if (w != r)
+			{
+				anim_events[w] = anim_events[r];
+			}
+			w++;
+		}
+	}
+	for (int r = w; r < count; r++)
+	{
+		anim_events[r].eventType = AEV_NONE;
+		anim_events[r].keyFrame = -1;
+		anim_events[r].stringData = nullptr;
+		anim_events[r].modelOnly = 0;
+		anim_events[r].glaIndex = 0;
+		for (int j = 0; j < AED_ARRAY_SIZE; j++)
+		{
+			anim_events[r].eventData[j] = -1;
+		}
+	}
+	count = w;
+}
+
+static void G_BuildStyleVariants()
+{
+	if (g_styleVariantsBuilt)
+	{
+		return;
+	}
+	for (int a = 0; a < MAX_ANIMATIONS; a++)
+	{
+		g_styleVariantBase[a] = -1;
+		g_styleVariantStyle[a] = CS_DEFAULT;
+	}
+	for (int i = 0; animTable[i].name; i++)
+	{
+		const int id = animTable[i].id;
+		if (id <= BOTH_FORCEJUMPDASH_LAND || id >= MAX_ANIMATIONS)
+		{
+			continue; // only the merged set variants
+		}
+		const char* name = animTable[i].name;
+		const int len = static_cast<int>(strlen(name));
+		for (int s = CS_DEFAULT + 1; s < CS_NUM_ANIMATION_STYLES; s++)
+		{
+			const int suf_len = static_cast<int>(strlen(g_animStyleSetSuffix[s]));
+			if (len <= suf_len + 1 || name[len - suf_len - 1] != '_' || Q_stricmp(name + len - suf_len, g_animStyleSetSuffix[s]))
+			{
+				continue;
+			}
+			char base_name[MAX_QPATH];
+			Q_strncpyz(base_name, name, len - suf_len < MAX_QPATH ? len - suf_len : MAX_QPATH);
+			const int base = AnimTable_GetID(base_name);
+			if (base >= 0 && base < MAX_ANIMATIONS)
+			{
+				g_styleVariantBase[id] = static_cast<short>(base);
+				g_styleVariantStyle[id] = static_cast<signed char>(s);
+				break;
+			}
+		}
+	}
+	g_styleVariantsBuilt = qtrue;
+}
+
 /*
 ======================
 ParseAnimationEvtBlock
@@ -555,6 +683,7 @@ static void ParseAnimationEvtBlock(const int gla_index, const unsigned short mod
 {
 	const char* token = nullptr;
 	int num = 0, n = 0, lowest_val = 0, highest_val = 0;
+	std::vector<char> style_purged; // style copies: anims whose Master events on shared frames were dropped in this block
 
 	// get past starting bracket
 	while (qtrue)
@@ -590,7 +719,7 @@ static void ParseAnimationEvtBlock(const int gla_index, const unsigned short mod
 		}
 
 		// Compare to same table as animations used
-		const int anim_num = GetIDForString(animTable, token);
+		const int anim_num = AnimTable_GetID(token);
 		if (anim_num == -1)
 		{
 			// Unrecognized ANIM ENUM name
@@ -598,6 +727,29 @@ static void ParseAnimationEvtBlock(const int gla_index, const unsigned short mod
 			// skip this entry
 			SkipRestOfLine(text_p);
 			continue;
+		}
+
+		// a style's copy of the Master set takes only its own style's variant events (G_StyledAnimFileIndex)
+		if (g_animEvtStyleFilter != CS_DEFAULT)
+		{
+			if (anim_num >= MAX_ANIMATIONS || g_styleVariantStyle[anim_num] != g_animEvtStyleFilter)
+			{
+				SkipRestOfLine(text_p);
+				continue;
+			}
+			// on Master's own frames: the set's events replace Master's there (once per block)
+			if (g_styleSharedFrames[anim_num] && animations[anim_num].numFrames > 0)
+			{
+				if (style_purged.empty())
+				{
+					style_purged.assign(MAX_ANIMATIONS, 0);
+				}
+				if (!style_purged[anim_num])
+				{
+					style_purged[anim_num] = 1;
+					G_PurgeAnimEvents(anim_events, last_anim_event, animations[anim_num].firstFrame, animations[anim_num].numFrames);
+				}
+			}
 		}
 
 		if (animations[anim_num].numFrames == 0)
@@ -1045,6 +1197,38 @@ static void G_ParseAnimationEvtFile(const int gla_index, const char* events_dire
 	COM_EndParseSession();
 }
 
+// MD-mode saber attack slowdown (g_SerenityJediEngineMode 2 + g_SaberAttackSpeedMD + g_RealisticBlockingMode):
+// applied to an anim when it is read from animation.cfg, and to a base anim that takes a style's frames
+static void G_SaberAnimSlowdown(animation_t* animations, const int anim_num)
+{
+	if (g_SerenityJediEngineMode->integer == 2 &&
+		g_SaberAttackSpeedMD->integer &&
+		g_RealisticBlockingMode->integer)
+	{
+		for (int x = 4; x < LS_MOVE_MAX; x++)
+		{
+			if (saberMoveData[x].animToUse + SABER_ANIM_GROUP_SIZE * 4 == anim_num)
+			{
+				animations[anim_num].frameLerp =
+					static_cast<short>(animations[anim_num].frameLerp * 1.2f);
+				break;
+			}
+			if (saberMoveData[x].animToUse + SABER_ANIM_GROUP_SIZE * 5 == anim_num)
+			{
+				animations[anim_num].frameLerp =
+					static_cast<short>(animations[anim_num].frameLerp * 1.1f);
+				break;
+			}
+			if (saberMoveData[x].animToUse + SABER_ANIM_GROUP_SIZE * 6 == anim_num)
+			{
+				animations[anim_num].frameLerp =
+					static_cast<short>(animations[anim_num].frameLerp * 1.1f);
+				break;
+			}
+		}
+	}
+}
+
 // -----------------------------------------------------------------------------
 // G_ParseAnimationFile
 // Loads and parses an animation.cfg for a given skeleton.
@@ -1093,7 +1277,7 @@ static qboolean G_ParseAnimationFile(const int gla_index, const char* skeletonNa
 		}
 
 		// Convert token to animation index
-		const int anim_num = GetIDForString(animTable, token);
+		const int anim_num = AnimTable_GetID(token);
 
 		if (anim_num < 0 || anim_num >= MAX_ANIMATIONS)
 		{
@@ -1129,33 +1313,7 @@ static qboolean G_ParseAnimationFile(const int gla_index, const char* skeletonNa
 
 		animations[anim_num].glaIndex = gla_index;
 
-		// Slowdown logic (unchanged, but applied once instead of duplicated)
-		if (g_SerenityJediEngineMode->integer == 2 &&
-			g_SaberAttackSpeedMD->integer &&
-			g_RealisticBlockingMode->integer)
-		{
-			for (int x = 4; x < LS_MOVE_MAX; x++)
-			{
-				if (saberMoveData[x].animToUse + SABER_ANIM_GROUP_SIZE * 4 == anim_num)
-				{
-					animations[anim_num].frameLerp =
-						static_cast<short>(animations[anim_num].frameLerp * 1.2f);
-					break;
-				}
-				if (saberMoveData[x].animToUse + SABER_ANIM_GROUP_SIZE * 5 == anim_num)
-				{
-					animations[anim_num].frameLerp =
-						static_cast<short>(animations[anim_num].frameLerp * 1.1f);
-					break;
-				}
-				if (saberMoveData[x].animToUse + SABER_ANIM_GROUP_SIZE * 6 == anim_num)
-				{
-					animations[anim_num].frameLerp =
-						static_cast<short>(animations[anim_num].frameLerp * 1.1f);
-					break;
-				}
-			}
-		}
+		G_SaberAnimSlowdown(animations, anim_num);
 	}
 
 	COM_EndParseSession();
@@ -1230,7 +1388,15 @@ int G_AnimGLAOffset(const int file_index, const int gla_slot)
 	int normal_gla = 0;
 	int cine_gla = 0;
 	char skeleton_map_name[MAX_QPATH];
-	if (!G_CinematicGLAHandles(level.knownAnimFileSets[file_index].filename, normal_gla, cine_gla, skeleton_map_name))
+	// a style's copy of the Master set ("_humanoid@ANI") has the Master set's GLAs
+	char set_name[MAX_QPATH];
+	Q_strncpyz(set_name, level.knownAnimFileSets[file_index].filename, sizeof set_name);
+	char* style_mark = strchr(set_name, '@');
+	if (style_mark)
+	{
+		*style_mark = '\0';
+	}
+	if (!G_CinematicGLAHandles(set_name, normal_gla, cine_gla, skeleton_map_name))
 	{
 		return 0;
 	}
@@ -1380,13 +1546,186 @@ int G_ParseAnimFileSet(const char* skeletonName, const char* model_name = nullpt
 					"models/players/_humanoid/_humanoid.gla"); // ;-)
 
 			G_ParseAnimationEvtFile(0, model_name, file_index, i_gla_index_to_check_for_skip, true);
+
+			// the styles' copies of the Master set made before this model came get its events too
+			if (!Q_stricmp(skeletonName, MD_MASTER_HUMANOID_DIR))
+			{
+				for (int s = 0; s < level.numKnownAnimFileSets; s++)
+				{
+					if (!Q_stricmpn(level.knownAnimFileSets[s].filename, MD_STYLE_SET_PREFIX, strlen(MD_STYLE_SET_PREFIX)))
+					{
+						G_ParseAnimationEvtFile(0, model_name, s, i_gla_index_to_check_for_skip, true);
+					}
+				}
+			}
 		}
 	}
 
 	return file_index;
 }
 
+// The animation set a client with this style plays (g_ActivateAnimationStyle 1, see G_BuildStyleVariants): for a
+// client on the Master set (or on another style's copy of it), its style's copy, made the first time it is needed;
+// the Master set for CS_DEFAULT; any other set unchanged.
+int G_StyledAnimFileIndex(const int file_index, const int style)
+{
+	if (!g_ActivateAnimationStyle || g_ActivateAnimationStyle->integer != 1
+		|| file_index < 0 || file_index >= level.numKnownAnimFileSets)
+	{
+		return file_index;
+	}
+
+	const char* set_name = level.knownAnimFileSets[file_index].filename;
+	const qboolean on_master = Q_stricmp(set_name, MD_MASTER_HUMANOID_DIR) ? qfalse : qtrue;
+	if (!on_master && Q_stricmpn(set_name, MD_STYLE_SET_PREFIX, strlen(MD_STYLE_SET_PREFIX)))
+	{
+		return file_index; // not the Master set: a model with its own skeleton keeps its set
+	}
+
+	int master = file_index;
+	if (!on_master)
+	{
+		for (master = 0; master < level.numKnownAnimFileSets; master++)
+		{
+			if (!Q_stricmp(level.knownAnimFileSets[master].filename, MD_MASTER_HUMANOID_DIR))
+			{
+				break;
+			}
+		}
+		if (master >= level.numKnownAnimFileSets)
+		{
+			return file_index;
+		}
+	}
+
+	if (style <= CS_DEFAULT || style >= CS_NUM_ANIMATION_STYLES)
+	{
+		return master;
+	}
+
+	char styled_name[MAX_QPATH];
+	Com_sprintf(styled_name, sizeof styled_name, "%s%s", MD_STYLE_SET_PREFIX, g_animStyleSetSuffix[style]);
+	for (int i = 0; i < level.numKnownAnimFileSets; i++)
+	{
+		if (!Q_stricmp(level.knownAnimFileSets[i].filename, styled_name))
+		{
+			return i;
+		}
+	}
+
+	if (level.numKnownAnimFileSets >= MAX_ANIM_FILES)
+	{
+		static qboolean warned = qfalse;
+		if (!warned)
+		{
+			Com_Printf(S_COLOR_YELLOW "WARNING: no free animation set slot for %s (MAX_ANIM_FILES %d), it plays the Master set\n",
+				styled_name, MAX_ANIM_FILES);
+			warned = qtrue;
+		}
+		return master;
+	}
+
+	G_BuildStyleVariants();
+
+	const int styled = level.numKnownAnimFileSets++;
+	animFileSet_t& set = level.knownAnimFileSets[styled];
+	set = level.knownAnimFileSets[master];
+	Q_strncpyz(set.filename, styled_name, sizeof set.filename);
+
+	// the base anims take this style's frames and timing
+	int swapped = 0;
+	memset(g_styleSharedFrames, 0, sizeof g_styleSharedFrames);
+	for (int v = BOTH_FORCEJUMPDASH_LAND + 1; v < MAX_ANIMATIONS; v++)
+	{
+		if (g_styleVariantStyle[v] != style || g_styleVariantBase[v] < 0 || set.animations[v].numFrames <= 0)
+		{
+			continue;
+		}
+		const int base = g_styleVariantBase[v];
+		g_styleSharedFrames[v] = set.animations[v].firstFrame == set.animations[base].firstFrame
+			&& set.animations[v].glaIndex == set.animations[base].glaIndex ? 1 : 0;
+		set.animations[base] = set.animations[v];
+		G_SaberAnimSlowdown(set.animations, base);
+		swapped++;
+	}
+
+	// and this style's set's own anim events, on those frames
+	g_animEvtStyleFilter = style;
+	G_ParseAnimationEvtFile(0, MD_STYLE_EVENTS_DIR, styled, gi.G2API_PrecacheGhoul2Model(MD_MASTER_HUMANOID_GLA ".gla"), false);
+	g_animEvtStyleFilter = CS_DEFAULT;
+
+	if (g_developer && g_developer->integer)
+	{
+		Com_Printf("Animation style set %s: %d anims take the style's version\n", styled_name, swapped);
+	}
+	return styled;
+}
+
+// The animation style of the humanoid set a model was made for (its model.glm, md_animstyle_sets.h): 0 for models on
+// the plain _humanoid set or their own skeleton. Read once per model name.
+int G_ModelSetStyle(const char* model_name)
+{
+	static std::map<std::string, int> cache;
+
+	if (!model_name || !model_name[0])
+	{
+		return 0;
+	}
+	char key[MAX_QPATH];
+	Q_strncpyz(key, model_name, sizeof key);
+	char* skin = strchr(key, '/');
+	if (skin)
+	{
+		*skin = '\0'; // "folder/skin"
+	}
+	Q_strlwr(key);
+	const auto it = cache.find(key);
+	if (it != cache.end())
+	{
+		return it->second;
+	}
+
+	int style = 0;
+	char path[MAX_QPATH];
+	Com_sprintf(path, sizeof path, "models/players/%s/model.glm", key);
+	fileHandle_t f = 0;
+	const int len = cgi_FS_FOpenFile(path, &f, FS_READ);
+	if (len > 0 && f)
+	{
+		char buf[136];
+		const int got = len < static_cast<int>(sizeof buf) ? len : static_cast<int>(sizeof buf);
+		cgi_FS_Read(buf, got, f);
+		char anim_name[MAX_QPATH];
+		MD_GlmAnimName(buf, got, anim_name, sizeof anim_name);
+		style = MD_StyleForAnimSet(anim_name);
+	}
+	if (f)
+	{
+		cgi_FS_FCloseFile(f);
+	}
+	cache[key] = style;
+	return style;
+}
+
+// Keeps a client's animFileIndex on the animation set of its current style (style changes by NPC file, the player's
+// menu choice, svcmds or a model change all come through here); called every client think
+void G_SyncAnimStyleSet(const gentity_t* ent)
+{
+	if (!ent || !ent->client || !g_ActivateAnimationStyle || g_ActivateAnimationStyle->integer != 1)
+	{
+		return;
+	}
+	gclient_t* client = ent->client;
+	const int wanted = G_StyledAnimFileIndex(client->clientInfo.animFileIndex, client->animationstyle);
+	if (wanted != client->clientInfo.animFileIndex)
+	{
+		client->clientInfo.animFileIndex = wanted;
+	}
+}
+
 extern cvar_t* g_char_model;
+extern Animationstyles_t G_PlayerAnimationStyleFor(const gentity_t* ent);
+int G_ModelSetStyle(const char* model_name);
 
 void G_LoadAnimFileSet(gentity_t* ent, const char* p_model_name)
 {
@@ -1447,6 +1786,15 @@ void G_LoadAnimFileSet(gentity_t* ent, const char* p_model_name)
 	// for a model whose skeleton does not fit the master set it is still its own (md_animsets.h).
 
 	ent->client->clientInfo.animFileIndex = G_ParseAnimFileSet(stripped_name, model_name);
+
+	// The model's own humanoid set decides its animation style (md_animstyle_sets.h): NPCs play it, the player keeps
+	// it unless he picked another (G_PlayerAnimationStyleFor). Models on the plain _humanoid set keep their NPC file's.
+	const int set_style = G_ModelSetStyle(model_name);
+	if (set_style > CS_DEFAULT && set_style < CS_NUM_ANIMATION_STYLES)
+	{
+		ent->client->parsedAnimationStyle = set_style;
+		ent->client->animationstyle = ent->s.number == 0 ? G_PlayerAnimationStyleFor(ent) : static_cast<Animationstyles_t>(set_style);
+	}
 
 	if (ent->client->clientInfo.animFileIndex < 0)
 	{
@@ -2469,6 +2817,8 @@ qboolean NPC_ParseParms(const char* npc_name, gentity_t* npc)
 			return qfalse;
 		}
 
+		// SJE: whether this file names a second saber (a new first saber without one drops one left from before)
+		bool parsed_saber2 = false;
 		// parse the NPC info block
 		while (true)
 		{
@@ -4211,6 +4561,13 @@ qboolean NPC_ParseParms(const char* npc_name, gentity_t* npc)
 				}
 				const char* saber_name = G_NewString(value);
 				WP_SaberParseParms(saber_name, &npc->client->ps.saber[0]);
+				// SJE: a new first saber from this file - a second saber left from the character before goes, unless this file
+				// names its own (a script changing the player from Ahsoka to Dooku: Dooku held her second saber). A new NPC
+				// has none to drop.
+				if (!parsed_saber2 && npc->client->ps.dualSabers)
+				{
+					WP_RemoveSecondSaber(npc, 1);
+				}
 				//if it requires a specific style, make sure we know how to use it
 				if (npc->client->ps.saber[0].stylesLearned)
 				{
@@ -4226,6 +4583,7 @@ qboolean NPC_ParseParms(const char* npc_name, gentity_t* npc)
 			//second saber name
 			if (!Q_stricmp(token, "saber2"))
 			{
+				parsed_saber2 = true;	// SJE
 				if (COM_ParseString(&p, &value))
 				{
 					continue;

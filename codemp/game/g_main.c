@@ -326,8 +326,10 @@ static void G_LatchAnimationStyle(void)
 {
 	const qboolean solo = G_AnimStyleSoloNow(g_animStyleRemoteHumans.integer);
 
-	// online too (DH 2026-11-02): the host's / server's setting decides, solo or not; every player picks his own style
-	g_mdAnimStyleActive = g_ActivateAnimationStyle.integer == 1 ? 1 : 0;
+	// 2026-11-22 (DH: every model on the Master set only, the per-character set folders go): always the Master set,
+	// every character plays its own style's versions there (its model's set, g_client.c G_AnimStyleForModel).
+	// g_ActivateAnimationStyle now only decides the players' style: 1 = the one picked in their menu, 0 = their model's.
+	g_mdAnimStyleActive = 1;
 	trap->Cvar_Set("g_animationStyleActive", g_mdAnimStyleActive ? "1" : "0");
 	trap->Cvar_Set("md_soloGame", solo ? "1" : "0");
 	trap->Cvar_Set("md_soloMasterStyle", g_mdAnimStyleActive ? "1" : "0");
@@ -378,12 +380,21 @@ static void G_CheckAnimationStyle(void)
 		trap->Cvar_Update(&md_soloGame);
 	}
 
-	const int target = g_ActivateAnimationStyle.integer == 1 ? 1 : 0; // solo or not (DH 2026-11-02)
-	if (target != md_soloMasterStyle.integer)
+	// md_soloMasterStyle tells the menus whether the players pick their style (g_ActivateAnimationStyle 1)
+	const int picking = g_ActivateAnimationStyle.integer == 1 ? 1 : 0;
+	if (picking != md_soloMasterStyle.integer)
 	{
-		trap->Cvar_Set("md_soloMasterStyle", target ? "1" : "0");
+		trap->Cvar_Set("md_soloMasterStyle", picking ? "1" : "0");
 		trap->Cvar_Update(&md_soloMasterStyle);
+		for (int i = 0; i < level.maxclients; i++)
+		{
+			if (level.clients[i].pers.connected == CON_CONNECTED && g_entities[i].client)
+			{
+				G_SetClientAnimStyle(&g_entities[i]); // the players' style follows the setting at once
+			}
+		}
 	}
+	const int target = 1; // always the Master set since 2026-11-22 (G_LatchAnimationStyle): the setting needs no reload
 	if (target == g_mdAnimStyleActive)
 	{
 		announcedTarget = -1;
@@ -857,6 +868,8 @@ void G_InitGame(int levelTime, int randomSeed, int restart)
 
 	extern void G_FighterRoute_Load(void);
 	G_FighterRoute_Load(); // the ships' route on a space map, the AI pilots' bookkeeping (ai_fighter.c)
+	extern void Pilot_Reset(void);
+	Pilot_Reset(); // the swoop pilots' bookkeeping (AI_Vehicle.c)
 
 	// make sure we have flags for CTF, etc
 	if (level.gametype >= GT_TEAM)
@@ -4730,6 +4743,8 @@ void G_RunFrame(const int levelTime)
 	G_Pazaak_RunFrame();
 	extern void G_FighterRoute_Frame(void);
 	G_FighterRoute_Frame(); // AI pilots for the empty ships, ship_wp_show (ai_fighter.c)
+	extern void Pilot_Update(void);
+	Pilot_Update(); // free swoops for the swoop pilots, fly-by sounds (AI_Vehicle.c)
 
 	if (level.gametype == GT_SINGLE_PLAYER) // (DH 2026-11-02: also at g_allowNPC 0, the needed NPCs walk)
 	{

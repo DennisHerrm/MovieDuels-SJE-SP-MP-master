@@ -44,7 +44,7 @@ extern qboolean BG_UnrestrainedPitchRoll(const playerState_t* ps, Vehicle_t* p_v
 void Vehicle_SetAnim(gentity_t* ent, const int setAnimParts, const int anim, const int setAnimFlags, int i_blend)
 {
 	assert(ent->client);
-	BG_SetAnim(&ent->client->ps, bgAllAnims[ent->localAnimIndex].anims, setAnimParts, anim, setAnimFlags);
+	BG_SetAnim(&ent->client->ps, G_EntAnims(ent), setAnimParts, anim, setAnimFlags);
 	ent->s.legsAnim = ent->client->ps.legsAnim;
 }
 
