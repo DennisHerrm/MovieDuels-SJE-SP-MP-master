@@ -338,6 +338,8 @@ void MC_Push(const float center[3], const float dir[3], float strength, float ra
 // (MC_SetCharacters; MC_CharactersListed says if this frame's list is there), then MC_NearCharacters
 // gives up to max standing-body capsules (world space) of the characters close to one character. Main thread.
 // SJE: scales (optional, one per character): the size each is drawn at, 1 = its own (r_meshClothShapeScale)
+// SJE r_meshClothBlastGain: multiplies every MC_Blast (default 3; 1 = as before). Main thread.
+void MC_SetBlastGain(float gain);
 void MC_SetCharacters(int frameId, const float (*origins)[3], int count, const float* scales = nullptr);
 bool MC_CharactersListed(int frameId);
 int  MC_NearCharacters(const float origin[3], mcCapsule_t* out, int max);
