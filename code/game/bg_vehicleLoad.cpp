@@ -210,8 +210,8 @@ static qboolean BG_ParseVehWeaponParm(vehWeaponInfo_t* vehWeapon, const char* pa
 	vec3_t vec{};
 	auto b = reinterpret_cast<byte*>(vehWeapon);
 	int _iFieldsRead = 0;
-	vehicleType_t vehType;
-	char value[1024];
+	vehicleType_t vehType = VH_NONE;
+	char value[1024] = {};
 
 	Q_strncpyz(value, pValue, sizeof value);
 
@@ -400,7 +400,7 @@ static int VEH_LoadVehWeapon(const char* vehWeaponName)
 	// parse the vehWeapon info block
 	while (true)
 	{
-		char parmName[128];
+		char parmName[128] = {};
 		SkipRestOfLine(&p);
 		token = COM_ParseExt(&p, qtrue);
 		if (!token[0])
@@ -850,8 +850,8 @@ static qboolean BG_ParseVehicleParm(vehicleInfo_t* vehicle, const char* parmName
 	vec3_t vec{};
 	auto b = reinterpret_cast<byte*>(vehicle);
 	int _iFieldsRead = 0;
-	vehicleType_t vehType;
-	char value[1024];
+	vehicleType_t vehType = VH_NONE;
+	char value[1024] = {};
 
 	Q_strncpyz(value, pValue, sizeof value);
 
@@ -1422,7 +1422,7 @@ static void BG_VehWeaponLoadParms()
 {
 	int vehExtFNLen = 0, mainBlockLen = 0, fileCnt = 0;
 	char* holdChar = nullptr;
-	char vehWeaponExtensionListBuf[2048]; //	The list of file names read in
+	char vehWeaponExtensionListBuf[2048] = {}; //	The list of file names read in
 	fileHandle_t f = 0;
 	char* tempReadBuffer = nullptr;
 
@@ -1482,7 +1482,7 @@ void BG_VehicleLoadParms()
 	int vehExtFNLen = 0, mainBlockLen = 0, fileCnt = 0;
 	//	const char	*filename = "ext_data/vehicles.dat";
 	char* holdChar = nullptr;
-	char vehExtensionListBuf[2048]; //	The list of file names read in
+	char vehExtensionListBuf[2048] = {}; //	The list of file names read in
 	fileHandle_t f = 0;
 	char* tempReadBuffer = nullptr;
 

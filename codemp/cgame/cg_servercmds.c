@@ -279,7 +279,7 @@ void CG_SetConfigValues(void)
 
 	if (str && str[0])
 	{
-		char buf[64];
+		char buf[64] = { 0 };
 		int c = 0;
 		int i = 0;
 
@@ -313,9 +313,9 @@ CG_ShaderStateChanged
 =====================
 */
 void CG_ShaderStateChanged(void) {
-	char originalShader[MAX_QPATH];
-	char newShader[MAX_QPATH];
-	char timeOffset[16];
+	char originalShader[MAX_QPATH] = { 0 };
+	char newShader[MAX_QPATH] = { 0 };
+	char timeOffset[16] = { 0 };
 
 	const char* o = CG_ConfigString(CS_SHADERSTATE);
 	while (o && *o) {
@@ -443,14 +443,14 @@ static void CG_RegisterCustomSounds(clientInfo_t* ci, int setType, const char* p
 
 		if (hSFX == 0)
 		{
-			char modifiedSound[MAX_QPATH];
+			char modifiedSound[MAX_QPATH] = { 0 };
 
 			strcpy(modifiedSound, s);
 			char* p = strchr(modifiedSound, '.');
 
 			if (p)
 			{
-				char testNumber[2];
+				char testNumber[2] = { 0 };
 				p--;
 
 				//before we destroy it.. we want to see if this is actually a number.
@@ -475,8 +475,8 @@ static void CG_RegisterCustomSounds(clientInfo_t* ci, int setType, const char* p
 
 void CG_PrecacheNPCSounds(const char* str)
 {
-	char sEnd[MAX_QPATH];
-	char pEnd[MAX_QPATH];
+	char sEnd[MAX_QPATH] = { 0 };
+	char pEnd[MAX_QPATH] = { 0 };
 	int i = 0;
 	int j = 0;
 
@@ -538,7 +538,7 @@ void CG_HandleNPCSounds(centity_t* cent)
 
 		if (s && s[0])
 		{
-			char sEnd[MAX_QPATH];
+			char sEnd[MAX_QPATH] = { 0 };
 			int i = 2;
 			int j = 0;
 
@@ -567,7 +567,7 @@ void CG_HandleNPCSounds(centity_t* cent)
 
 		if (s && s[0])
 		{
-			char sEnd[MAX_QPATH];
+			char sEnd[MAX_QPATH] = { 0 };
 			int i = 2;
 			int j = 0;
 
@@ -596,7 +596,7 @@ void CG_HandleNPCSounds(centity_t* cent)
 
 		if (s && s[0])
 		{
-			char sEnd[MAX_QPATH];
+			char sEnd[MAX_QPATH] = { 0 };
 			int i = 2;
 			int j = 0;
 
@@ -625,7 +625,7 @@ void CG_HandleNPCSounds(centity_t* cent)
 
 		if (s && s[0])
 		{
-			char sEnd[MAX_QPATH];
+			char sEnd[MAX_QPATH] = { 0 };
 			int i = 2;
 			int j = 0;
 
@@ -648,12 +648,12 @@ void CG_HandleNPCSounds(centity_t* cent)
 	}
 }
 
-int CG_HandleAppendedSkin(char* modelName);
-void CG_CacheG2AnimInfo(char* modelName);
+int CG_HandleAppendedSkin(const char* modelName);
+void CG_CacheG2AnimInfo(const char* modelName);
 
 // nmckenzie: DUEL_HEALTH - fixme - we could really clean this up immensely with some helper functions.
 void SetDuelistHealthsFromConfigString(const char* str) {
-	char buf[64];
+	char buf[64] = { 0 };
 	int c = 0;
 	int i = 0;
 
@@ -748,7 +748,7 @@ static void CG_ConfigStringModified(void) {
 	}
 	else if (num == CS_CLIENT_DUELISTS)
 	{
-		char buf[64];
+		char buf[64] = { 0 };
 		int c = 0;
 		int i = 0;
 
@@ -830,7 +830,7 @@ static void CG_ConfigStringModified(void) {
 		cg.intermissionStarted = atoi(str);
 	}
 	else if (num >= CS_MODELS && num < CS_MODELS + MAX_MODELS) {
-		char modelName[MAX_QPATH];
+		char modelName[MAX_QPATH] = { 0 };
 		strcpy(modelName, str);
 		if (strstr(modelName, ".glm") || modelName[0] == '$')
 		{ //Check to see if it has a custom skin attached.
@@ -1133,7 +1133,7 @@ static void CG_RemoveChatEscapeChar(char* text) {
 static void CG_SVStringEdLookup(const char* ref, char* out, const int outSize)
 {
 	static const char* packages[] = { "MP_SVGAME", "MD_MENU_MP", "SP_INGAME" };
-	char text[MAX_STRINGED_SV_STRING];
+	char text[MAX_STRINGED_SV_STRING] = { 0 };
 
 	if (outSize <= 0)
 	{
@@ -1187,7 +1187,7 @@ void CG_CheckSVStringEdRef(char* buf, const char* str)
 			{
 				if (str[i + 2] == '@' && (i + 3) < strLen)
 				{ //@@@ should mean to insert a StringEd reference here, so insert it into buf at the current place
-					char stringRef[MAX_STRINGED_SV_STRING];
+					char stringRef[MAX_STRINGED_SV_STRING] = { 0 };
 					int r = 0;
 
 					while (i < strLen && str[i] == '@')
@@ -1395,7 +1395,7 @@ static void CG_AdminMenu_f(void)
 static void CG_inGameCinematic_f(void)
 {
 	fileHandle_t file = 0;
-	char name[MAX_STRING_CHARS];
+	char name[MAX_STRING_CHARS] = { 0 };
 	strcpy(name, va("video/%s.roq", CG_Argv(1)));
 
 	//precashe the file?
@@ -1586,7 +1586,7 @@ Pazaak: the board instructions of the game go on to the UI ("uipzk" console comm
 */
 static void CG_Pazaak_f(void)
 {
-	char buf[MAX_STRING_CHARS];
+	char buf[MAX_STRING_CHARS] = { 0 };
 	const int argc = trap->Cmd_Argc();
 	int i = 0;
 
@@ -1754,7 +1754,7 @@ static void CG_MissionObjectivesToCvars(void)
 		for (int i = 0; i < cgNumMissionObjectives && line < CG_MISSION_OBJ_LINES; i++)
 		{
 			const cgMissionObjective_t* obj = &cgMissionObjectives[i];
-			char text[512];
+			char text[512] = { 0 };
 
 			if (pass == 0 ? obj->state != 1 : obj->state != 2 && obj->state != 3)
 			{

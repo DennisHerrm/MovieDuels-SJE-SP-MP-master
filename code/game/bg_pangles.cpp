@@ -145,7 +145,7 @@ static void BG_IK_MoveLimb(CGhoul2Info_v& ghoul2, const int bolt_index, const ch
 	vec3_t desired_pos, qboolean* ik_in_progress, vec3_t origin,
 	vec3_t angles, vec3_t scale, const int blend_time, const qboolean force_halt)
 {
-	mdxaBone_t hold_point_matrix;
+	mdxaBone_t hold_point_matrix = {};
 	const animation_t* anim = &level.knownAnimFileSets[anim_file_index].animations[base_pose];
 
 	assert(ghoul2.size());
@@ -224,12 +224,12 @@ static void BG_IK_MoveLimb(CGhoul2Info_v& ghoul2, const int bolt_index, const ch
 
 	if (*ik_in_progress && !force_halt)
 	{
-		vec3_t torg;
+		vec3_t torg = {};
 		vec3_t hold_point{};
 		//actively update our ik state.
 		sharedIKMoveParams_t ik_m{};
 		CRagDollUpdateParams tu_parms;
-		vec3_t t_angles;
+		vec3_t t_angles = {};
 
 		//set the argument struct up
 		VectorCopy(desired_pos, ik_m.desiredOrigin); //we want the bone to move here.. if possible
@@ -372,9 +372,9 @@ static void PM_IKUpdate(gentity_t* ent)
 		}
 
 		// Get world position of holder's bolt
-		mdxaBone_t bolt_matrix;
-		vec3_t bolt_org;
-		vec3_t t_angles;
+		mdxaBone_t bolt_matrix = {};
+		vec3_t bolt_org = {};
+		vec3_t t_angles = {};
 
 		VectorCopy(holder->client->ps.viewangles, t_angles);
 		t_angles[PITCH] = t_angles[ROLL] = 0;
@@ -401,13 +401,13 @@ static void PM_IKUpdate(gentity_t* ent)
 		// --------------------------------------------------------
 		// TURN TOWARD HOLDER
 		// --------------------------------------------------------
-		vec3_t grabbed_by_org;
+		vec3_t grabbed_by_org = {};
 		gi.G2API_GetBoltMatrix(ent->ghoul2, 0, grabbed_by_bolt,
 			&bolt_matrix, t_angles, ps->origin,
 			level.time, nullptr, ent->s.modelScale);
 		gi.G2API_GiveMeVectorFromMatrix(bolt_matrix, ORIGIN, grabbed_by_org);
 
-		vec3_t org2_targ, org2_bolt;
+		vec3_t org2_targ = {}, org2_bolt = {};
 		VectorSubtract(bolt_org, ent->currentOrigin, org2_targ);
 		VectorSubtract(grabbed_by_org, ent->currentOrigin, org2_bolt);
 
@@ -428,7 +428,7 @@ static void PM_IKUpdate(gentity_t* ent)
 		// --------------------------------------------------------
 		// PULL TOWARD HOLDER
 		// --------------------------------------------------------
-		vec3_t grab_diff;
+		vec3_t grab_diff = {};
 		VectorSubtract(bolt_org, grabbed_by_org, grab_diff);
 
 		if (VectorLength(grab_diff) > 128.0f)
@@ -440,7 +440,7 @@ static void PM_IKUpdate(gentity_t* ent)
 		{
 			// Pull entity toward holder
 			trace_t trace;
-			vec3_t dest_org;
+			vec3_t dest_org = {};
 			VectorAdd(ent->currentOrigin, grab_diff, dest_org);
 
 			gi.trace(&trace, ent->currentOrigin, ent->mins, ent->maxs,
@@ -558,7 +558,7 @@ qboolean PM_AdjustAnglesToGripper(gentity_t* ent, usercmd_t* ucmd)
 		|| ent->client->ps.eFlags & EF_FORCE_GRASPED)
 		&& ent->enemy)
 	{
-		vec3_t dir, angles;
+		vec3_t dir = {}, angles = {};
 
 		VectorSubtract(ent->enemy->currentOrigin, ent->currentOrigin, dir);
 		vectoangles(dir, angles);
@@ -579,7 +579,7 @@ qboolean PM_AdjustAnglesToGripper(gentity_t* ent, usercmd_t* ucmd)
 qboolean PM_AdjustAnglesToPuller(gentity_t* ent, const gentity_t* puller, usercmd_t* ucmd, const qboolean face_away)
 {
 	//FIXME: make this more generic and have it actually *tell* the client what cmd angles it should be locked at?
-	vec3_t dir, angles;
+	vec3_t dir = {}, angles = {};
 
 	VectorSubtract(puller->currentOrigin, ent->currentOrigin, dir);
 	vectoangles(dir, angles);
@@ -607,7 +607,7 @@ static qboolean PM_AdjustAngleForWallRunold(gentity_t* ent, usercmd_t* ucmd, con
 		&& ent->client->ps.legsAnimTimer > 500)
 	{//wall-running and not at end of anim
 		//stick to wall, if there is one
-		vec3_t fwd, rt, trace_to;
+		vec3_t fwd = {}, rt = {}, trace_to = {};
 		const vec3_t fwd_angles = { 0, ent->client->ps.viewangles[YAW], 0 };
 		const vec3_t maxs = { ent->maxs[0], ent->maxs[1], 24 };
 		const vec3_t mins = { ent->mins[0], ent->mins[1], 0 };
@@ -633,8 +633,8 @@ static qboolean PM_AdjustAngleForWallRunold(gentity_t* ent, usercmd_t* ucmd, con
 			&& (trace.plane.normal[2] >= 0.0f && trace.plane.normal[2] <= 0.4f))
 		{
 			trace_t trace2;
-			vec3_t trace_to2;
-			vec3_t wallRunFwd, wallRunAngles = { 0 };
+			vec3_t trace_to2 = {};
+			vec3_t wallRunFwd = {}, wallRunAngles = { 0 };
 
 			wallRunAngles[YAW] = vectoyaw(trace.plane.normal) + yaw_adjust;
 			AngleVectors(wallRunAngles, wallRunFwd, nullptr, nullptr);
@@ -763,7 +763,7 @@ qboolean PM_AdjustAngleForWallRun(gentity_t* ent, usercmd_t* ucmd, const qboolea
 		ent->client->ps.legsAnimTimer > minWallRunTime)
 	{
 		//wall-running and not at end of anim
-		vec3_t fwd, rt, trace_to;
+		vec3_t fwd = {}, rt = {}, trace_to = {};
 		const vec3_t fwd_angles = { 0, ent->client->ps.viewangles[YAW], 0 };
 		const vec3_t maxs = { ent->maxs[0], ent->maxs[1], 24 };
 		const vec3_t mins = { ent->mins[0], ent->mins[1], 0 };
@@ -794,8 +794,8 @@ qboolean PM_AdjustAngleForWallRun(gentity_t* ent, usercmd_t* ucmd, const qboolea
 			(trace.plane.normal[2] >= 0.0f && trace.plane.normal[2] <= 0.4f))
 		{
 			trace_t trace2;
-			vec3_t trace_to2;
-			vec3_t wallRunFwd, wallRunAngles = { 0 };
+			vec3_t trace_to2 = {};
+			vec3_t wallRunFwd = {}, wallRunAngles = { 0 };
 
 			wallRunAngles[YAW] = vectoyaw(trace.plane.normal) + yaw_adjust;
 			AngleVectors(wallRunAngles, wallRunFwd, nullptr, nullptr);
@@ -959,7 +959,7 @@ void PM_WallRunChain(gentity_t* ent, const usercmd_t* ucmd)
 		return;
 	}
 
-	vec3_t right, trace_to;
+	vec3_t right = {}, trace_to = {};
 	const vec3_t fwd_angles = { 0, ent->client->ps.viewangles[YAW], 0 };
 	const vec3_t maxs = { ent->maxs[0], ent->maxs[1], 24 };
 	const vec3_t mins = { ent->mins[0], ent->mins[1], 0 };
@@ -988,7 +988,7 @@ void PM_WallRunChain(gentity_t* ent, const usercmd_t* ucmd)
 qboolean PM_AdjustAnglesForSpinningFlip(gentity_t* ent, usercmd_t* ucmd, const qboolean angles_only)
 {
 	float spin_start = 0.0f, spin_end = 0.0f, spin_amt = 0.0f;
-	animNumber_t spin_anim;
+	animNumber_t spin_anim = FACE_TALK0;
 
 	if (ent->client->ps.legsAnim == BOTH_JUMPFLIPSTABDOWN)
 	{
@@ -1021,7 +1021,7 @@ qboolean PM_AdjustAnglesForSpinningFlip(gentity_t* ent, usercmd_t* ucmd, const q
 	//face me
 	if (elapsed_time >= spin_start && elapsed_time <= spin_end)
 	{
-		vec3_t new_angles;
+		vec3_t new_angles = {};
 		const float spin_length = spin_end - spin_start;
 		VectorCopy(ent->client->ps.viewangles, new_angles);
 		new_angles[YAW] = ent->angle + spin_amt * (elapsed_time - spin_start) / spin_length;
@@ -1048,7 +1048,7 @@ qboolean PM_AdjustAnglesForSpinningFlip(gentity_t* ent, usercmd_t* ucmd, const q
 		if (ent->s.number >= MAX_CLIENTS && !G_ControlledByPlayer(ent) || !player_locked && !
 			PlayerAffectedByStasis())
 		{
-			vec3_t push_dir;
+			vec3_t push_dir = {};
 			const vec3_t push_angles = { 0, ent->angle, 0 };
 			AngleVectors(push_angles, push_dir, nullptr, nullptr);
 			if (DotProduct(ent->client->ps.velocity, push_dir) < 100)
@@ -1102,7 +1102,7 @@ qboolean PM_AdjustAnglesForBackAttack(gentity_t* ent, usercmd_t* ucmd)
 		else
 		{
 			//keep player facing away from their enemy
-			vec3_t enemy_behind_dir;
+			vec3_t enemy_behind_dir = {};
 			VectorSubtract(ent->currentOrigin, ent->enemy->currentOrigin, enemy_behind_dir);
 			const float enemy_behind_yaw = AngleNormalize180(vectoyaw(enemy_behind_dir));
 			float yaw_error = AngleNormalize180(enemy_behind_yaw - AngleNormalize180(ent->client->ps.viewangles[YAW]));
@@ -1286,7 +1286,7 @@ qboolean PM_AdjustAngleForWallRunUp(gentity_t* ent, usercmd_t* ucmd, const qbool
 	{
 		//wall-running up
 		//stick to wall, if there is one
-		vec3_t fwd, trace_to;
+		vec3_t fwd = {}, trace_to = {};
 		const vec3_t fwd_angles = { 0, ent->client->ps.viewangles[YAW], 0 };
 		const vec3_t maxs = { ent->maxs[0], ent->maxs[1], 24 };
 		const vec3_t mins = { ent->mins[0], ent->mins[1], 0 };
@@ -1301,7 +1301,7 @@ qboolean PM_AdjustAngleForWallRunUp(gentity_t* ent, usercmd_t* ucmd, const qbool
 		{
 			//hmm, some room, see if there's a floor right here
 			trace_t trace2;
-			vec3_t top, bottom;
+			vec3_t top = {}, bottom = {};
 			VectorCopy(trace.endpos, top);
 			top[2] += ent->mins[2] * -1 + 4.0f;
 			VectorCopy(top, bottom);
@@ -1426,7 +1426,7 @@ qboolean PM_AdjustAngleForWallJump(gentity_t* ent, usercmd_t* ucmd, const qboole
 	{
 		//hugging wall, getting ready to jump off
 		//stick to wall, if there is one
-		vec3_t check_dir, trace_to;
+		vec3_t check_dir = {}, trace_to = {};
 		const vec3_t fwd_angles = { 0, ent->client->ps.viewangles[YAW], 0 };
 		const vec3_t maxs = { ent->maxs[0], ent->maxs[1], 24 };
 		const vec3_t mins = { ent->mins[0], ent->mins[1], 0 };
@@ -1578,8 +1578,8 @@ qboolean PM_AdjustAnglesForBFKick(gentity_t* self, usercmd_t* ucmd, vec3_t fwd_a
 		return qfalse;
 
 	vec3_t mins = { 0 }, maxs = { 0 };
-	vec3_t center;
-	vec3_t v_fwd;
+	vec3_t center = {};
+	vec3_t v_fwd = {};
 
 	const float radius = (self->maxs[0] * 3.0f) + STAFF_KICK_RANGE + 24.0f;
 
@@ -1621,7 +1621,7 @@ qboolean PM_AdjustAnglesForBFKick(gentity_t* self, usercmd_t* ucmd, vec3_t fwd_a
 			continue;
 
 		// Distance check
-		vec3_t to_ent;
+		vec3_t to_ent = {};
 		VectorSubtract(ent->currentOrigin, center, to_ent);
 		float dist = VectorNormalize(to_ent);
 
@@ -1749,7 +1749,7 @@ qboolean PM_AdjustAnglesForStabDown(gentity_t* ent, usercmd_t* ucmd)
 				|| PM_InGetUpNoRoll(&ent->enemy->client->ps))) //or getting straight up
 		{
 			//aim at the enemy
-			vec3_t enemy_dir;
+			vec3_t enemy_dir = {};
 			VectorSubtract(ent->enemy->currentOrigin, ent->currentOrigin, enemy_dir);
 			const float enemy_yaw = AngleNormalize180(vectoyaw(enemy_dir));
 			float yaw_error = AngleNormalize180(enemy_yaw - AngleNormalize180(ent->client->ps.viewangles[YAW]));
@@ -1819,7 +1819,7 @@ qboolean PM_AdjustAnglesForWallRunUpFlipAlt(gentity_t* ent, usercmd_t* ucmd)
 
 qboolean PM_AdjustAnglesForHeldByMonster(gentity_t* ent, const gentity_t* monster, usercmd_t* ucmd)
 {
-	vec3_t new_view_angles;
+	vec3_t new_view_angles = {};
 	if (!monster || !monster->client)
 	{
 		return qfalse;
@@ -1901,7 +1901,7 @@ void PM_UpdateViewAngles(int saberAnimLevel, playerState_t* ps, usercmd_t* cmd, 
 	float root_pitch = 0, pitch_min = -75, pitch_max = 75, yaw_min = 0, yaw_max = 0, locked_yaw_value = 0;
 	//just to shut up warnings
 	int i = 0;
-	vec3_t start, end, tmins, tmaxs, right;
+	vec3_t start = {}, end = {}, tmins = {}, tmaxs = {}, right = {};
 	trace_t trace;
 	qboolean locked_yaw = qfalse/*, clamped = qfalse*/;
 
@@ -2241,7 +2241,7 @@ void PM_UpdateViewAngles(int saberAnimLevel, playerState_t* ps, usercmd_t* cmd, 
 		{
 			//Only lean if holding use button, strafing and not moving forward or back and not jumping
 			int leanofs = 0;
-			vec3_t viewangles;
+			vec3_t viewangles = {};
 
 			if (cmd->rightmove > 0)
 			{
@@ -2545,7 +2545,7 @@ void PM_UpdateViewAngles(int saberAnimLevel, playerState_t* ps, usercmd_t* cmd, 
 			{
 				//Only lean if holding use button, strafing and not moving forward or back and not jumping
 				int leanofs = 0;
-				vec3_t viewangles;
+				vec3_t viewangles = {};
 
 				if (cmd->rightmove > 0)
 				{
@@ -2804,7 +2804,7 @@ void PM_UpdateViewAngles(int saberAnimLevel, playerState_t* ps, usercmd_t* cmd, 
 		{
 			//Only lean if holding use button, strafing and not moving forward or back and not jumping
 			int leanofs = 0;
-			vec3_t viewangles;
+			vec3_t viewangles = {};
 
 			if (cmd->rightmove > 0)
 			{

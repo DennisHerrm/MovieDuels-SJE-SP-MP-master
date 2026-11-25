@@ -1033,7 +1033,7 @@ void NPC_Pain(gentity_t* self, gentity_t* attacker, const int damage)
 	gentity_t* other = attacker;
 	const int mod = gPainMOD;
 	const int hit_loc = gPainHitLoc;
-	vec3_t point;
+	vec3_t point = { 0 };
 
 	VectorCopy(gPainPoint, point);
 
@@ -1216,7 +1216,7 @@ void NPC_Touch(gentity_t* self, gentity_t* other, trace_t* trace)
 		{
 			//player touched me
 			char* text = NULL;
-			qboolean keyTaken;
+			qboolean keyTaken = qfalse;
 			//give him my key
 			if (Q_stricmp("goodie", self->message) == 0)
 			{
@@ -1344,7 +1344,7 @@ void NPC_Touch(gentity_t* self, gentity_t* other, trace_t* trace)
 		{
 			//player touched me
 			//char *text;
-			qboolean keyTaken;
+			qboolean keyTaken = qfalse;
 			//int sendnum = -1; // give him my key
 			if (Q_stricmp("goodie", self->message) == 0)
 			{
@@ -3134,7 +3134,7 @@ void NPC_Use(gentity_t* self, gentity_t* other, gentity_t* activator)
 		{
 			int bet = 0;
 			// allow optional bet encoded in name like "pazaak_100"
-			char buf[128];
+			char buf[128] = { 0 };
 			Q_strncpyz(buf, self->targetname, sizeof(buf));
 			char* u = strchr(buf, '_');
 			if (u) bet = atoi(u + 1);

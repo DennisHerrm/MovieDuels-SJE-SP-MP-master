@@ -48,12 +48,12 @@ qboolean PM_SlideMove(const float grav_mod)
 {
 	int bumpcount = 0;
 	int numPlanes = 0;
-	vec3_t normal, planes[MAX_CLIP_PLANES]{};
-	vec3_t primal_velocity;
+	vec3_t normal = {}, planes[MAX_CLIP_PLANES]{};
+	vec3_t primal_velocity = {};
 	int i = 0;
 	trace_t trace;
-	vec3_t end_velocity;
-	qboolean damage_self;
+	vec3_t end_velocity = {};
+	qboolean damage_self = qfalse;
 	int slide_move_contents = pm->tracemask;
 
 	if (pm->ps->clientNum >= MAX_CLIENTS
@@ -133,7 +133,7 @@ qboolean PM_SlideMove(const float grav_mod)
 
 	for (bumpcount = 0; bumpcount < numbumps; bumpcount++)
 	{
-		vec3_t end;
+		vec3_t end = {};
 		// calculate position we are trying to move to
 		VectorMA(pm->ps->origin, time_left, pm->ps->velocity, end);
 
@@ -258,8 +258,8 @@ qboolean PM_SlideMove(const float grav_mod)
 		// find a plane that it enters
 		for (i = 0; i < numPlanes; i++)
 		{
-			vec3_t end_clip_velocity;
-			vec3_t clip_velocity;
+			vec3_t end_clip_velocity = {};
+			vec3_t clip_velocity = {};
 			const float into = DotProduct(pm->ps->velocity, planes[i]);
 			if (into >= 0.1)
 			{
@@ -281,7 +281,7 @@ qboolean PM_SlideMove(const float grav_mod)
 			// see if there is a second plane that the new move enters
 			for (int j = 0; j < numPlanes; j++)
 			{
-				vec3_t dir;
+				vec3_t dir = {};
 				if (j == i)
 				{
 					continue;
@@ -359,11 +359,11 @@ PM_StepSlideMove
 */
 void PM_StepSlideMove(float grav_mod)
 {
-	vec3_t start_o, start_v;
-	vec3_t down_o, down_v;
-	vec3_t slide_move, step_up_move;
+	vec3_t start_o = {}, start_v = {};
+	vec3_t down_o = {}, down_v = {};
+	vec3_t slide_move = {}, step_up_move = {};
 	trace_t trace;
-	vec3_t up, down;
+	vec3_t up = {}, down = {};
 	qboolean is_giant = qfalse;
 	int step_size = STEPSIZE;
 
@@ -499,7 +499,7 @@ void PM_StepSlideMove(float grav_mod)
 				&& trace.plane.normal[2] < MIN_WALK_NORMAL)
 			{
 				//normal players cannot step up slopes that are too steep to walk on!
-				vec3_t stepVec;
+				vec3_t stepVec = {};
 				//okay, the step up ends on a slope that it too steep to step up onto,
 				//BUT:
 				//If the step looks like this:

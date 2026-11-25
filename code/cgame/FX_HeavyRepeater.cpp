@@ -35,7 +35,7 @@ FX_RepeaterProjectileThink
 
 void FX_RepeaterProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = {};
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -76,7 +76,7 @@ FX_RepeaterAltProjectileThink
 
 void FX_RepeaterAltProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = {};
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{

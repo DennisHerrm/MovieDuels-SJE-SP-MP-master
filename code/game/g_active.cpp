@@ -290,7 +290,7 @@ static int G_FindLookItem(gentity_t* self)
 	static gentity_t* entity_list[MAX_GENTITIES];
 
 	int best_ent_num = ENTITYNUM_NONE;
-	vec3_t center, mins{}, maxs{}, fwdangles, forward;
+	vec3_t center = {}, mins{}, maxs{}, fwdangles = {}, forward = {};
 	constexpr float radius = 256.0f;
 	float best_rating = 0.0f;
 
@@ -317,7 +317,7 @@ static int G_FindLookItem(gentity_t* self)
 
 	for (int e = 0; e < num_listed_entities; e++)
 	{
-		vec3_t dir;
+		vec3_t dir = {};
 		const gentity_t* ent = entity_list[e];
 
 		if (!ent->item)
@@ -555,7 +555,7 @@ static void G_ChooseLookEnemy(gentity_t* self, const usercmd_t* ucmd)
 	// FIX: move large array off the stack
 	static gentity_t* entity_list[MAX_GENTITIES];
 
-	vec3_t center, mins{}, maxs{}, fwdangles, forward;
+	vec3_t center = {}, mins{}, maxs{}, fwdangles = {}, forward = {};
 	constexpr float radius = 256.0f;
 	float best_rating = 0.0f;
 
@@ -582,7 +582,7 @@ static void G_ChooseLookEnemy(gentity_t* self, const usercmd_t* ucmd)
 
 	for (int e = 0; e < num_listed_entities; e++)
 	{
-		vec3_t dir;
+		vec3_t dir = {};
 		gentity_t* ent = entity_list[e];
 
 		if (!gi.inPVS(self->currentOrigin, ent->currentOrigin))
@@ -708,7 +708,7 @@ static void P_DamageFeedback(const gentity_t* player)
 	}
 	else
 	{
-		vec3_t angles;
+		vec3_t angles = {};
 		vectoangles(client->damage_from, angles);
 		client->ps.damagePitch = angles[PITCH] / 360.0 * 256;
 		client->ps.damageYaw = angles[YAW] / 360.0 * 256;
@@ -1025,7 +1025,7 @@ void DoImpact(gentity_t* self, gentity_t* other, const qboolean damage_self, con
 {
 	float magnitude = 0.0f, my_mass = 0.0f;
 	bool thrown = false;
-	vec3_t velocity;
+	vec3_t velocity = {};
 	const char* info = CG_ConfigString(CS_SERVERINFO);
 	const char* s = Info_ValueForKey(info, "mapname");
 
@@ -1153,7 +1153,7 @@ void DoImpact(gentity_t* self, gentity_t* other, const qboolean damage_self, con
 			{
 				// Setup Some Variables
 				//----------------------
-				vec3_t veh_fwd;
+				vec3_t veh_fwd = {};
 				VectorCopy(velocity, veh_fwd);
 				const float veh_speed = VectorNormalize(veh_fwd);
 				float veh_toughness_against_other = p_self_veh->m_pVehicleInfo->toughness;
@@ -1348,8 +1348,8 @@ void DoImpact(gentity_t* self, gentity_t* other, const qboolean damage_self, con
 		//damage them
 		if (magnitude >= 100 && other->s.number < ENTITYNUM_WORLD)
 		{
-			vec3_t dir2;
-			vec3_t dir1;
+			vec3_t dir2 = {};
+			vec3_t dir1 = {};
 			VectorCopy(velocity, dir1);
 			VectorNormalize(dir1);
 			if (VectorCompare(other->currentOrigin, vec3_origin))
@@ -1713,7 +1713,7 @@ static void G_TouchTriggersLerped(gentity_t* ent)
 	float dist = 0.0f;
 	gentity_t* hit = nullptr;
 	trace_t trace;
-	vec3_t diff;
+	vec3_t diff = {};
 	constexpr vec3_t range = { 40, 40, 52 };
 
 	// FIX: move large arrays off the stack
@@ -1759,9 +1759,9 @@ static void G_TouchTriggersLerped(gentity_t* ent)
 
 	for (float cur_dist = 0.0f; !done && ent->maxs[1] > 0.0f; cur_dist += ent->maxs[1] / 2.0f)
 	{
-		vec3_t maxs;
-		vec3_t mins;
-		vec3_t end;
+		vec3_t maxs = {};
+		vec3_t mins = {};
+		vec3_t end = {};
 
 		if (cur_dist >= dist)
 		{
@@ -1843,7 +1843,7 @@ void G_TouchTriggers(gentity_t* ent)
 	static gentity_t* touch[MAX_GENTITIES];
 
 	trace_t trace;
-	vec3_t mins, maxs;
+	vec3_t mins = {}, maxs = {};
 	constexpr vec3_t range = { 40, 40, 52 };
 
 	if (!ent->client)
@@ -1911,8 +1911,8 @@ Spectators will only interact with teleporters.
 void G_MoverTouchPushTriggers(gentity_t* ent, vec3_t old_org)
 {
 	trace_t trace;
-	vec3_t dir;
-	vec3_t size;
+	vec3_t dir = {};
+	vec3_t size = {};
 	constexpr vec3_t range = { 40, 40, 52 };
 
 	// FIX: move large array off the stack
@@ -1936,9 +1936,9 @@ void G_MoverTouchPushTriggers(gentity_t* ent, vec3_t old_org)
 
 	for (float step = 0.0f; step <= dist; step += step_size)
 	{
-		vec3_t check_spot;
-		vec3_t maxs;
-		vec3_t mins;
+		vec3_t check_spot = {};
+		vec3_t maxs = {};
+		vec3_t mins = {};
 
 		VectorMA(ent->currentOrigin, step, dir, check_spot);
 		VectorSubtract(check_spot, range, mins);
@@ -2524,7 +2524,7 @@ static void G_ThrownDeathAnimForDeathAnim(gentity_t* hitEnt, vec3_t impact_point
 	case BOTH_DEATH3: //knee collapse, twist & fall forward
 	case BOTH_DEATH7: //knee collapse, twist & fall forward
 	{
-		vec3_t dir2_impact, fwdAngles, facing;
+		vec3_t dir2_impact = {}, fwdAngles = {}, facing = {};
 		VectorSubtract(impact_point, hitEnt->currentOrigin, dir2_impact);
 		dir2_impact[2] = 0;
 		VectorNormalize(dir2_impact);
@@ -3072,7 +3072,7 @@ extern void G_Kick_Throw(gentity_t* targ, const vec3_t new_dir, float push);
 static gentity_t* G_KickTrace(gentity_t* ent, vec3_t kick_dir, const float kick_dist, vec3_t kick_end, const int kick_damage,
 	const float kick_push, const qboolean do_sound_on_walls)
 {
-	vec3_t traceOrg, trace_end;
+	vec3_t traceOrg = {}, trace_end = {};
 	constexpr vec3_t kick_maxs = { 8, 8, 8 };
 	constexpr vec3_t kick_mins = { -4, -4, -4 };
 	trace_t trace;
@@ -3177,7 +3177,7 @@ static gentity_t* G_KickTrace(gentity_t* ent, vec3_t kick_dir, const float kick_
 						}
 						else
 						{
-							vec3_t fxOrg, fxDir;
+							vec3_t fxOrg = {}, fxDir = {};
 							VectorCopy(kick_dir, fxDir);
 							VectorMA(trace.endpos, Q_flrand(5.0f, 10.0f), fxDir, fxOrg);
 							VectorScale(fxDir, -1, fxDir);
@@ -3364,7 +3364,7 @@ static gentity_t* G_KickTrace(gentity_t* ent, vec3_t kick_dir, const float kick_
 
 qboolean G_CheckRollSafety(const gentity_t* self, const int anim, const float test_dist)
 {
-	vec3_t forward, right, test_pos, angles{};
+	vec3_t forward = {}, right = {}, test_pos = {}, angles{};
 	trace_t trace;
 	int contents = CONTENTS_SOLID | CONTENTS_BOTCLIP;
 
@@ -3468,16 +3468,18 @@ static void G_CamCircleForLegsAnim(const gentity_t* ent)
 
 static qboolean G_GrabClient(gentity_t* ent, const usercmd_t* ucmd)
 {
-	gentity_t* best_ent = nullptr, * radius_ents[128];
+	gentity_t* best_ent = nullptr, * radius_ents[128] = {};
 	constexpr float radius = 100.0f;
 	constexpr float radius_squared = radius * radius;
 	float best_dist_sq = radius_squared + 1.0f;
-	vec3_t bolt_org;
+	vec3_t bolt_org = {};
 
 	const int num_ents = G_GetEntsNearBolt(ent, radius_ents, radius, ent->handRBolt, bolt_org);
 
 	for (int i = 0; i < num_ents; i++)
 	{
+		if (!radius_ents[i])
+			continue;
 		if (!radius_ents[i]->inuse)
 		{
 			continue;
@@ -3589,9 +3591,9 @@ static qboolean G_PullAttack(gentity_t* ent, usercmd_t* ucmd)
 			&& (puller->client->ps.torsoAnim == BOTH_PULL_IMPALE_STAB
 				|| puller->client->ps.torsoAnim == BOTH_PULL_IMPALE_SWING))
 		{
-			vec3_t pull_dir;
-			vec3_t pull_pos;
-			vec3_t puller_fwd;
+			vec3_t pull_dir = {};
+			vec3_t pull_pos = {};
+			vec3_t puller_fwd = {};
 			AngleVectors(puller->client->ps.viewangles, puller_fwd, nullptr, nullptr);
 			VectorMA(puller->currentOrigin, puller->maxs[0] * 1.5f + 16.0f, puller_fwd, pull_pos);
 			//pull me towards that pos
@@ -3831,7 +3833,7 @@ qboolean G_CheckClampUcmd(gentity_t* ent, usercmd_t* ucmd)
 	if (ent->client->ps.legsAnim == BOTH_FORCEWALLRUNFLIP_ALT
 		&& ent->client->ps.legsAnimTimer)
 	{
-		vec3_t v_fwd, fwd_ang = { 0, ent->currentAngles[YAW], 0 };
+		vec3_t v_fwd = {}, fwd_ang = { 0, ent->currentAngles[YAW], 0 };
 		AngleVectors(fwd_ang, v_fwd, nullptr, nullptr);
 		if (ent->client->ps.groundEntityNum == ENTITYNUM_NONE)
 		{
@@ -3872,7 +3874,7 @@ qboolean G_CheckClampUcmd(gentity_t* ent, usercmd_t* ucmd)
 			if (ent->client->ps.groundEntityNum != ENTITYNUM_NONE)
 			{
 				//still on ground?
-				vec3_t yaw_angles, back_dir;
+				vec3_t yaw_angles = {}, back_dir = {};
 
 				//push backwards some?
 				VectorSet(yaw_angles, 0, ent->client->ps.viewangles[YAW] + 180, 0);
@@ -4424,7 +4426,7 @@ qboolean G_CheckClampUcmd(gentity_t* ent, usercmd_t* ucmd)
 			if (ent->client->ps.legsAnim == BOTH_PLAYER_PA_3)
 			{
 				vec3_t ang = { 10, ent->currentAngles[YAW], 0 };
-				vec3_t throwDir;
+				vec3_t throwDir = {};
 				AngleVectors(ang, throwDir, nullptr, nullptr);
 				if (!(ent->flags & FL_NO_KNOCKBACK))
 				{
@@ -4438,7 +4440,7 @@ qboolean G_CheckClampUcmd(gentity_t* ent, usercmd_t* ucmd)
 			else if (ent->client->ps.legsAnim == BOTH_PLAYER_PA_1)
 			{
 				vec3_t ang = { 10, ent->currentAngles[YAW], 0 };
-				vec3_t throw_dir;
+				vec3_t throw_dir = {};
 				AngleVectors(ang, throw_dir, nullptr, nullptr);
 				if (!(ent->flags & FL_NO_KNOCKBACK))
 				{
@@ -6386,7 +6388,7 @@ qboolean G_CheckClampUcmd(gentity_t* ent, usercmd_t* ucmd)
 
 static void BG_AddPushVecToUcmd(const gentity_t* self, usercmd_t* ucmd)
 {
-	vec3_t forward, right, move_dir;
+	vec3_t forward = {}, right = {}, move_dir = {};
 
 	if (!self->client)
 	{
@@ -6553,7 +6555,7 @@ static void G_HeldByMonster(gentity_t* ent, usercmd_t** ucmd)
 		ent->waypoint = monster->waypoint;
 
 		//update the actual origin of the victim
-		mdxaBone_t bolt_matrix;
+		mdxaBone_t bolt_matrix = {};
 
 		// Getting the bolt here
 		int bolt_index = monster->gutBolt; //default to being held in his mouth
@@ -7995,8 +7997,8 @@ This will mark an enemy. If our friend is an NPC, order them to attack.
 static void CommandNPCtoAttack(gentity_t* caller, gentity_t* ourFriend)
 {
 	trace_t tr;
-	vec3_t end_trace, forward;
-	vec3_t eyes;
+	vec3_t end_trace = {}, forward = {};
+	vec3_t eyes = {};
 	gentity_t* player = &g_entities[0];
 
 	VectorCopy(caller->currentOrigin, eyes);
@@ -8081,7 +8083,7 @@ static void CommandNPCtoAttack(gentity_t* caller, gentity_t* ourFriend)
 	{// if the enemy is close, use a short range callout
 		// ally -> enemy direction against the ally's facing (was a dot product with the view angles,
 		// so front/behind was close to random)
-		vec3_t dir, friend_fwd;
+		vec3_t dir = {}, friend_fwd = {};
 		VectorSubtract(tracedEnemy->currentOrigin, ourFriend->currentOrigin, dir);
 		dir[2] = 0.0f;
 		VectorNormalize(dir);
@@ -9857,7 +9859,7 @@ static qboolean G_TargetLockValid(const gentity_t* self, const gentity_t* ent)
 static gentity_t* G_TargetLockAcquire(gentity_t* self, const int skip)
 {
 	static gentity_t* entity_list[MAX_GENTITIES];
-	vec3_t eye, view, forward, mins{}, maxs{};
+	vec3_t eye = {}, view = {}, forward = {}, mins{}, maxs{};
 
 	G_TargetLockEye(self, eye);
 	CG_TargetLockViewOrg(view);
@@ -9883,7 +9885,7 @@ static gentity_t* G_TargetLockAcquire(gentity_t* self, const int skip)
 			continue;
 		}
 
-		vec3_t center, dir;
+		vec3_t center = {}, dir = {};
 		G_TargetLockCenter(ent, center);
 		if (Distance(view, center) > TARGETLOCK_RANGE)
 		{
@@ -9970,7 +9972,7 @@ static void G_SaberTargetLock(gentity_t* ent, const usercmd_t* ucmd)
 	}
 
 	gentity_t* target = g_saberTargetLockEnt < ENTITYNUM_WORLD ? &g_entities[g_saberTargetLockEnt] : nullptr;
-	vec3_t eye, center;
+	vec3_t eye = {}, center = {};
 	G_TargetLockEye(ent, eye);
 
 	if (target)
@@ -9988,7 +9990,7 @@ static void G_SaberTargetLock(gentity_t* ent, const usercmd_t* ucmd)
 		if (keep)
 		{
 			G_TargetLockCenter(target, center);
-			vec3_t view;
+			vec3_t view = {};
 			CG_TargetLockViewOrg(view);
 			if (Distance(view, center) > TARGETLOCK_BREAK_RANGE)
 			{
@@ -10043,7 +10045,7 @@ static void G_SaberTargetLock(gentity_t* ent, const usercmd_t* ucmd)
 
 	//turn smoothly towards it: the interpolated position (game frames move NPCs in steps) and a smoothed aim point,
 	//so a target moving sideways is followed without shaking
-	vec3_t dir, lerp_org;
+	vec3_t dir = {}, lerp_org = {};
 	G_TargetLockCenter(target, center);
 	if (CG_TargetLockEntOrigin(target->s.number, lerp_org))
 	{
@@ -10187,8 +10189,8 @@ static void G_NoCrouchTaunt(gentity_t* ent, const usercmd_t* ucmd)
 static void ClientThink_real(gentity_t* ent, usercmd_t* ucmd)
 {
 	gclient_t* client = nullptr;
-	pmove_t pm;
-	vec3_t old_origin;
+	pmove_t pm = {};
+	vec3_t old_origin = {};
 	int old_event_sequence = 0;
 	int msec = 0;
 	qboolean in_spin_flip_attack = PM_AdjustAnglesForSpinningFlip(ent, ucmd, qfalse);
@@ -10514,7 +10516,7 @@ static void ClientThink_real(gentity_t* ent, usercmd_t* ucmd)
 						&& ground_ent->client->ps.legsAnim != BOTH_BUCK_RIDER)
 					{
 						//don't interrupt special anims
-						vec3_t throw_dir, right;
+						vec3_t throw_dir = {}, right = {};
 						AngleVectors(ground_ent->currentAngles, throw_dir, right, nullptr);
 						VectorScale(throw_dir, -1, throw_dir);
 						VectorMA(throw_dir, Q_flrand(-0.5f, 0.5f), right, throw_dir);
@@ -10565,7 +10567,7 @@ static void ClientThink_real(gentity_t* ent, usercmd_t* ucmd)
 							&& !ent->client->ps.velocity[1])
 						{
 							//not moving, shove us a little
-							vec3_t slide_fwd;
+							vec3_t slide_fwd = {};
 							AngleVectors(ent->client->ps.viewangles, slide_fwd, nullptr, nullptr);
 							slide_fwd[2] = 0.0f;
 							VectorNormalize(slide_fwd);
@@ -10677,7 +10679,7 @@ static void ClientThink_real(gentity_t* ent, usercmd_t* ucmd)
 						}
 						else
 						{
-							vec3_t g_e_fwd, g_e_angles = { 0, ground_ent->client->ps.viewangles[YAW], 0 };
+							vec3_t g_e_fwd = {}, g_e_angles = { 0, ground_ent->client->ps.viewangles[YAW], 0 };
 							AngleVectors(g_e_angles, g_e_fwd, nullptr, nullptr);
 							if (DotProduct(ent->client->ps.velocity, g_e_fwd) > 50)
 							{
@@ -11591,8 +11593,8 @@ static void ClientThink_real(gentity_t* ent, usercmd_t* ucmd)
 					cg.overrides.active &= ~CG_OVERRIDE_3RD_PERSON_ANG; // Turn Off Angle Offset
 					if (ent->enemy)
 					{
-						vec3_t actor_direction;
-						vec3_t enemy_direction;
+						vec3_t actor_direction = {};
+						vec3_t enemy_direction = {};
 
 						AngleVectors(ent->currentAngles, actor_direction, nullptr, nullptr);
 						VectorSubtract(ent->enemy->currentOrigin, ent->currentOrigin, enemy_direction);
@@ -11789,7 +11791,7 @@ static void ClientThink_real(gentity_t* ent, usercmd_t* ucmd)
 			&& !(cg.overrides.active & CG_OVERRIDE_3RD_PERSON_ANG))
 		{
 			//keep facing enemy
-			vec3_t dead_dir;
+			vec3_t dead_dir = {};
 			float dead_yaw = 0.0f;
 			VectorSubtract(ent->enemy->currentOrigin, ent->currentOrigin, dead_dir);
 			dead_yaw = AngleNormalize180(vectoyaw(dead_dir));

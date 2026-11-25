@@ -83,7 +83,7 @@ void RT_FireDecide(void)
 	//qboolean move = qtrue;
 	qboolean shoot = qfalse;
 	qboolean hit_ally = qfalse;
-	vec3_t impact_pos;
+	vec3_t impact_pos = { 0 };
 
 	if (NPCS.NPC->client->ps.groundEntityNum == ENTITYNUM_NONE
 		&& NPCS.NPC->client->ps.forceJumpZStart
@@ -102,7 +102,7 @@ void RT_FireDecide(void)
 	VectorClear(impact_pos);
 	const float enemy_dist = DistanceSquared(NPCS.NPC->SHR_currentOrigin, NPCS.NPC->enemy->SHR_currentOrigin);
 
-	vec3_t enemy_dir, shoot_dir;
+	vec3_t enemy_dir = { 0 }, shoot_dir = { 0 };
 	VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, enemy_dir);
 	VectorNormalize(enemy_dir);
 	AngleVectors(NPCS.NPC->client->ps.viewangles, shoot_dir, NULL, NULL);
@@ -219,7 +219,7 @@ void RT_FireDecide(void)
 					if (!Q_irand(0, 10))
 					{
 						//Fire on the last known position
-						vec3_t muzzle;
+						vec3_t muzzle = { 0 };
 						qboolean too_close = qfalse;
 						qboolean too_far = qfalse;
 
@@ -227,9 +227,9 @@ void RT_FireDecide(void)
 						if (VectorCompare(impact_pos, vec3_origin))
 						{
 							//never checked ShotEntity this frame, so must do a trace...
-							trace_t tr;
+							trace_t tr = { qfalse };
 							//vec3_t	mins = {-2,-2,-2}, maxs = {2,2,2};
-							vec3_t forward, end;
+							vec3_t forward = { 0 }, end = { 0 };
 							AngleVectors(NPCS.NPC->client->ps.viewangles, forward, NULL, NULL);
 							VectorMA(muzzle, 8192, forward, end);
 							SHR_Trace(&tr, muzzle, vec3_origin, vec3_origin, end, NPCS.NPC->s.number, MASK_SHOT);
@@ -310,8 +310,8 @@ void RT_FireDecide(void)
 
 						if (!too_close && !too_far)
 						{
-							vec3_t angles;
-							vec3_t dir;
+							vec3_t angles = { 0 };
+							vec3_t dir = { 0 };
 							//okay too shoot at last pos
 							VectorSubtract(NPCS.NPCInfo->enemyLastSeenLocation, muzzle, dir);
 							VectorNormalize(dir);
@@ -392,7 +392,7 @@ void RT_FireDecide(void)
 {
 	qboolean enemyLOS = qfalse, enemyCS = qfalse, enemyInFOV = qfalse;
 	qboolean shoot = qfalse, hitAlly = qfalse;
-	vec3_t impactPos, enemyDir, shootDir;
+	vec3_t impactPos = { 0 }, enemyDir = { 0 }, shootDir = { 0 };
 
 	if (NPCS.NPC->client->ps.groundEntityNum == ENTITYNUM_NONE
 		&& NPCS.NPC->client->ps.fd.forceJumpZStart
@@ -539,7 +539,7 @@ void RT_FireDecide(void)
 					if (!Q_irand(0, 10))
 					{
 						//Fire on the last known position
-						vec3_t muzzle;
+						vec3_t muzzle = { 0 };
 						qboolean tooClose = qfalse;
 						qboolean tooFar = qfalse;
 
@@ -547,9 +547,9 @@ void RT_FireDecide(void)
 						if (VectorCompare(impactPos, vec3_origin))
 						{
 							//never checked ShotEntity this frame, so must do a trace...
-							trace_t tr;
+							trace_t tr = { 0 };
 							//vec3_t	mins = {-2,-2,-2}, maxs = {2,2,2};
-							vec3_t forward, end;
+							vec3_t forward = { 0 }, end = { 0 };
 							AngleVectors(NPCS.NPC->client->ps.viewangles, forward, NULL, NULL);
 							VectorMA(muzzle, 8192, forward, end);
 							trap->Trace(&tr, muzzle, vec3_origin, vec3_origin, end, NPCS.NPC->s.number, MASK_SHOT,
@@ -619,8 +619,8 @@ void RT_FireDecide(void)
 
 						if (!tooClose && !tooFar)
 						{
-							vec3_t angles;
-							vec3_t dir;
+							vec3_t angles = { 0 };
+							vec3_t dir = { 0 };
 							//okay too shoot at last pos
 							VectorSubtract(NPCS.NPCInfo->enemyLastSeenLocation, muzzle, dir);
 							VectorNormalize(dir);
@@ -1230,8 +1230,8 @@ static void RT_Flying_MaintainHeight(void)
 static void RT_Flying_Strafe(void)
 {
 	int side = 0;
-	vec3_t end, right;
-	trace_t tr;
+	vec3_t end = { 0 }, right = { 0 };
+	trace_t tr = { qfalse };
 
 	if (Q_flrand(0.0f, 1.0f) > 0.7f
 		|| !NPCS.NPC->enemy
@@ -1274,7 +1274,7 @@ static void RT_Flying_Strafe(void)
 	}
 	else
 	{
-		vec3_t dir;
+		vec3_t dir = { 0 };
 		// Do a strafe to try and keep on the side of their enemy
 		AngleVectors(NPCS.NPC->enemy->client->renderInfo.eyeAngles, dir, right, NULL);
 
@@ -1330,7 +1330,7 @@ static void RT_Flying_Strafe(void)
 
 static void RT_Flying_Hunt(const qboolean visible, const qboolean advance)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (NPCS.NPC->forcePushTime >= level.time)
 	{

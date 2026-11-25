@@ -72,7 +72,7 @@ Only the commands that matter for gameplay are tracked, the rest (fog, wind, sno
 */
 void BG_WeatherParseCommand(bgWeatherState_t* ws, const char* command)
 {
-	char token[32];
+	char token[32] = { 0 };
 	size_t len = 0;
 
 	if (!ws || !command)
@@ -166,8 +166,8 @@ pass_entity_num is only used by the game (the cgame traces the world only).
 */
 qboolean BG_WeatherPointOutside(const vec3_t point, const int pass_entity_num)
 {
-	trace_t tr;
-	vec3_t end;
+	trace_t tr = { 0 };
+	vec3_t end = { 0 };
 
 #if defined(_GAME)
 	const int contents = trap->PointContents(point, pass_entity_num);

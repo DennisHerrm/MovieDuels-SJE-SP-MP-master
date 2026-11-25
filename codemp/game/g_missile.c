@@ -164,14 +164,14 @@ static void g_manual_block_missile(const gentity_t* ent, gentity_t* missile, vec
 		return;
 	}
 
-	vec3_t bounce_dir;
+	vec3_t bounce_dir = { 0 };
 
 	// Save original speed
 	const float speed = VectorNormalize(missile->s.pos.trDelta);
 
 	if (ent->client)
 	{
-		vec3_t missile_dir;
+		vec3_t missile_dir = { 0 };
 
 		// Use blocker view direction
 		AngleVectors(ent->client->ps.viewangles, missile_dir, NULL, NULL);
@@ -219,7 +219,7 @@ static void g_manual_block_missile(const gentity_t* ent, gentity_t* missile, vec
 
 static void g_reflect_missile_to_attacker(const gentity_t* ent, gentity_t* missile, vec3_t forward)
 {
-	vec3_t bounce_dir;
+	vec3_t bounce_dir = { 0 };
 
 	// Is the blocker the original owner?
 	const qboolean is_owner = (missile->r.ownerNum == ent->s.number);
@@ -253,7 +253,7 @@ static void g_reflect_missile_to_attacker(const gentity_t* ent, gentity_t* missi
 	else if (is_owner)
 	{
 		// Push the missile away from the owner, with extra speed
-		vec3_t missile_dir;
+		vec3_t missile_dir = { 0 };
 
 		speed *= 1.5f;
 
@@ -269,7 +269,7 @@ static void g_reflect_missile_to_attacker(const gentity_t* ent, gentity_t* missi
 	else
 	{
 		// Default: push away from the defender
-		vec3_t missile_dir;
+		vec3_t missile_dir = { 0 };
 
 		VectorSubtract(ent->r.currentOrigin,
 			missile->r.currentOrigin,
@@ -320,7 +320,7 @@ static void g_reflect_missile_to_attacker(const gentity_t* ent, gentity_t* missi
 
 void g_reflect_missile_auto(const gentity_t* ent, gentity_t* missile, vec3_t forward)
 {
-	vec3_t bounce_dir;
+	vec3_t bounce_dir = { 0 };
 
 	// Is the blocker the original owner?
 	const qboolean is_owner = (missile->r.ownerNum == ent->s.number);
@@ -354,7 +354,7 @@ void g_reflect_missile_auto(const gentity_t* ent, gentity_t* missile, vec3_t for
 	else if (is_owner)
 	{
 		// Push the missile away from the owner, with extra speed
-		vec3_t missile_dir;
+		vec3_t missile_dir = { 0 };
 
 		speed *= 1.5f;
 
@@ -370,7 +370,7 @@ void g_reflect_missile_auto(const gentity_t* ent, gentity_t* missile, vec3_t for
 	else
 	{
 		// Default: push away from the defender
-		vec3_t missile_dir;
+		vec3_t missile_dir = { 0 };
 
 		VectorSubtract(ent->r.currentOrigin,
 			missile->r.currentOrigin,
@@ -513,7 +513,7 @@ void G_StasisMissileThink(gentity_t* missile)
 		return;
 	}
 
-	vec3_t mins, maxs;
+	vec3_t mins = { 0 }, maxs = { 0 };
 	// static: too big for the stack (C6262); filled by EntitiesInBox before it is read
 	static int touch[MAX_GENTITIES];
 	for (int i = 0; i < 3; i++)
@@ -553,7 +553,7 @@ void G_StasisMissileThink(gentity_t* missile)
 
 void g_reflect_missile_bot(const gentity_t* ent, gentity_t* missile, vec3_t forward)
 {
-	vec3_t bounce_dir;
+	vec3_t bounce_dir = { 0 };
 	int isowner = 0;
 
 	if (missile->r.ownerNum == ent->s.number)
@@ -576,7 +576,7 @@ void g_reflect_missile_bot(const gentity_t* ent, gentity_t* missile, vec3_t forw
 	else if (isowner)
 	{
 		//in this case, actually push the missile away from me, and since we're giving boost to our own missile by pushing it, up the velocity
-		vec3_t missile_dir;
+		vec3_t missile_dir = { 0 };
 
 		speed *= 1.5;
 
@@ -587,7 +587,7 @@ void g_reflect_missile_bot(const gentity_t* ent, gentity_t* missile, vec3_t forw
 	}
 	else
 	{
-		vec3_t missile_dir;
+		vec3_t missile_dir = { 0 };
 
 		VectorSubtract(ent->r.currentOrigin, missile->r.currentOrigin, missile_dir);
 		VectorCopy(missile->s.pos.trDelta, bounce_dir);
@@ -624,7 +624,7 @@ G_BounceMissile
 */
 static void G_BounceMissile(gentity_t* ent, trace_t* trace)
 {
-	vec3_t velocity;
+	vec3_t velocity = { 0 };
 
 	// reflect the velocity on the trace plane
 	const int hit_time = level.previousTime + (level.time - level.previousTime) * trace->fraction;
@@ -691,7 +691,7 @@ Explode a missile without an impact
 void g_explode_missile(gentity_t* ent)
 {
 	vec3_t dir = { 0 };
-	vec3_t origin;
+	vec3_t origin = { 0 };
 
 	BG_EvaluateTrajectory(&ent->s.pos, level.time, origin);
 	SnapVector(origin);
@@ -762,7 +762,7 @@ g_bounce_projectile
 */
 void g_bounce_projectile(vec3_t start, vec3_t impact, vec3_t dir, vec3_t endout)
 {
-	vec3_t v, newv;
+	vec3_t v = { 0 }, newv = { 0 };
 
 	VectorSubtract(impact, start, v);
 	const float dot = DotProduct(v, dir);
@@ -1062,7 +1062,7 @@ static void G_SpawnNoghriGasCloud(const gentity_t* missile, vec3_t origin)
 
 qboolean G_MissileImpact(gentity_t* ent, trace_t* trace)
 {
-	vec3_t   fwd;
+	vec3_t   fwd = { 0 };
 	qboolean hit_client = qfalse;
 	qboolean is_knocked_saber = qfalse;
 	int      missile_dmg = 0;
@@ -1308,7 +1308,7 @@ qboolean G_MissileImpact(gentity_t* ent, trace_t* trace)
 			{// 75% chance to play pain anim
 				if (PM_CrouchAnim(other->client->ps.legsAnim))
 				{
-					vec3_t dir;
+					vec3_t dir = { 0 };
 					VectorSubtract(ent->r.currentOrigin, other->r.currentOrigin, dir);
 					VectorNormalize(dir);
 
@@ -1463,7 +1463,7 @@ qboolean G_MissileImpact(gentity_t* ent, trace_t* trace)
 
 		if (missile_dmg)
 		{
-			vec3_t velocity;
+			vec3_t velocity = { 0 };
 			qboolean did_dmg = qfalse;
 
 			gentity_t* ownerEnt = G_GetEntitySafe(ent->r.ownerNum);
@@ -1616,7 +1616,7 @@ qboolean G_MissileImpact(gentity_t* ent, trace_t* trace)
 						// Crouch = knockdown instead of pain anim
 						if (PM_CrouchAnim(other->client->ps.legsAnim))
 						{
-							vec3_t dir;
+							vec3_t dir = { 0 };
 							VectorSubtract(ent->r.currentOrigin, other->r.currentOrigin, dir);
 							VectorNormalize(dir);
 
@@ -1624,7 +1624,7 @@ qboolean G_MissileImpact(gentity_t* ent, trace_t* trace)
 						}
 						else
 						{
-							vec3_t impact_point;
+							vec3_t impact_point = { 0 };
 
 							if (trace != NULL)
 							{
@@ -1734,7 +1734,7 @@ killProj:
 				if (other->health > 0 && ent->parent && ent->parent->client && other != ent->parent
 					&& BG_KnockDownable(&other->client->ps))
 				{
-					vec3_t pull_dir;
+					vec3_t pull_dir = { 0 };
 					VectorSubtract(ent->parent->r.currentOrigin, other->r.currentOrigin, pull_dir);
 					pull_dir[2] = 0;
 					VectorNormalize(pull_dir);
@@ -1964,8 +1964,8 @@ void G_RunMissile(gentity_t* ent)
 		return;
 	}
 
-	vec3_t origin, ground_spot;
-	trace_t tr;
+	vec3_t origin = { 0 }, ground_spot = { 0 };
+	trace_t tr = { 0 };
 	int passent = 0;
 	qboolean is_knocked_saber = qfalse;
 
@@ -2026,8 +2026,8 @@ void G_RunMissile(gentity_t* ent)
 
 	if (ent->s.weapon == G2_MODEL_PART && !ent->bounceCount)
 	{
-		vec3_t lower_org;
-		trace_t tr_g;
+		vec3_t lower_org = { 0 };
+		trace_t tr_g = { 0 };
 
 		VectorCopy(ent->r.currentOrigin, lower_org);
 		lower_org[2] -= 1;
@@ -2254,7 +2254,7 @@ static int ReflectionLevel(const gentity_t* player)
 // a +-6 slop on a unit vector - and always staggered, even at saber defense 3.)
 static void g_glance_missile_off_saber(gentity_t* blocker, gentity_t* missile, vec3_t fwd)
 {
-	vec3_t bounce_dir;
+	vec3_t bounce_dir = { 0 };
 	const float speed = VectorNormalize(missile->s.pos.trDelta);
 	const gentity_t* shooter = G_GetEntitySafe(missile->r.ownerNum);
 
@@ -2463,8 +2463,8 @@ void WP_HandleBoltBlock(gentity_t* bolt, gentity_t* blocker, trace_t* trace, vec
 		}
 		else if (saber_block_reflection)
 		{
-			vec3_t angs;
-			vec3_t bounce_dir;
+			vec3_t angs = { 0 };
+			vec3_t bounce_dir = { 0 };
 
 			if ((d_blockinfo.integer || g_DebugSaberCombat.integer) &&
 				!(blocker->r.svFlags & SVF_BOT))
@@ -2561,8 +2561,8 @@ void WP_HandleBoltBlock(gentity_t* bolt, gentity_t* blocker, trace_t* trace, vec
 		//
 		else
 		{
-			vec3_t angs;
-			vec3_t bounce_dir;
+			vec3_t angs = { 0 };
+			vec3_t bounce_dir = { 0 };
 
 			if ((d_blockinfo.integer || g_DebugSaberCombat.integer) &&
 				!(blocker->r.svFlags & SVF_BOT))
@@ -2665,7 +2665,7 @@ void WP_HandleBoltBlock(gentity_t* bolt, gentity_t* blocker, trace_t* trace, vec
 	// Visual effect for the bolt being blocked: on the bolt, along its new flight. (It played at the blocker's feet,
 	// with the blocker's weapon's effect - always the blaster one - facing the hit surface's normal.)
 	{
-		vec3_t new_dir;
+		vec3_t new_dir = { 0 };
 		VectorCopy(bolt->s.pos.trDelta, new_dir);
 		VectorNormalize(new_dir);
 		G_MissileReflectEffect(bolt, new_dir);

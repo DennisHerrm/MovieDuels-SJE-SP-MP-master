@@ -84,7 +84,7 @@ void G_WeatherRescan(void)
 
 	for (int i = 1; i < MAX_FX; i++)
 	{
-		char s[MAX_STRING_CHARS];
+		char s[MAX_STRING_CHARS] = { 0 };
 
 		trap->GetConfigstring(CS_EFFECTS + i, s, sizeof s);
 
@@ -137,7 +137,7 @@ static qboolean G_WeatherIsOwned(const int index)
 
 static qboolean G_WeatherStringInUse(const char* str)
 {
-	char s[MAX_STRING_CHARS];
+	char s[MAX_STRING_CHARS] = { 0 };
 
 	for (int i = 1; i < MAX_FX; i++)
 	{
@@ -153,8 +153,8 @@ static qboolean G_WeatherStringInUse(const char* str)
 // sets "*<command>" in the first free effect slot after 'after', returns the slot or -1 if there is none
 static int G_WeatherAddString(const char* command, const int after)
 {
-	char str[MAX_QPATH];
-	char s[MAX_STRING_CHARS];
+	char str[MAX_QPATH] = { 0 };
+	char s[MAX_STRING_CHARS] = { 0 };
 	int i = 0;
 
 	Com_sprintf(str, sizeof str, "*%s", command);
@@ -204,7 +204,7 @@ them, which also removes the weather of the map's entities.
 */
 static void G_SetWeather(const char* const* commands, const int numCommands, const qboolean clearFirst)
 {
-	char s[MAX_STRING_CHARS];
+	char s[MAX_STRING_CHARS] = { 0 };
 	int last = 0;
 	int i = 0;
 
@@ -273,8 +273,8 @@ static const char* G_WeatherCommandForWord(const char* word)
 // the map's Weather/<mapname>.cfg ("r_weather N" lines, one weather each, as in SP): returns the number of commands
 static int G_WeatherReadMapFile(const char** commands, const int maxCommands)
 {
-	char mapname[MAX_QPATH];
-	char buf[2048];
+	char mapname[MAX_QPATH] = { 0 };
+	char buf[2048] = { 0 };
 	fileHandle_t f = 0;
 	int num = 0;
 
@@ -303,7 +303,7 @@ static int G_WeatherReadMapFile(const char** commands, const int maxCommands)
 	while (*p && num < maxCommands)
 	{
 		char* end = p;
-		char word[2][MAX_QPATH];
+		char word[2][MAX_QPATH] = { 0 };
 		int words = 0;
 
 		while (*end && *end != '\n' && *end != '\r' && *end != ';')
@@ -358,8 +358,8 @@ CG_ApplyWeather; the damage always follows this server weather.
 */
 void G_WeatherLoadMapDefault(void)
 {
-	const char* commands[G_WEATHER_MAX_COMMANDS];
-	char mapname[MAX_QPATH];
+	const char* commands[G_WEATHER_MAX_COMMANDS] = { 0 };
+	char mapname[MAX_QPATH] = { 0 };
 	static const char* const rend2NoWeatherMaps[] = {
 		// as SP g_itemLoad.cpp: no file weather on these with rend2
 		"yavin1", "demo", "01nar", "md2_bd_ch", "md_sn_intro_jedi", "md_ch_battledroids", "md_ep4_intro", "secbase",
@@ -400,7 +400,7 @@ static void G_WeatherUsage(const gentity_t* ent)
 
 	// the weather strings everybody runs, what the weather damage sees now and whether the asking player is outside
 	char list[256] = { 0 };
-	char s[MAX_STRING_CHARS];
+	char s[MAX_STRING_CHARS] = { 0 };
 	for (int i = 1; i < MAX_FX; i++)
 	{
 		trap->GetConfigstring(CS_EFFECTS + i, s, sizeof s);
@@ -436,8 +436,8 @@ The named types keep their old meaning (sand = wind + sand, fog = heavyrainfog),
 */
 void G_WeatherCommand_f(const gentity_t* ent)
 {
-	char arg[MAX_TOKEN_CHARS];
-	const char* commands[G_WEATHER_MAX_COMMANDS];
+	char arg[MAX_TOKEN_CHARS] = { 0 };
+	const char* commands[G_WEATHER_MAX_COMMANDS] = { 0 };
 	int num = 0;
 
 	trap->Argv(1, arg, sizeof arg);
@@ -455,7 +455,7 @@ void G_WeatherCommand_f(const gentity_t* ent)
 	else if (!Q_stricmp(arg, "default") || !Q_stricmp(arg, "map"))
 	{
 		// the map's weather again: its entities' weather strings (copied, they come after the "clear"), then the file
-		char s[MAX_STRING_CHARS];
+		char s[MAX_STRING_CHARS] = { 0 };
 		static char entityWeather[G_WEATHER_MAX_COMMANDS][MAX_QPATH];
 
 		for (int i = 1; i < MAX_FX && num < G_WEATHER_MAX_COMMANDS; i++)
@@ -545,7 +545,7 @@ static qboolean G_WeatherEntOutside(const gentity_t* ent, gWeatherEnt_t* we)
 
 static void G_WeatherAcidFizz(const gentity_t* ent)
 {
-	vec3_t org;
+	vec3_t org = { 0 };
 	vec3_t dir = { 0, 0, 1 };
 
 	// SP plays it where a G2 trace hits the body: a random spot on the upper body is close enough (and much cheaper)

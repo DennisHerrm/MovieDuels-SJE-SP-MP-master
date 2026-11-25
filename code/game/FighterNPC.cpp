@@ -117,7 +117,7 @@ static bool BG_FighterUpdate(Vehicle_t* p_veh, const usercmd_t* pUcmd, vec3_t tr
 	void (*traceFunc)(trace_t* results, const vec3_t start, const vec3_t lmins, const vec3_t lmaxs,
 		const vec3_t end, int passEntityNum, int content_mask))
 {
-	vec3_t bottom;
+	vec3_t bottom = {};
 	// Make sure the riders are not visible or collide able.
 	p_veh->m_pVehicleInfo->Ghost(p_veh, p_veh->m_pPilot);
 	// check the client, not &client->ps (which can never be NULL; a NULL client crashed first)
@@ -474,7 +474,7 @@ static void ProcessMoveCommands(Vehicle_t* p_veh)
 	//Client sets ucmds and such for speed alterations
 	float speedInc = 0.0f, speedIdleDec = 0.0f, speedIdle = 0.0f, speedIdleAccel = 0.0f, speedMin = 0.0f, speedMax = 0.0f;
 	bgEntity_t* parent = p_veh->m_pParentEntity;
-	qboolean is_landing_or_launching;
+	qboolean is_landing_or_launching = qfalse;
 #ifndef _JK2MP//SP
 	int curTime = level.time;
 #elif defined QAGAME//MP GAME
@@ -900,7 +900,7 @@ static void ProcessMoveCommands(Vehicle_t* p_veh)
 		&& p_veh->m_ucmd.rightmove)
 	{
 		//strafe
-		vec3_t v_angles, v_right;
+		vec3_t v_angles = {}, v_right = {};
 		float strafeSpeed = p_veh->m_pVehicleInfo->strafePerc * speedMax * 5.0f;
 		VectorCopy(p_veh->m_vOrientation, v_angles);
 		v_angles[PITCH] = v_angles[ROLL] = 0;
@@ -1369,8 +1369,8 @@ static void ProcessOrientCommands(Vehicle_t* p_veh)
 	constexpr float ground_fraction = 0.1f;
 #endif
 	float cur_roll = 0.0f;
-	qboolean is_dead;
-	qboolean is_landing_or_landed;
+	qboolean is_dead = qfalse;
+	qboolean is_landing_or_landed = qfalse;
 	const qboolean arcade = FighterArcade(p_veh); // (2026-10-13)
 #ifndef _JK2MP//SP
 	int curTime = level.time;

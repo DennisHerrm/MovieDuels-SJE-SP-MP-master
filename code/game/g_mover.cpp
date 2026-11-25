@@ -95,7 +95,7 @@ void G_PlayDoorSound(gentity_t* ent, const int type)
 	if (sfx == -1)
 		return;
 
-	vec3_t doorcenter;
+	vec3_t doorcenter = {};
 	CalcTeamDoorCenter(ent, doorcenter);
 	if (ent->activator && ent->activator->client && ent->activator->client->playerTeam == TEAM_PLAYER)
 	{
@@ -162,8 +162,8 @@ extern qboolean G_OkayToRemoveCorpse(gentity_t* self);
 
 static qboolean G_TryPushingEntity(gentity_t* check, gentity_t* pusher, vec3_t move, vec3_t amove)
 {
-	vec3_t forward, right, up;
-	vec3_t org, org2{}, move2;
+	vec3_t forward = {}, right = {}, up = {};
+	vec3_t org = {}, org2{}, move2 = {};
 
 	// save off the old position
 	if (pushed_p > &pushed[MAX_GENTITIES])
@@ -285,7 +285,7 @@ qboolean G_MoverPush(gentity_t* pusher, vec3_t move, vec3_t amove, gentity_t** o
 {
 	int i = 0;
 	vec3_t mins{}, maxs{};
-	vec3_t pusherMins, pusherMaxs, totalMins{}, totalMaxs{};
+	vec3_t pusherMins = {}, pusherMaxs = {}, totalMins{}, totalMaxs{};
 	static gentity_t* entity_list[MAX_GENTITIES];
 
 	*obstacle = nullptr;
@@ -379,7 +379,7 @@ qboolean G_MoverPush(gentity_t* pusher, vec3_t move, vec3_t amove, gentity_t** o
 			*/
 			else if (!pusher->bmodel)
 			{
-				vec3_t checkMins, checkMaxs;
+				vec3_t checkMins = {}, checkMaxs = {};
 
 				VectorAdd(check->currentOrigin, check->mins, checkMins);
 				VectorAdd(check->currentOrigin, check->maxs, checkMaxs);
@@ -445,7 +445,7 @@ qboolean G_MoverPush(gentity_t* pusher, vec3_t move, vec3_t amove, gentity_t** o
 			continue; // don't want it blocking so skip past it
 		}
 
-		vec3_t oldOrg;
+		vec3_t oldOrg = {};
 
 		VectorCopy(check->s.pos.trBase, oldOrg);
 
@@ -518,10 +518,10 @@ static void G_MoverTeam(gentity_t* ent)
 	pushed_p = pushed;
 	for (part = ent; part; part = part->teamchain)
 	{
-		vec3_t angles;
-		vec3_t origin;
-		vec3_t amove;
-		vec3_t move;
+		vec3_t angles = {};
+		vec3_t origin = {};
+		vec3_t amove = {};
+		vec3_t move = {};
 		// get current position
 		part->s.eFlags &= ~EF_BLOCKED_MOVER;
 		EvaluateTrajectory(&part->s.pos, level.time, origin);
@@ -625,7 +625,7 @@ void CalcTeamDoorCenter(const gentity_t* ent, vec3_t center)
 	VectorScale(center, 0.5, center);
 	for (const gentity_t* slave = ent->teamchain; slave; slave = slave->teamchain)
 	{
-		vec3_t slavecenter;
+		vec3_t slavecenter = {};
 		//Find slave's center
 		VectorAdd(slave->mins, slave->maxs, slavecenter);
 		VectorScale(slavecenter, 0.5, slavecenter);
@@ -642,7 +642,7 @@ SetMoverState
 */
 static void SetMoverState(gentity_t* ent, const moverState_t moverState, const int time)
 {
-	vec3_t delta;
+	vec3_t delta = {};
 	float f = 0.0f;
 
 	ent->moverState = moverState;
@@ -751,7 +751,7 @@ void Reached_BinaryMover(gentity_t* ent)
 		// reached pos2
 		SetMoverState(ent, MOVER_POS2, level.time);
 
-		vec3_t doorcenter;
+		vec3_t doorcenter = {};
 		CalcTeamDoorCenter(ent, doorcenter);
 		if (ent->activator && ent->activator->client && ent->activator->client->playerTeam == TEAM_PLAYER)
 		{
@@ -796,7 +796,7 @@ void Reached_BinaryMover(gentity_t* ent)
 		// reached pos1
 		SetMoverState(ent, MOVER_POS1, level.time);
 
-		vec3_t doorcenter;
+		vec3_t doorcenter = {};
 		CalcTeamDoorCenter(ent, doorcenter);
 		if (ent->activator && ent->activator->client && ent->activator->client->playerTeam == TEAM_PLAYER)
 		{
@@ -838,7 +838,7 @@ void Use_BinaryMover_Go(gentity_t* ent)
 		// triggered, level.time hasn't been advanced yet
 		MatchTeam(ent, MOVER_1TO2, level.time + 50);
 
-		vec3_t doorcenter;
+		vec3_t doorcenter = {};
 		CalcTeamDoorCenter(ent, doorcenter);
 		if (ent->activator && ent->activator->client && ent->activator->client->playerTeam == TEAM_PLAYER)
 		{
@@ -883,7 +883,7 @@ void Use_BinaryMover_Go(gentity_t* ent)
 		total = ent->s.pos.trDuration - 50;
 		if (ent->s.pos.trType == TR_NONLINEAR_STOP)
 		{
-			vec3_t curDelta;
+			vec3_t curDelta = {};
 			VectorSubtract(ent->currentOrigin, ent->pos1, curDelta);
 			float fPartial = VectorLength(curDelta) / VectorLength(ent->s.pos.trDelta);
 			VectorScale(ent->s.pos.trDelta, fPartial, curDelta);
@@ -918,7 +918,7 @@ void Use_BinaryMover_Go(gentity_t* ent)
 		total = ent->s.pos.trDuration - 50;
 		if (ent->s.pos.trType == TR_NONLINEAR_STOP)
 		{
-			vec3_t curDelta;
+			vec3_t curDelta = {};
 			VectorSubtract(ent->currentOrigin, ent->pos2, curDelta);
 			float fPartial = VectorLength(curDelta) / VectorLength(ent->s.pos.trDelta);
 			VectorScale(ent->s.pos.trDelta, fPartial, curDelta);
@@ -1060,7 +1060,7 @@ so the movement delta can be calculated
 */
 void InitMoverTrData(gentity_t* ent)
 {
-	vec3_t move;
+	vec3_t move = {};
 
 	ent->s.pos.trType = TR_STATIONARY;
 	VectorCopy(ent->pos1, ent->s.pos.trBase);
@@ -1099,7 +1099,7 @@ void G_SpawnModel2Scale(gentity_t* ent)
 void InitMover(gentity_t* ent)
 {
 	float light = 0.0f;
-	vec3_t color;
+	vec3_t color = {};
 
 	// if the "model2" key is set, use a seperate model
 	// for drawing, but clip against the brushes
@@ -1292,7 +1292,7 @@ void Think_SpawnNewDoorTrigger(gentity_t* ent)
 	}
 
 	gentity_t* other = NULL;
-	vec3_t mins, maxs;
+	vec3_t mins = {}, maxs = {};
 
 	// Mark all slaves as shootable
 	if (ent->takedamage == qtrue)
@@ -1518,7 +1518,7 @@ INACTIVE	must be used by a target_activate before it can be used
 void SP_func_door(gentity_t* ent)
 {
 	vec3_t abs_movedir{};
-	vec3_t size;
+	vec3_t size = {};
 	float lip = 0.0f;
 
 	ent->e_BlockedFunc = blockedF_Blocked_Door;
@@ -1566,7 +1566,7 @@ void SP_func_door(gentity_t* ent)
 	// if "start_open", reverse position 1 and 2
 	if (ent->spawnflags & 1)
 	{
-		vec3_t temp;
+		vec3_t temp = {};
 
 		VectorCopy(ent->pos2, temp);
 		VectorCopy(ent->s.origin, ent->pos2);
@@ -1810,7 +1810,7 @@ When a button is touched, it moves some distance in the direction of it's angle,
 void SP_func_button(gentity_t* ent)
 {
 	vec3_t abs_movedir{};
-	vec3_t size;
+	vec3_t size = {};
 	float lip = 0.0f;
 
 	//	ent->sound1to2 = G_SoundIndex("sound/movers/switches/butn2.wav");
@@ -1902,7 +1902,7 @@ Reached_Train
 void Reached_Train(gentity_t* ent)
 {
 	float speed = 0.0f;
-	vec3_t move;
+	vec3_t move = {};
 
 	// copy the apropriate values
 	gentity_t* next = ent->nextTrain;
@@ -1955,7 +1955,7 @@ void Reached_Train(gentity_t* ent)
 
 	if (next->spawnflags & 1)
 	{
-		vec3_t angs;
+		vec3_t angs = {};
 
 		vectoangles(move, angs);
 		AnglesSubtract(angs, ent->currentAngles, angs);
@@ -1982,7 +1982,7 @@ void Reached_Train(gentity_t* ent)
 		if (next->spawnflags & 4)
 		{
 			//yaw
-			vec3_t angs;
+			vec3_t angs = {};
 
 			vectoangles(move, angs);
 			AnglesSubtract(angs, ent->currentAngles, angs);
@@ -2440,7 +2440,7 @@ extern void SP_func_breakable(gentity_t* self);
 
 void SP_func_rotating(gentity_t* ent)
 {
-	vec3_t spin_angles;
+	vec3_t spin_angles = {};
 	const qboolean has_spin_angles = G_SpawnVector("spinangles", "0 0 0", spin_angles);
 
 	if (ent->health)

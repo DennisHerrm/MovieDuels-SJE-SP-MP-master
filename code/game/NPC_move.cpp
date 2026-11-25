@@ -111,12 +111,12 @@ static qboolean NPC_Jump(vec3_t dest, const int goalEntNum)
 	float bestImpactDist = Q3_INFINITE; //fireSpeed,
 	constexpr float minShotSpeed = 30.0f, max_shot_speed = 500.0f;
 	qboolean belowBlocked = qfalse, aboveBlocked = qfalse;
-	vec3_t targetDir, shotVel;
+	vec3_t targetDir = {}, shotVel = {};
 	trace_t trace;
 	trajectory_t tr{};
 	int hitCount = 0, aboveTries = 0, belowTries = 0;
 	constexpr int maxHits = 10;
-	vec3_t bottom;
+	vec3_t bottom = {};
 
 	VectorSubtract(dest, NPC->currentOrigin, targetDir);
 	const float targetDist = VectorNormalize(targetDir);
@@ -134,7 +134,7 @@ static qboolean NPC_Jump(vec3_t dest, const int goalEntNum)
 
 	while (hitCount < maxHits)
 	{
-		vec3_t failCase;
+		vec3_t failCase = {};
 		VectorScale(targetDir, shotSpeed, shotVel);
 		float travelTime = targetDist / shotSpeed;
 		shotVel[2] += travelTime * 0.5 * NPC->client->ps.gravity;
@@ -147,7 +147,7 @@ static qboolean NPC_Jump(vec3_t dest, const int goalEntNum)
 
 		if (true) //tracePath )
 		{
-			vec3_t lastPos;
+			vec3_t lastPos = {};
 			constexpr int timeStep = 250;
 			//do a rough trace of the path
 			qboolean blocked = qfalse;
@@ -162,7 +162,7 @@ static qboolean NPC_Jump(vec3_t dest, const int goalEntNum)
 			//This may be kind of wasteful, especially on long throws... use larger steps?  Divide the travelTime into a certain hard number of slices?  Trace just to apex and down?
 			for (int elapsedTime = timeStep; elapsedTime < floor(travelTime) + timeStep; elapsedTime += timeStep)
 			{
-				vec3_t testPos;
+				vec3_t testPos = {};
 				if (static_cast<float>(elapsedTime) > travelTime)
 				{
 					//cap it
@@ -351,7 +351,7 @@ qboolean NPC_TryJump(const vec3_t& pos, const float max_xy_dist, const float max
 		// Can't Try To Jump At A Point In The Air
 		//-----------------------------------------
 		{
-			vec3_t groundTest;
+			vec3_t groundTest = {};
 			VectorCopy(pos, groundTest);
 			groundTest[2] += NPC->mins[2] * 3;
 			gi.trace(&mJumpTrace, NPCInfo->jumpDest, vec3_origin, vec3_origin, groundTest, NPC->s.number, NPC->clipmask,
@@ -534,7 +534,7 @@ static void NPC_JumpSound()
 
 qboolean NPC_TryJump()
 {
-	vec3_t targetDirection;
+	vec3_t targetDirection = {};
 
 	// Get The Direction And Distances To The Target
 	//-----------------------------------------------
@@ -553,7 +553,7 @@ qboolean NPC_TryJump()
 	//-------------------------------------------------------------------------------
 	if (TIMER_Done(NPC, "jumpBackupDebounce"))
 	{
-		vec3_t actorProjectedTowardTarget;
+		vec3_t actorProjectedTowardTarget = {};
 		VectorMA(NPC->currentOrigin, NPC_JUMP_PREP_BACKUP_DIST, targetDirection, actorProjectedTowardTarget);
 		gi.trace(&mJumpTrace, NPC->currentOrigin, vec3_origin, vec3_origin, actorProjectedTowardTarget, NPC->s.number,
 			NPC->clipmask, static_cast<EG2_Collision>(0), 0);
@@ -610,7 +610,7 @@ qboolean NPC_TryJump()
 
 		if (DistanceSquared(NPCInfo->jumpDest, NPCInfo->jumpTarget->currentOrigin) < minSafeRadiusSq)
 		{
-			vec3_t startPos;
+			vec3_t startPos = {};
 			vec3_t floorPos{};
 			VectorCopy(NPCInfo->jumpDest, startPos);
 
@@ -845,7 +845,7 @@ void NAV_GetLastMove(navInfo_t& info)
 
 void G_UcmdMoveForDir(const gentity_t* self, usercmd_t* cmd, vec3_t dir)
 {
-	vec3_t forward, right;
+	vec3_t forward = {}, right = {};
 
 	AngleVectors(self->currentAngles, forward, right, nullptr);
 
@@ -928,7 +928,7 @@ qboolean NPC_MoveToGoal(qboolean tryStraight) //FIXME: tryStraight not even used
 	if (NPC->watertype & CONTENTS_LADDER)
 	{
 		//Do we still want to do this?
-		vec3_t dir;
+		vec3_t dir = {};
 		VectorSubtract(NPCInfo->goalEntity->currentOrigin, NPC->currentOrigin, dir);
 		VectorNormalize(dir);
 		NPC_LadderMove(dir);
@@ -1008,8 +1008,8 @@ qboolean NPC_IsJetpacking(const gentity_t* self)
 qboolean npc_check_fall_position_ok(const gentity_t* npc, vec3_t position)
 {
 	trace_t tr;
-	vec3_t test_pos, down_pos;
-	vec3_t mins, maxs;
+	vec3_t test_pos = {}, down_pos = {};
+	vec3_t mins = {}, maxs = {};
 
 	if (NPC_IsJetpacking(npc))
 	{
@@ -1184,7 +1184,7 @@ static void OC_Trace(trace_t* tr, const gentity_t* ent, const vec3_t start, cons
 static qboolean OC_GroundBelow(const gentity_t* ent, const vec3_t pos, const float dist)
 {
 	trace_t tr;
-	vec3_t end;
+	vec3_t end = {};
 	VectorCopy(pos, end);
 	end[2] -= dist;
 	OC_Trace(&tr, ent, pos, ent->mins, ent->maxs, end, ent->clipmask | CONTENTS_BOTCLIP);
@@ -1195,7 +1195,7 @@ static qboolean OC_GroundBelow(const gentity_t* ent, const vec3_t pos, const flo
 static int OC_Probe(const gentity_t* ent, const vec3_t dir, const float max_climb, float* top_z)
 {
 	trace_t tr;
-	vec3_t mins, start, end;
+	vec3_t mins = {}, start = {}, end = {};
 	const float* org = ent->currentOrigin;
 	const int mask = ent->clipmask | CONTENTS_BOTCLIP; // a do-not-enter brush is a wall too
 	const float feet = org[2] + ent->mins[2];
@@ -1262,7 +1262,7 @@ static int OC_Probe(const gentity_t* ent, const vec3_t dir, const float max_clim
 static qboolean OC_FindSideStep(const gentity_t* ent, const vec3_t dir, vec3_t out)
 {
 	trace_t tr;
-	vec3_t mins, side, end, start;
+	vec3_t mins = {}, side = {}, end = {}, start = {};
 	const float* org = ent->currentOrigin;
 	const int mask = ent->clipmask | CONTENTS_BOTCLIP;
 	const float first = Q_irand(0, 1) ? 1.0f : -1.0f;
@@ -1320,7 +1320,7 @@ static qboolean OC_WantDir(vec3_t out)
 	}
 	else if (ucmd.forwardmove || ucmd.rightmove)
 	{
-		vec3_t forward, right;
+		vec3_t forward = {}, right = {};
 		AngleVectors(NPC->currentAngles, forward, right, nullptr);
 		VectorScale(forward, ucmd.forwardmove, out);
 		VectorMA(out, ucmd.rightmove, right, out);
@@ -1401,7 +1401,7 @@ void NPC_ObstacleClimb()
 			}
 		}
 		{
-			vec3_t dir;
+			vec3_t dir = {};
 			VectorCopy(oc->dir, dir);
 			G_UcmdMoveForDir(NPC, &ucmd, dir);
 			ucmd.upmove = 0;
@@ -1416,7 +1416,7 @@ void NPC_ObstacleClimb()
 			return;
 		}
 		{
-			vec3_t dir;
+			vec3_t dir = {};
 			VectorCopy(oc->dir, dir);
 			G_UcmdMoveForDir(NPC, &ucmd, dir);
 			ucmd.upmove = 0;
@@ -1432,7 +1432,7 @@ void NPC_ObstacleClimb()
 	}
 
 	// pressed against something?
-	vec3_t want;
+	vec3_t want = {};
 	const float hspeed = sqrtf(ps->velocity[0] * ps->velocity[0] + ps->velocity[1] * ps->velocity[1]);
 	if (!on_ground || hspeed >= OC_STUCK_SPEED || !OC_WantDir(want))
 	{
@@ -1459,7 +1459,7 @@ void NPC_ObstacleClimb()
 	float max_climb = oc->climbFails < 2 ? OC_MaxClimb(NPC) : 0.0f;
 	if (max_climb > 0.0f && NPCInfo->goalEntity && NPCInfo->goalEntity != NPC)
 	{
-		vec3_t to_goal;
+		vec3_t to_goal = {};
 		VectorSubtract(NPCInfo->goalEntity->currentOrigin, NPC->currentOrigin, to_goal);
 		to_goal[2] = 0.0f;
 		if (VectorNormalize(to_goal) > 1.0f && DotProduct(to_goal, want) < 0.3f)
@@ -1507,7 +1507,7 @@ void NPC_ObstacleClimb()
 	}
 
 	// can't get over it: round it, or back off for the steering to try again
-	vec3_t side;
+	vec3_t side = {};
 	if (OC_FindSideStep(NPC, want, side))
 	{
 		VectorCopy(side, oc->dir);
@@ -1517,7 +1517,7 @@ void NPC_ObstacleClimb()
 	}
 	else
 	{
-		vec3_t back;
+		vec3_t back = {};
 		VectorMA(NPC->currentOrigin, -32.0f, want, back);
 		if (OC_GroundBelow(NPC, back, 48.0f))
 		{

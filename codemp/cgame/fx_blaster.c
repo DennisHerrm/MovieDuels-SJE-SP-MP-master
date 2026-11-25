@@ -55,7 +55,7 @@ FX_BlasterProjectileThink
 
 void FX_BlasterProjectileThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -73,7 +73,7 @@ FX_BlasterAltFireThink
 */
 void FX_BlasterAltFireThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -93,7 +93,7 @@ the droideka's bolts (WP_DROIDEKA, from MovieDuels SP)
 */
 void FX_DroidekaProjectileThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -141,7 +141,7 @@ FX_ewebProjectileThink
 
 void FX_EwebProjectileThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -159,7 +159,7 @@ FX_ewebAltFireThink
 */
 void FX_EwebAltFireThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -205,7 +205,7 @@ FX_CloneProjectileThink
 
 void FX_CloneProjectileThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -223,7 +223,7 @@ FX_CloneAltFireThink
 */
 void FX_CloneAltFireThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -258,7 +258,7 @@ the noghri stick's darts (WP_NOGHRI_STICK, from SJE SP's FX_NoghriShot.cpp)
 */
 void FX_NoghriShotProjectileThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -301,7 +301,7 @@ the tusken rifle's shot (WP_TUSKEN_RIFLE, from SJE SP's FX_TuskenShot.cpp)
 */
 void FX_TuskenShotProjectileThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -354,7 +354,7 @@ FX_CloneAltProjectileThink
 */
 void FX_CloneAltProjectileThink(centity_t* cent, const struct weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = { 0 };
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{

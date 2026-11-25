@@ -35,7 +35,7 @@ static qboolean ST_DekaFindSpot(vec3_t out)
 {
 	const gentity_t* self = NPCS.NPC;
 	const gentity_t* enemy = self->enemy;
-	vec3_t toEnemy, right;
+	vec3_t toEnemy = { 0 }, right = { 0 };
 
 	VectorSubtract(enemy->r.currentOrigin, self->r.currentOrigin, toEnemy);
 	toEnemy[2] = 0;
@@ -45,8 +45,8 @@ static qboolean ST_DekaFindSpot(vec3_t out)
 	const int firstSide = Q_irand(0, 1) ? 1 : -1;
 	for (int attempt = 0; attempt < 4; attempt++)
 	{
-		trace_t tr;
-		vec3_t dest, down, eye, enemyEye;
+		trace_t tr = { 0 };
+		vec3_t dest = { 0 }, down = { 0 }, eye = { 0 }, enemyEye = { 0 };
 		const int side = attempt & 1 ? -firstSide : firstSide;
 		const float lateral = (float)Q_irand(160, 320) * (float)side;
 		float advance = (float)Q_irand(-64, 128);
@@ -100,8 +100,8 @@ static qboolean ST_DekaFindSpot(vec3_t out)
 static qboolean ST_DekaStepClear(const vec3_t dir)
 {
 	const gentity_t* self = NPCS.NPC;
-	trace_t tr;
-	vec3_t mins, end, down;
+	trace_t tr = { 0 };
+	vec3_t mins = { 0 }, end = { 0 }, down = { 0 };
 
 	VectorSet(mins, self->r.mins[0], self->r.mins[1], self->r.mins[2] + STEPSIZE);
 	VectorMA(self->r.currentOrigin, 64.0f, dir, end);
@@ -162,7 +162,7 @@ static qboolean ST_DekaRollTo(vec3_t dest)
 	{
 		// MP maps have no NPCS.NPC nav, so the straight look-ahead fails on steps, ramps or when the goal is higher up:
 		// still roll straight at it while the next stretch is walkable
-		vec3_t dir;
+		vec3_t dir = { 0 };
 		VectorSubtract(dest, NPCS.NPC->r.currentOrigin, dir);
 		dir[2] = 0;
 		const float dist = VectorNormalize(dir);
@@ -188,7 +188,7 @@ static qboolean ST_DekaRollTo(vec3_t dest)
 static qboolean ST_DekaStartRelocate(void)
 {
 	gentity_t* self = NPCS.NPC;
-	vec3_t spot;
+	vec3_t spot = { 0 };
 
 	if (!ST_DekaFindSpot(spot) || !ST_DekaRollTo(spot))
 	{
@@ -275,7 +275,7 @@ static void ST_DekaTactics(void)
 	}
 	if (chase)
 	{
-		vec3_t dest;
+		vec3_t dest = { 0 };
 		VectorCopy(self->enemy->r.currentOrigin, dest);
 		if (ST_DekaRollTo(dest))
 		{
@@ -481,7 +481,7 @@ static int st_suspicion_time[MAX_GENTITIES];
 // concussion shot flying at them, within the same 200 units. 0 = thermals only (the old behaviour).
 static qboolean ST_ExplosiveDanger(const gentity_t* ent)
 {
-	vec3_t to_me;
+	vec3_t to_me = { 0 };
 
 	if (ent->s.eType == ET_GENERAL && ent->s.weapon == WP_DET_PACK)
 	{
@@ -1120,14 +1120,14 @@ static int Squad_AckAnim(const gentity_t* ent, gentity_t* target)
 	{
 		return BOTH_ORDER_RECIVED;
 	}
-	int anim;
+	int anim = 0;
 	if (DistanceSquared(ent->SHR_currentOrigin, target->SHR_currentOrigin) >= 512.0f * 512.0f)
 	{
 		anim = TORSO_HANDSIGNAL4;
 	}
 	else
 	{
-		vec3_t from, angles;
+		vec3_t from = { 0 }, angles = { 0 };
 		VectorCopy(ent->SHR_currentOrigin, from);
 		VectorCopy(ent->SHR_currentAngles, angles);
 		anim = InFront(target->SHR_currentOrigin, from, angles, 0.2f) ? TORSO_HANDSIGNAL1 : TORSO_HANDSIGNAL2;
@@ -1685,7 +1685,7 @@ static void Squad_Update(void)
 			{
 				continue;
 			}
-			char line[1024];
+			char line[1024] = { 0 };
 			Com_sprintf(line, sizeof line, "SQUAD %d t=%d members=%d adv=%d:", now, t, squad_members[t], squad_advancers[t]);
 			for (int i = 0; i < num; i++)
 			{
@@ -1909,7 +1909,7 @@ static void Squad_Update()
 			{
 				continue;
 			}
-			char line[1024];
+			char line[1024] = { 0 };
 			Com_sprintf(line, sizeof line, "SQUAD %d t=%d members=%d adv=%d:", now, t, squad_members[t], squad_advancers[t]);
 			for (int i = 0; i < num; i++)
 			{
@@ -2006,7 +2006,7 @@ static void Squad_KeepApart(void)
 	}
 	TIMER_Set(NPCS.NPC, "squadSpreadCheck", Q_irand(400, 700));
 
-	vec3_t mins, maxs;
+	vec3_t mins = { 0 }, maxs = { 0 };
 	for (int k = 0; k < 3; k++)
 	{
 		mins[k] = NPCS.NPC->SHR_currentOrigin[k] - SQUAD_SPREAD_DIST;
@@ -2036,7 +2036,7 @@ static void Squad_KeepApart(void)
 		return;
 	}
 
-	vec3_t away;
+	vec3_t away = { 0 };
 	VectorSubtract(NPCS.NPC->SHR_currentOrigin, closest->SHR_currentOrigin, away);
 	away[2] = 0.0f;
 	if (VectorNormalize(away) < 1.0f)
@@ -2078,7 +2078,7 @@ static void Squad_KeepApart()
 	}
 	TIMER_Set(NPCS.NPC, "squadSpreadCheck", Q_irand(400, 700));
 
-	vec3_t mins, maxs;
+	vec3_t mins = { 0 }, maxs = { 0 };
 	for (int k = 0; k < 3; k++)
 	{
 		mins[k] = NPCS.NPC->r.currentOrigin[k] - SQUAD_SPREAD_DIST;
@@ -2108,7 +2108,7 @@ static void Squad_KeepApart()
 		return;
 	}
 
-	vec3_t away;
+	vec3_t away = { 0 };
 	VectorSubtract(NPCS.NPC->r.currentOrigin, closest->r.currentOrigin, away);
 	away[2] = 0.0f;
 	if (VectorNormalize(away) < 1.0f)
@@ -2130,7 +2130,7 @@ static void Squad_KeepApart()
 // Falling back (normal AI, uses the NPC/ucmd globals): walk straight away from the target, or sideways if blocked
 static void Squad_FallBackMove(void)
 {
-	vec3_t away;
+	vec3_t away = { 0 };
 	VectorSubtract(NPCS.NPC->SHR_currentOrigin, NPCS.NPC->enemy->SHR_currentOrigin, away);
 	away[2] = 0.0f;
 	if (VectorNormalize(away) < 1.0f)
@@ -2215,9 +2215,9 @@ static qboolean Squad_ShouldSuppress(const gentity_t* self, vec3_t aim_at)
 	}
 
 	// don't shoot an ally or the wall right in front of us
-	vec3_t muzzle;
+	vec3_t muzzle = { 0 };
 	CalcEntitySpot(self, SPOT_HEAD, muzzle);
-	trace_t tr;
+	trace_t tr = { qfalse };
 	SHR_Trace(&tr, muzzle, vec3_origin, vec3_origin, info->enemyLastSeenLocation, self->s.number, MASK_SHOT);
 	if (tr.entityNum >= 0 && tr.entityNum < ENTITYNUM_WORLD)
 	{
@@ -2290,9 +2290,9 @@ static qboolean Squad_ShouldSuppress(const gentity_t* self, vec3_t aim_at)
 	}
 
 	// don't shoot an ally or the wall right in front of us
-	vec3_t muzzle;
+	vec3_t muzzle = { 0 };
 	CalcEntitySpot(self, SPOT_HEAD, muzzle);
-	trace_t tr;
+	trace_t tr = { 0 };
 	trap->Trace(&tr, muzzle, vec3_origin, vec3_origin, info->enemyLastSeenLocation, self->s.number, MASK_SHOT, qfalse, 0, 0);
 	if (tr.entityNum >= 0 && tr.entityNum < ENTITYNUM_WORLD)
 	{
@@ -2451,7 +2451,7 @@ static qboolean ST_Move(void)
 	NPCS.NPCInfo->combatMove = qtrue; //always move straight toward our goal
 
 	const qboolean moved = NPC_MoveToGoal(qtrue);
-	navInfo_t info;
+	navInfo_t info SHR_NAVINFO_INIT;
 
 	//Get the move info
 	SHR_NAV_GetLastMove(info);
@@ -2849,7 +2849,7 @@ static qboolean NPC_CheckEnemyStealth_Smart(gentity_t* target)
 				// Compute yaw difference.
 				float npc_yaw = NPCS.NPC->client->ps.viewangles[YAW];
 
-				vec3_t dir;
+				vec3_t dir = { 0 };
 				VectorSubtract(target->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, dir);
 				float yaw_to_target = vectoyaw(dir);
 
@@ -3187,7 +3187,7 @@ static qboolean NPC_CheckEnemyStealth_Smart(gentity_t* target)
 				// Compute yaw difference.
 				float npc_yaw = NPCS.NPC->client->ps.viewangles[YAW];
 
-				vec3_t dir;
+				vec3_t dir = { 0 };
 				VectorSubtract(target->r.currentOrigin, NPCS.NPC->r.currentOrigin, dir);
 				float yaw_to_target = vectoyaw(dir);
 
@@ -4497,8 +4497,8 @@ static qboolean NPC_ST_InvestigateEvent(const int event_id, const bool extra_sus
 		{
 			//we were able to doMove the investigateGoal to a point in which our bbox would fit
 			//drop the goal to the ground so we can get at it
-			vec3_t end;
-			trace_t trace;
+			vec3_t end = { 0 };
+			trace_t trace = { qfalse };
 			VectorCopy(NPCS.NPCInfo->investigateGoal, end);
 			end[2] -= 512; //FIXME: not always right?  What if it's even higher, somehow?
 			SHR_Trace(&trace, NPCS.NPCInfo->investigateGoal, NPCS.NPC->SHR_mins, NPCS.NPC->SHR_maxs, end, ENTITYNUM_NONE,
@@ -4606,7 +4606,7 @@ ST_OffsetLook
 
 static void ST_OffsetLook(const float offset, vec3_t out)
 {
-	vec3_t angles, forward, temp;
+	vec3_t angles = { 0 }, forward = { 0 }, temp = { 0 };
 
 	GetAnglesForDirection(NPCS.NPC->SHR_currentOrigin, NPCS.NPCInfo->investigateGoal, angles);
 	angles[YAW] += offset;
@@ -4625,7 +4625,7 @@ ST_LookAround
 
 static void ST_LookAround(void)
 {
-	vec3_t look_pos;
+	vec3_t look_pos = { 0 };
 	const float perc = (float)(level.time - NPCS.NPCInfo->pauseTime) / (float)(NPCS.NPCInfo->investigateDebounceTime);
 
 	//Keep looking at the spot
@@ -4864,10 +4864,10 @@ void NPC_BSST_Patrol(void)
 	if (NPCS.NPC->client->NPC_class == CLASS_ROCKETTROOPER &&
 		(NPCS.NPC->client->ps.eFlags & EF_SPOTLIGHT))
 	{
-		vec3_t eye_fwd, end;
+		vec3_t eye_fwd = { 0 }, end = { 0 };
 		const vec3_t maxs = { 2, 2, 2 };
 		const vec3_t mins = { -2, -2, -2 };
-		trace_t trace;
+		trace_t trace = { qfalse };
 
 		AngleVectors(NPCS.NPC->client->renderInfo.eyeAngles, eye_fwd, NULL, NULL);
 		VectorMA(NPCS.NPC->client->renderInfo.eyePoint, NPCS.NPCInfo->stats.visrange, eye_fwd, end);
@@ -5054,10 +5054,10 @@ void NPC_BSST_Patrol(void)
 	if (NPCS.NPC->client->NPC_class == CLASS_ROCKETTROOPER &&
 		(NPCS.NPC->client->ps.eFlags & EF_SPOTLIGHT))
 	{
-		vec3_t eye_fwd, end;
+		vec3_t eye_fwd = { 0 }, end = { 0 };
 		const vec3_t maxs = { 2, 2, 2 };
 		const vec3_t mins = { -2, -2, -2 };
-		trace_t trace;
+		trace_t trace = { 0 };
 
 		AngleVectors(NPCS.NPC->client->renderInfo.eyeAngles, eye_fwd, NULL, NULL);
 		VectorMA(NPCS.NPC->client->renderInfo.eyePoint, NPCS.NPCInfo->stats.visrange, eye_fwd, end);
@@ -5388,10 +5388,10 @@ static void ST_CheckFireState(void)
 	}
 
 	// Squad tactics: suppressing fire at the target's cover while a squadmate moves in
-	vec3_t suppress_at;
+	vec3_t suppress_at = { 0 };
 	if (!hitAlly && Squad_ShouldSuppress(NPCS.NPC, suppress_at) == qtrue)
 	{
-		vec3_t muzzle, dir, angles;
+		vec3_t muzzle = { 0 }, dir = { 0 }, angles = { 0 };
 		CalcEntitySpot(NPCS.NPC, SPOT_HEAD, muzzle);
 		VectorSubtract(suppress_at, muzzle, dir);
 		VectorNormalize(dir);
@@ -5431,7 +5431,7 @@ static void ST_CheckFireState(void)
 			if (!Q_irand(0, 10))
 			{
 				//Fire on the last known position
-				vec3_t muzzle;
+				vec3_t muzzle = { 0 };
 				qboolean too_close = qfalse;
 				qboolean too_far = qfalse;
 
@@ -5439,9 +5439,9 @@ static void ST_CheckFireState(void)
 				if (VectorCompare(impactPos, vec3_origin))
 				{
 					//never checked ShotEntity this frame, so must do a trace...
-					trace_t tr;
+					trace_t tr = { qfalse };
 					//vec3_t	mins = {-2,-2,-2}, maxs = {2,2,2};
-					vec3_t forward, end;
+					vec3_t forward = { 0 }, end = { 0 };
 					AngleVectors(NPCS.NPC->client->ps.viewangles, forward, NULL, NULL);
 					VectorMA(muzzle, 8192, forward, end);
 					SHR_Trace(&tr, muzzle, vec3_origin, vec3_origin, end, NPCS.NPC->s.number, MASK_SHOT);
@@ -5522,8 +5522,8 @@ static void ST_CheckFireState(void)
 
 				if (!too_close && !too_far)
 				{
-					vec3_t angles;
-					vec3_t dir;
+					vec3_t angles = { 0 };
+					vec3_t dir = { 0 };
 					//okay too shoot at last pos
 					VectorSubtract(NPCS.NPCInfo->enemyLastSeenLocation, muzzle, dir);
 					VectorNormalize(dir);
@@ -6642,8 +6642,8 @@ static void ST_Commander(void)
 
 						if (Q_irand(0, 3) == 0)
 						{
-							vec3_t e_dir2_me;
-							vec3_t e_dir2_cp;
+							vec3_t e_dir2_me = { 0 };
+							vec3_t e_dir2_cp = { 0 };
 
 							VectorSubtract(NPCS.NPC->SHR_currentOrigin, group->enemy->SHR_currentOrigin, e_dir2_me);
 							VectorNormalize(e_dir2_me);
@@ -7489,8 +7489,8 @@ static void ST_Commander(void)
 
 						if (Q_irand(0, 3) == 0)
 						{
-							vec3_t e_dir2_me;
-							vec3_t e_dir2_cp;
+							vec3_t e_dir2_me = { 0 };
+							vec3_t e_dir2_cp = { 0 };
 
 							VectorSubtract(NPCS.NPC->r.currentOrigin, group->enemy->r.currentOrigin, e_dir2_me);
 							VectorNormalize(e_dir2_me);
@@ -7563,11 +7563,11 @@ static void Noghri_StickTrace(void)
 		int last_hit = ENTITYNUM_NONE;
 		for (int time = curTime - 25; time <= curTime + 25 && !hit; time += 25)
 		{
-			mdxaBone_t bolt_matrix;
-			vec3_t tip, dir, base;
+			mdxaBone_t bolt_matrix = { 0 };
+			vec3_t tip = { 0 }, dir = { 0 }, base = { 0 };
 			const vec3_t angles = { 0, NPCS.NPC->SHR_currentAngles[YAW], 0 };
 			const vec3_t mins = { -2, -2, -2 }, maxs = { 2, 2, 2 };
-			trace_t trace;
+			trace_t trace = { qfalse };
 
 			gi.G2API_GetBoltMatrix(NPCS.NPC->ghoul2, NPCS.NPC->weaponModel[0],
 				bolt_index,
@@ -7626,11 +7626,11 @@ void Noghri_StickTracenew(gentity_t* self)
 		int last_hit = ENTITYNUM_NONE;
 		for (int time = curTime - 25; time <= curTime + 25 && !hit; time += 25)
 		{
-			mdxaBone_t bolt_matrix;
-			vec3_t tip, dir, base;
+			mdxaBone_t bolt_matrix = { 0 };
+			vec3_t tip = { 0 }, dir = { 0 }, base = { 0 };
 			const vec3_t angles = { 0, self->SHR_currentAngles[YAW], 0 };
 			const vec3_t mins = { -2, -2, -2 }, maxs = { 2, 2, 2 };
-			trace_t trace;
+			trace_t trace = { qfalse };
 
 			gi.G2API_GetBoltMatrix(self->ghoul2, self->weaponModel[0],
 				bolt_index,
@@ -7678,7 +7678,6 @@ NPC_BSST_Attack
 -------------------------
 */
 #define MELEE_DIST_SQUARED 6400
-extern qboolean PM_InOnGroundAnims(int anim);
 extern float NPC_EnemyRangeFromBolt(int bolt_index);
 
 static qboolean Melee_CanDoGrab(void)
@@ -7695,7 +7694,7 @@ static qboolean Melee_CanDoGrab(void)
 					&& NPCS.NPC->enemy->client->ps.groundEntityNum != ENTITYNUM_NONE)
 				{
 					//me and enemy are on ground
-					if (!PM_InOnGroundAnims(NPCS.NPC->enemy->client->ps.legsAnim))
+					if (!SHR_InOnGroundAnims(NPCS.NPC->enemy))
 					{
 						if ((NPCS.NPC->client->ps.weaponTime <= 200 || NPCS.NPC->client->ps.torsoAnim == BOTH_KYLE_GRAB)
 							&& !NPCS.NPC->client->ps.saberInFlight)
@@ -8104,7 +8103,7 @@ void NPC_BSST_Attack(void)
 	enemyDist = DistanceSquared(NPCS.NPC->SHR_currentOrigin, NPCS.NPC->enemy->SHR_currentOrigin);
 	ST_SelectGunForRange(); // more than one gun: the one for this range (MD team 2026-10-29)
 
-	vec3_t enemy_dir, shoot_dir;
+	vec3_t enemy_dir = { 0 }, shoot_dir = { 0 };
 	VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, enemy_dir);
 	VectorNormalize(enemy_dir);
 	AngleVectors(NPCS.NPC->client->ps.viewangles, shoot_dir, NULL, NULL);
@@ -8411,7 +8410,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -8481,7 +8480,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -8552,7 +8551,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -8615,7 +8614,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -8676,7 +8675,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -8745,7 +8744,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -8814,7 +8813,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -8883,7 +8882,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -8961,7 +8960,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -9048,7 +9047,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 10;
 						VectorNormalize(smack_dir);
@@ -9125,7 +9124,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -9213,7 +9212,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -9557,7 +9556,7 @@ void NPC_BSST_Attack(void)
 	enemyDist = DistanceSquared(NPCS.NPC->r.currentOrigin, NPCS.NPC->enemy->r.currentOrigin);
 	ST_SelectGunForRange(); // more than one gun: the one for this range (MD team 2026-10-29)
 
-	vec3_t enemy_dir, shoot_dir;
+	vec3_t enemy_dir = { 0 }, shoot_dir = { 0 };
 	VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, enemy_dir);
 	VectorNormalize(enemy_dir);
 	AngleVectors(NPCS.NPC->client->ps.viewangles, shoot_dir, NULL, NULL);
@@ -9873,7 +9872,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -9943,7 +9942,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10014,7 +10013,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10077,7 +10076,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10138,7 +10137,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10207,7 +10206,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10276,7 +10275,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10345,7 +10344,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10423,7 +10422,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10510,7 +10509,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 10;
 						VectorNormalize(smack_dir);
@@ -10587,7 +10586,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10675,7 +10674,7 @@ void NPC_BSST_Attack(void)
 						&& !PM_InKnockDown(&NPCS.NPC->client->ps) //not knocked down
 						&& InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, NPCS.NPC->client->ps.viewangles, 0.3f))
 					{
-						vec3_t smack_dir;
+						vec3_t smack_dir = { 0 };
 						VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 						smack_dir[2] += 30;
 						VectorNormalize(smack_dir);
@@ -10965,7 +10964,7 @@ static qboolean Gunner_Move(gentity_t* goal, const qboolean retreat)
 	const qboolean moved = (NPC_MoveToGoal(qtrue) == qtrue) ? qtrue : qfalse;
 
 	// Retrieve last navigation info
-	navInfo_t info;
+	navInfo_t info SHR_NAVINFO_INIT;
 	NAV_GetLastMove(&info);
 
 	if (d_combatinfo.integer)
@@ -11018,9 +11017,9 @@ static void Gunner_FaceEnemy(const qboolean do_pitch)
 		return;
 	}
 
-	vec3_t eyes;
-	vec3_t enemy_eyes;
-	vec3_t angles;
+	vec3_t eyes = { 0 };
+	vec3_t enemy_eyes = { 0 };
+	vec3_t angles = { 0 };
 
 	// Get eye positions for NPC and enemy
 	CalcEntitySpot(NPCS.NPC, SPOT_HEAD, eyes);
@@ -11076,7 +11075,7 @@ static float GunnerDistanceToEnemy(gentity_t* self)
 		return 99999.0f; // treat as extremely far away
 	}
 
-	vec3_t diff;
+	vec3_t diff = { 0 };
 	VectorSubtract(self->enemy->SHR_currentOrigin, self->SHR_currentOrigin, diff);
 	return VectorLength(diff);
 }
@@ -11096,7 +11095,7 @@ static qboolean Gunner_HasClearShot(void)
 		return qfalse;
 	}
 
-	vec3_t impact_pos;
+	vec3_t impact_pos = { 0 };
 	const int hit = NPC_ShotEntity(NPCS.NPC->enemy, impact_pos);
 	const gentity_t* hit_ent = &g_entities[hit];
 
@@ -11135,7 +11134,7 @@ static void Gunner_FireIfClearShot(const float enemy_dist)
 	{
 		NPC_AimAdjust(-1);
 		// Squad tactics: suppressing fire at the target's cover while a squadmate moves in
-		vec3_t suppress_at;
+		vec3_t suppress_at = { 0 };
 		if (Squad_ShouldSuppress(NPCS.NPC, suppress_at) == qtrue)
 		{
 			WeaponThink();
@@ -11175,7 +11174,7 @@ static void Gunner_FireIfClearShot(const float enemy_dist)
 		NPC_AimAdjust(-1);
 		// Squad tactics: suppressing fire at the target's cover while a squadmate moves in (SP port)
 		{
-			vec3_t suppress_at;
+			vec3_t suppress_at = { 0 };
 			if (Squad_ShouldSuppress(NPCS.NPC, suppress_at) == qtrue)
 			{
 				WeaponThink();
@@ -11547,7 +11546,7 @@ extern void G_UcmdMoveForDir(const gentity_t* self, usercmd_t* cmd, vec3_t dir);
 // turning to face him.
 static void Gunner_DirectMove(const qboolean away)
 {
-	vec3_t dir;
+	vec3_t dir = { 0 };
 	VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, dir);
 	dir[2] = 0.0f;
 	if (VectorNormalize(dir) < 1.0f)
@@ -11801,12 +11800,12 @@ static void Enhanced_Gunner_Combat(void)
 		return;
 	}
 
-	vec3_t enemy_dir;
-	vec3_t enemy_movedir;
-	vec3_t enemy_dest;
+	vec3_t enemy_dir = { 0 };
+	vec3_t enemy_movedir = { 0 };
+	vec3_t enemy_dest = { 0 };
 	float enemy_dist = 0.0f;
 	float enemy_movespeed = 0.0f;
-	trace_t trace;
+	trace_t trace = { qfalse };
 
 	// Predict enemy position 300ms into the future
 	Enhanced_Gunner_SetEnemyInfo(
@@ -11850,7 +11849,7 @@ static void Enhanced_Gunner_Combat(void)
 
 	if (moveDirClear == qfalse)
 	{
-		navInfo_t info;
+		navInfo_t info SHR_NAVINFO_INIT;
 		SHR_NAV_GetLastMove(info);
 
 		// If micro-nav failed, try macro-nav

@@ -49,20 +49,20 @@ output: origin, velocity, impacts, stairup boolean
 //do vehicle impact stuff
 // slight rearrangement by BTO (VV) so that we only have one namespace include
 #ifdef _GAME
-extern void G_FlyVehicleSurfaceDestruction(gentity_t* veh, trace_t* trace, int magnitude, qboolean force); //g_vehicle.c
-extern qboolean G_CanBeEnemy(gentity_t* self, gentity_t* enemy); //w_saber.c
+extern void G_FlyVehicleSurfaceDestruction(gentity_t* veh, const trace_t* trace, int magnitude, qboolean force); //g_vehicle.c
+extern qboolean G_CanBeEnemy(const gentity_t* self, const gentity_t* enemy); //w_saber.c
 extern void G_Knockdown(gentity_t* self, gentity_t* attacker, const vec3_t push_dir, float strength, const qboolean breakSaberLock); //g_combat.c
 #endif
 
-extern qboolean BG_UnrestrainedPitchRoll(const playerState_t* ps, Vehicle_t* p_veh);
+extern qboolean BG_UnrestrainedPitchRoll(const playerState_t* ps, const Vehicle_t* p_veh);
 
 extern bgEntity_t* pm_entSelf;
 extern bgEntity_t* pm_entVeh;
 
 //vehicle impact stuff continued...
 #ifdef _GAME
-extern qboolean FighterIsLanded(Vehicle_t* p_veh, playerState_t* parent_ps);
-extern void G_DamageFromKiller(gentity_t* pEnt, gentity_t* pVehEnt, gentity_t* attacker, vec3_t org, int damage,
+extern qboolean FighterIsLanded(const Vehicle_t* p_veh, const playerState_t* parent_ps);
+extern void G_DamageFromKiller(gentity_t* pEnt, const gentity_t* pVehEnt, gentity_t* attacker, vec3_t org, int damage,
 	int dflags, int mod);
 #endif
 
@@ -104,7 +104,7 @@ static void PM_VehicleImpact(bgEntity_t* pEnt, trace_t* trace)
 			&& (trace->entityNum == ENTITYNUM_WORLD || hit_ent->r.bmodel))
 		{
 			//have a valid hit plane and we hit a solid brush
-			vec3_t moveDir;
+			vec3_t moveDir = { 0 };
 			VectorCopy(pm->ps->velocity, moveDir);
 			VectorNormalize(moveDir);
 			const float impactDot = DotProduct(moveDir, trace->plane.normal);
@@ -162,7 +162,7 @@ static void PM_VehicleImpact(bgEntity_t* pEnt, trace_t* trace)
 #ifdef _CGAME
 			bgEntity_t* hit_ent;
 #endif
-			vec3_t vehUp;
+			vec3_t vehUp = { 0 };
 
 #ifdef _GAME
 			qboolean noDamage = qfalse;
@@ -172,7 +172,7 @@ static void PM_VehicleImpact(bgEntity_t* pEnt, trace_t* trace)
 			{
 				qboolean turnFromImpact = qfalse, turnHitEnt = qfalse;
 				float l = pm->ps->speed * 0.5f;
-				vec3_t bounceDir;
+				vec3_t bounceDir = { 0 };
 #ifdef _CGAME
 				bgEntity_t* hit_ent = PM_BGEntForNum(trace->entityNum);
 #endif
@@ -226,8 +226,8 @@ static void PM_VehicleImpact(bgEntity_t* pEnt, trace_t* trace)
 				if (turnFromImpact)
 				{
 					//bounce off impact surf and turn away
-					vec3_t push_dir = { 0 }, turnAwayAngles, turnDelta;
-					vec3_t moveDir;
+					vec3_t push_dir = { 0 }, turnAwayAngles = { 0 }, turnDelta = { 0 };
+					vec3_t moveDir = { 0 };
 					//bounce
 					if (!turnHitEnt)
 					{
@@ -508,7 +508,7 @@ static void PM_VehicleImpact(bgEntity_t* pEnt, trace_t* trace)
 					{
 						//smash! The same as SP (DoImpact, g_active.cpp): throw them along the impact direction
 						//and play the SP knockdown and getup.
-						vec3_t push_dir;
+						vec3_t push_dir = { 0 };
 						float push = VectorNormalize2(pm->ps->velocity, push_dir) / 50.0f;
 
 						if (hit_ent->s.number < MAX_CLIENTS)
@@ -611,7 +611,7 @@ qboolean PM_ClientImpact( trace_t *trace, qboolean damageSelf )
 */
 #ifdef _GAME
 extern void Client_CheckImpactBBrush(gentity_t* self, gentity_t* other);
-extern qboolean PM_CheckGrabWall(trace_t* trace);
+extern qboolean PM_CheckGrabWall(const trace_t* trace);
 
 static qboolean PM_ClientImpact(const trace_t* trace, qboolean damageSelf)
 {
@@ -660,11 +660,11 @@ qboolean PM_SlideMove(const qboolean gravity)
 {
 	int bumpcount = 0;
 	int numplanes = 0;
-	vec3_t normal, planes[MAX_CLIP_PLANES];
-	vec3_t primal_velocity;
+	vec3_t normal = { 0 }, planes[MAX_CLIP_PLANES] = { 0 };
+	vec3_t primal_velocity = { 0 };
 	int i = 0;
-	trace_t trace;
-	vec3_t end_velocity;
+	trace_t trace = { 0 };
+	vec3_t end_velocity = { 0 };
 #ifdef _GAME
 	const qboolean damageSelf = qtrue;
 #endif
@@ -713,7 +713,7 @@ qboolean PM_SlideMove(const qboolean gravity)
 
 	for (bumpcount = 0; bumpcount < numbumps; bumpcount++)
 	{
-		vec3_t end;
+		vec3_t end = { 0 };
 		// calculate position we are trying to move to
 		VectorMA(pm->ps->origin, time_left, pm->ps->velocity, end);
 
@@ -812,8 +812,8 @@ qboolean PM_SlideMove(const qboolean gravity)
 		// find a plane that it enters
 		for (i = 0; i < numplanes; i++)
 		{
-			vec3_t end_clip_velocity;
-			vec3_t clip_velocity;
+			vec3_t end_clip_velocity = { 0 };
+			vec3_t clip_velocity = { 0 };
 			const float into = DotProduct(pm->ps->velocity, planes[i]);
 			if (into >= 0.1)
 			{
@@ -835,7 +835,7 @@ qboolean PM_SlideMove(const qboolean gravity)
 			// see if there is a second plane that the new move enters
 			for (int j = 0; j < numplanes; j++)
 			{
-				vec3_t dir;
+				vec3_t dir = { 0 };
 				if (j == i)
 				{
 					continue;
@@ -913,10 +913,10 @@ PM_StepSlideMove
 */
 void PM_StepSlideMove(qboolean gravity)
 {
-	vec3_t start_o, start_v;
-	vec3_t down_o, down_v;
-	trace_t trace;
-	vec3_t up, down;
+	vec3_t start_o = { 0 }, start_v = { 0 };
+	vec3_t down_o = { 0 }, down_v = { 0 };
+	trace_t trace = { 0 };
+	vec3_t up = { 0 }, down = { 0 };
 	qboolean is_giant = qfalse;
 	qboolean skip_step = qfalse;
 
@@ -1028,7 +1028,7 @@ void PM_StepSlideMove(qboolean gravity)
 			&& trace.plane.normal[2] < MIN_WALK_NORMAL)
 		{
 			//normal players cannot step up slopes that are too steep to walk on!
-			vec3_t step_vec;
+			vec3_t step_vec = { 0 };
 			//okay, the step up ends on a slope that it too steep to step up onto,
 			//BUT:
 			//If the step looks like this:

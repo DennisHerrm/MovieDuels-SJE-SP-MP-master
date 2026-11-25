@@ -91,7 +91,7 @@ Print a single mission objective
 static void ObjectivePrint_Line(const int color, const int objectIndex, int& missionYcnt)
 {
 	int y = 0;
-	char finalText[2048];
+	char finalText[2048] = {};
 	qhandle_t graphic = 0;
 
 	const int iYPixelsPerLine = cgi_R_Font_HeightPixels(cgs.media.qhFontMedium, 1.0f);
@@ -101,7 +101,7 @@ static void ObjectivePrint_Line(const int color, const int objectIndex, int& mis
 	// A hack to be able to count prisoners
 	if (objectIndex == T2_RANCOR_OBJ5)
 	{
-		char value[64];
+		char value[64] = {};
 
 		gi.Cvar_VariableStringBuffer("ui_prisonerobj_currtotal", value, sizeof value);
 		const int currTotal = atoi(value);
@@ -174,7 +174,7 @@ static void ObjectivePrint_Line(const int color, const int objectIndex, int& mis
 		else
 		{
 			constexpr int maxHoldText = 1024;
-			char holdText[maxHoldText];
+			char holdText[maxHoldText] = {};
 			char holdText2[2]{};
 			pixelLen = 0;
 			int charLen = 0;
@@ -435,7 +435,7 @@ static int CG_DrawLoadWeaponsPrintRow(const char* itemName, const char* weapons,
 	int endIndex = 0, printedIconCnt = 0;
 	int x = 0, y = 0;
 	int width = 0, height = 0;
-	vec4_t color;
+	vec4_t color = {};
 	qhandle_t background = 0;
 	const gentity_t* cent = &g_entities[g_entities[0].client->ps.clientNum];
 
@@ -580,7 +580,7 @@ static int CG_DrawLoadForcePrintRow(const char* itemName, const int forceBits, c
 	int endIndex = 0, printedIconCnt = 0;
 	int x = 0, y = 0;
 	int width = 0, height = 0;
-	vec4_t color;
+	vec4_t color = {};
 	qhandle_t background = 0;
 
 	if (!cgi_UI_GetMenuItemInfo(
@@ -688,7 +688,7 @@ static void CG_DrawLoadForcePowers(const int forceBits)
 // Get the player weapons and force power info
 static void CG_GetLoadScreenInfo(char* weapons, int* forceBits)
 {
-	char s[MAX_STRING_CHARS];
+	char s[MAX_STRING_CHARS] = {};
 	int iDummy = 0;
 	float fDummy = 0.0f;
 	const char* var = nullptr;
@@ -782,7 +782,7 @@ Load screen displays the map pic, the mission briefing and weapons/force powers
 static void CG_DrawLoadingScreen(const qhandle_t levelshot, const char* map_name)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t color;
+	vec4_t color = {};
 	qhandle_t background = 0;
 	int forcepowers = 0;
 	char weapons[WP_NUM_WEAPONS] = {}; // SJE: zeroed - a short playerweaps string (old save) left the rest as garbage icons

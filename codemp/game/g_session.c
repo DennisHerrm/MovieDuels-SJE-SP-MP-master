@@ -306,7 +306,7 @@ G_InitWorldSession
 */
 void G_InitWorldSession(void)
 {
-	char s[MAX_STRING_CHARS];
+	char s[MAX_STRING_CHARS] = { 0 };
 
 	trap->Cvar_VariableStringBuffer("session", s, sizeof s);
 	const int gt = atoi(s);

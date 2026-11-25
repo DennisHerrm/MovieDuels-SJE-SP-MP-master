@@ -70,7 +70,7 @@ void thermalDetonatorExplode(gentity_t* ent)
 	}
 	else
 	{
-		vec3_t pos;
+		vec3_t pos = {};
 
 		VectorSet(pos, ent->currentOrigin[0], ent->currentOrigin[1], ent->currentOrigin[2] + 8);
 
@@ -141,7 +141,7 @@ qboolean WP_LobFire(const gentity_t* self,
 	// INITIALIZATION
 	// ---------------------------------------------------------------------
 	float best_impact_dist = Q3_INFINITE;
-	vec3_t shot_vel;
+	vec3_t shot_vel = {};
 	vec3_t fail_case = { 0.0f, 0.0f, 0.0f };
 	trace_t trace;
 	trajectory_t tr{};
@@ -166,7 +166,7 @@ qboolean WP_LobFire(const gentity_t* self,
 	while (hit_count < max_hits)
 	{
 		// Compute direction and distance to target.
-		vec3_t target_dir;
+		vec3_t target_dir = {};
 		VectorSubtract(target, start, target_dir);
 		const float target_dist = VectorNormalize(target_dir);
 
@@ -198,7 +198,7 @@ qboolean WP_LobFire(const gentity_t* self,
 		// PATH TRACING
 		// -----------------------------------------------------------------
 		qboolean blocked = qfalse;
-		vec3_t last_pos;
+		vec3_t last_pos = {};
 
 		VectorCopy(start, tr.trBase);
 		VectorCopy(shot_vel, tr.trDelta);
@@ -212,7 +212,7 @@ qboolean WP_LobFire(const gentity_t* self,
 
 		for (int elapsed = time_step; elapsed < floor(travel_ms) + time_step; elapsed += time_step)
 		{
-			vec3_t test_pos;
+			vec3_t test_pos = {};
 
 			if (static_cast<float>(elapsed) > travel_ms)
 			{
@@ -403,8 +403,8 @@ gentity_t* WP_FireThermalDetonator(gentity_t* ent, const qboolean alt_fire)
 //---------------------------------------------------------
 {
 	// Direction and starting point of the throw.
-	vec3_t dir;
-	vec3_t start;
+	vec3_t dir = {};
+	vec3_t start = {};
 
 	// Damage scaling (NPCs do reduced damage).
 	float damage_scale = 1.0f;
@@ -523,13 +523,13 @@ gentity_t* WP_FireThermalDetonator(gentity_t* ent, const qboolean alt_fire)
 			// NPC or misc_weapon_shooter with an enemy.
 			// NOTE: We assume the entity is facing this direction.
 
-			vec3_t target;
+			vec3_t target = {};
 			VectorCopy(ent->enemy->currentOrigin, target);
 
 			// If enemy is not above us, bias slightly short.
 			if (target[2] <= start[2])
 			{
-				vec3_t vec;
+				vec3_t vec = {};
 				VectorSubtract(target, start, vec);
 				VectorNormalize(vec);
 				VectorMA(target, Q_flrand(0.0f, -32.0f), vec, target); // Throw a little short.

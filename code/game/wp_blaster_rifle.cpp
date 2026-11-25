@@ -126,7 +126,7 @@ extern qboolean WalkCheck(const gentity_t* self);
 //---------------------------------------------------------
 void WP_FireBlaster(gentity_t* ent, qboolean alt_fire)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Start from perfect forward aim
 	vectoangles(forward_vec, angs);
@@ -307,8 +307,8 @@ void WP_FireBattleDroid(gentity_t* ent, const qboolean alt_fire)
 		return;
 	}
 
-	vec3_t dir;
-	vec3_t angs;
+	vec3_t dir = {};
+	vec3_t angs = {};
 
 	// Convert forward vector to angles.
 	vectoangles(forward_vec, angs);
@@ -496,7 +496,7 @@ void WP_FireFirstOrderMissile(gentity_t* ent, vec3_t start, vec3_t dir, const qb
 //---------------------------------------------------------
 void WP_FireFirstOrder(gentity_t* ent, qboolean alt_fire)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Convert perfect forward aim into Euler angles
 	vectoangles(forward_vec, angs);
@@ -686,7 +686,7 @@ void WP_FireRebelBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir, const 
 //---------------------------------------------------------
 void WP_FireRebelBlaster(gentity_t* ent, qboolean alt_fire)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Convert perfect forward aim into Euler angles
 	vectoangles(forward_vec, angs);
@@ -793,7 +793,7 @@ void WP_FireRebelBlaster(gentity_t* ent, qboolean alt_fire)
 //---------------------------------------------------------
 void WP_FireRebelBlasterDuals(gentity_t* ent, qboolean alt_fire, qboolean second_pistol)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Convert perfect forward aim into Euler angles
 	vectoangles(forward_vec, angs);
@@ -985,7 +985,7 @@ void WP_FireRebelRifleMissile(gentity_t* ent, vec3_t start, vec3_t dir, const qb
 //---------------------------------------------------------
 void WP_FireRebelRifle(gentity_t* ent, qboolean alt_fire)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Convert perfect forward aim into Euler angles
 	vectoangles(forward_vec, angs);
@@ -1422,7 +1422,7 @@ void WP_FireJangoDualPistolMissileDuals(gentity_t* ent, vec3_t start, vec3_t dir
 //---------------------------------------------------------
 void WP_FireJangoPistol(gentity_t* ent, qboolean alt_fire, qboolean second_pistol)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Convert perfect forward aim into Euler angles
 	vectoangles(forward_vec, angs);
@@ -1539,7 +1539,7 @@ void WP_FireJangoPistol(gentity_t* ent, qboolean alt_fire, qboolean second_pisto
 //---------------------------------------------------------
 void WP_FireWristPistol(gentity_t* ent, qboolean alt_fire)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Convert perfect forward aim into Euler angles
 	vectoangles(forward_vec, angs);
@@ -1649,7 +1649,7 @@ void WP_FireWristPistol(gentity_t* ent, qboolean alt_fire)
 //---------------------------------------------------------
 void WP_FireJangoDualPistol(gentity_t* ent, qboolean alt_fire)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Convert perfect forward aim into Euler angles
 	vectoangles(forward_vec, angs);
@@ -1759,7 +1759,7 @@ void WP_FireJangoDualPistol(gentity_t* ent, qboolean alt_fire)
 //---------------------------------------------------------
 void WP_FireJangoFPPistolDuals(gentity_t* ent, qboolean alt_fire, qboolean second_pistol)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Convert perfect forward aim into Euler angles
 	vectoangles(forward_vec, angs);
@@ -1953,7 +1953,7 @@ void WP_FireBobaRifleMissile(gentity_t* ent, vec3_t start, vec3_t dir, const qbo
 //---------------------------------------------------------
 void WP_FireBobaRifle(gentity_t* ent, qboolean alt_fire)
 {
-	vec3_t angs, dir;
+	vec3_t angs = {}, dir = {};
 
 	// Convert perfect forward aim into Euler angles
 	vectoangles(forward_vec, angs);
@@ -2219,7 +2219,7 @@ static void WP_FireDroidekaDualPistolMissile(gentity_t* ent, vec3_t start, vec3_
 void WP_FireDroidekaDualPistol(gentity_t* ent, const qboolean alt_fire)
 //---------------------------------------------------------
 {
-	vec3_t dir, angs;
+	vec3_t dir = {}, angs = {};
 
 	vectoangles(forward_vec, angs);
 
@@ -2256,7 +2256,7 @@ void WP_FireDroidekaDualPistol(gentity_t* ent, const qboolean alt_fire)
 void WP_FireDroidekaFPPistolDuals(gentity_t* ent, const qboolean alt_fire, const qboolean second_pistol)
 //---------------------------------------------------------
 {
-	vec3_t dir, angs;
+	vec3_t dir = {}, angs = {};
 
 	vectoangles(forward_vec, angs);
 

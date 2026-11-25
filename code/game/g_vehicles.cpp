@@ -160,7 +160,7 @@ float G_CanJumpToEnemyVeh(Vehicle_t* p_veh, const usercmd_t* pUcmd)
 				return p_veh->m_safeJumpMountRightDot;
 			}
 
-			vec3_t toEnemy;
+			vec3_t toEnemy = {};
 
 			// If He Is Close Enough And Going The Same Speed
 			//------------------------------------------------
@@ -170,15 +170,15 @@ float G_CanJumpToEnemyVeh(Vehicle_t* p_veh, const usercmd_t* pUcmd)
 				p_veh->m_pParentEntity->resultspeed > 100.0f &&
 				fabsf(p_veh->m_pParentEntity->resultspeed - enemyVeh->m_pParentEntity->resultspeed) < 100.0f)
 			{
-				vec3_t riderRight;
-				vec3_t riderFwd;
+				vec3_t riderRight = {};
+				vec3_t riderFwd = {};
 				// If He Is Either To The Left Or Right Of Me
 				//--------------------------------------------
 				AngleVectors(rider->currentAngles, riderFwd, riderRight, nullptr);
 				const float riderRightDot = DotProduct(riderRight, toEnemy);
 				if (pUcmd->rightmove > 0 && riderRightDot > 0.2 || pUcmd->rightmove < 0 && riderRightDot < -0.2)
 				{
-					vec3_t enemyFwd;
+					vec3_t enemyFwd = {};
 					// If We Are Both Going About The Same Direction
 					//-----------------------------------------------
 					AngleVectors(rider->enemy->currentAngles, enemyFwd, nullptr, nullptr);
@@ -283,9 +283,9 @@ static void G_WalkerHeadPitch(const Vehicle_t* p_veh, gentity_t* parent)
 void G_AttachToVehicle(gentity_t* pEnt, usercmd_t** ucmd)
 {
 	gentity_t* vehEnt = nullptr;
-	mdxaBone_t bolt_matrix;
+	mdxaBone_t bolt_matrix = {};
 	gentity_t* ent = nullptr;
-	vec3_t model_angles;
+	vec3_t model_angles = {};
 
 	if (!pEnt || !ucmd)
 		return;
@@ -308,7 +308,7 @@ void G_AttachToVehicle(gentity_t* pEnt, usercmd_t** ucmd)
 
 void G_KnockOffVehicle(gentity_t* pRider, const gentity_t* self, const qboolean bPull)
 {
-	vec3_t riderAngles, fDir, rDir, dir2Me;
+	vec3_t riderAngles = {}, fDir = {}, rDir = {}, dir2Me = {};
 
 	if (!pRider || !pRider->client)
 	{
@@ -589,11 +589,11 @@ static void Animate(Vehicle_t* p_veh)
 static bool ValidateBoard(Vehicle_t* p_veh, bgEntity_t* pEnt)
 {
 	// Determine where the entity is entering the vehicle from (left, right, or back).
-	vec3_t vVehToEnt;
-	vec3_t vVehDir;
+	vec3_t vVehToEnt = {};
+	vec3_t vVehDir = {};
 	const gentity_t* parent = p_veh->m_pParentEntity;
 	const gentity_t* ent = pEnt;
-	vec3_t vVehAngles;
+	vec3_t vVehAngles = {};
 
 	if (p_veh->m_iDieTime > 0)
 	{
@@ -685,7 +685,7 @@ static bool ValidateBoard(Vehicle_t* p_veh, bgEntity_t* pEnt)
 // Board this Vehicle (get on). The first entity to board an empty vehicle becomes the Pilot.
 static bool Board(Vehicle_t* p_veh, bgEntity_t* pEnt)
 {
-	vec3_t v_player_dir;
+	vec3_t v_player_dir = {};
 	const auto ent = pEnt;
 	auto parent = p_veh->m_pParentEntity;
 
@@ -817,7 +817,7 @@ static bool VEH_TryEject(const Vehicle_t* p_veh,
 	vec3_t vExitPos)
 {
 	float fEntDiag = 0.0f;
-	vec3_t vEntMins, vEntMaxs, vVehLeaveDir, vVehAngles;
+	vec3_t vEntMins = {}, vEntMaxs = {}, vVehLeaveDir = {}, vVehAngles = {};
 	trace_t m_ExitTrace;
 
 	// Make sure that the entity is not 'stuck' inside the vehicle (since their bboxes will now intersect).
@@ -942,9 +942,9 @@ static void G_EjectDroidUnit(Vehicle_t* p_veh, qboolean kill)
 static bool Eject(Vehicle_t* p_veh, bgEntity_t* pEnt, const qboolean force_eject)
 {
 	gentity_t* parent = nullptr;
-	vec3_t vExitPos;
+	vec3_t vExitPos = {};
 #ifndef _JK2MP
-	vec3_t vPlayerDir;
+	vec3_t vPlayerDir = {};
 #endif
 	auto ent = pEnt;
 	int firstEjectDir = 0;
@@ -1348,7 +1348,7 @@ static void DeathUpdate(Vehicle_t* p_veh)
 		if (!p_veh->m_pVehicleInfo->Inhabited(p_veh))
 		{
 			//explode now as long as we managed to kick everyone out
-			vec3_t bottom;
+			vec3_t bottom = {};
 			trace_t trace;
 
 #ifndef _JK2MP
@@ -1413,8 +1413,8 @@ static void DeathUpdate(Vehicle_t* p_veh)
 			parent->takedamage = qfalse; //so we don't recursively damage ourselves
 			if (p_veh->m_pVehicleInfo->explosionRadius > 0 && p_veh->m_pVehicleInfo->explosionDamage > 0)
 			{
-				vec3_t lMaxs;
-				vec3_t lMins;
+				vec3_t lMaxs = {};
+				vec3_t lMins = {};
 				VectorCopy(parent->mins, lMins);
 				lMins[2] = -4; //to keep it off the ground a *little*
 				VectorCopy(parent->maxs, lMaxs);
@@ -1565,7 +1565,7 @@ static bool Update(Vehicle_t* p_veh, const usercmd_t* pUmcd)
 
 	auto parent = p_veh->m_pParentEntity;
 	//static float fMod = 1000.0f / 60.0f;
-	vec3_t vVehAngles;
+	vec3_t vVehAngles = {};
 	int i = 0;
 	int prevSpeed = 0;
 	int nextSpeed = 0;
@@ -1781,8 +1781,8 @@ static bool Update(Vehicle_t* p_veh, const usercmd_t* pUmcd)
 	//	if (level.time<p_veh->m_iTurboTime || p_veh->m_pVehicleInfo->type==VH_ANIMAL)
 	// always knock guys around now...
 	{
-		vec3_t dir;
-		vec3_t projectedPosition;
+		vec3_t dir = {};
+		vec3_t projectedPosition = {};
 		VectorCopy(parent->client->ps.velocity, dir);
 		VectorMA(parent->currentOrigin, 0.1f, dir, projectedPosition);
 
@@ -2279,7 +2279,7 @@ static bool UpdateRider(Vehicle_t* p_veh, bgEntity_t* pRider, usercmd_t* pUmcd)
 
 				// Todo: Throw Old Vehicle Away From The New Vehicle Some
 				//-------------------------------------------------------
-				vec3_t toEnemy;
+				vec3_t toEnemy = {};
 				VectorSubtract(p_veh->m_pParentEntity->currentOrigin, rider->enemy->currentOrigin, toEnemy);
 				VectorNormalize(toEnemy);
 				G_Throw(p_veh->m_pParentEntity, toEnemy, 50);
@@ -2377,7 +2377,7 @@ static bool UpdateRider(Vehicle_t* p_veh, bgEntity_t* pRider, usercmd_t* pUmcd)
 // Attachs all the riders of this vehicle to their appropriate tag (*driver, *pass1, *pass2, whatever...).
 static void AttachRiders(Vehicle_t* p_veh)
 {
-	vec3_t model_angles;
+	vec3_t model_angles = {};
 	G_VehicleModelAngles(p_veh, model_angles);
 
 	// If we have a pilot, attach him to the driver tag.
@@ -2385,7 +2385,7 @@ static void AttachRiders(Vehicle_t* p_veh)
 	{
 		gentity_t* const parent = p_veh->m_pParentEntity;
 		gentity_t* const pilot = p_veh->m_pPilot;
-		mdxaBone_t bolt_matrix;
+		mdxaBone_t bolt_matrix = {};
 
 		pilot->waypoint = parent->waypoint; // take the veh's waypoint as your own
 
@@ -2402,7 +2402,7 @@ static void AttachRiders(Vehicle_t* p_veh)
 	{
 		gentity_t* const parent = p_veh->m_pParentEntity;
 		gentity_t* const pilot = p_veh->m_pOldPilot;
-		mdxaBone_t bolt_matrix;
+		mdxaBone_t bolt_matrix = {};
 
 		pilot->waypoint = parent->waypoint; // take the veh's waypoint as your own
 
@@ -2422,8 +2422,8 @@ static void AttachRiders(Vehicle_t* p_veh)
 		gentity_t* const droid = p_veh->m_pDroidUnit;
 		if (parent && parent->ghoul2.size() && droid->inuse && droid->client)
 		{
-			mdxaBone_t boltMatrix;
-			vec3_t fwd;
+			mdxaBone_t boltMatrix = {};
+			vec3_t fwd = {};
 
 			gi.G2API_GetBoltMatrix(parent->ghoul2, parent->playerModel, p_veh->m_iDroidUnitTag, &boltMatrix,
 				p_veh->m_vOrientation, parent->currentOrigin,
@@ -3013,7 +3013,7 @@ static void G_FighterTestOpenAir(const gentity_t* player, const float height, ve
 		{
 			for (int iy = -4; iy <= 4; iy++)
 			{
-				vec3_t p;
+				vec3_t p = {};
 				trace_t tr;
 				float score = 0.0f;
 				qboolean ok = qtrue;
@@ -3027,7 +3027,7 @@ static void G_FighterTestOpenAir(const gentity_t* player, const float height, ve
 				}
 				for (int d = 0; d < 6 && ok; d++)
 				{
-					vec3_t end;
+					vec3_t end = {};
 					VectorMA(p, 4096.0f, dirs[d], end);
 					gi.trace(&tr, p, boxMins, boxMaxs, end, ENTITYNUM_NONE, MASK_NPCSOLID, static_cast<EG2_Collision>(0), 0);
 					score += tr.fraction;
@@ -3107,7 +3107,7 @@ void Svcmd_FighterTest_f()
 	for (int i = 1; i < globals.num_entities; i++)
 	{
 		gentity_t* e = &g_entities[i];
-		vec3_t d;
+		vec3_t d = {};
 
 		if (!e->inuse || !e->client || !e->m_pVehicle || !e->m_pVehicle->m_pVehicleInfo || e->m_pVehicle->m_pPilot
 			|| e->health <= 0 || (!anyKind && Q_stricmp(e->m_pVehicle->m_pVehicleInfo->name, arg)))
@@ -3128,7 +3128,7 @@ void Svcmd_FighterTest_f()
 	{
 		height = atof(gi.argv(2));
 	}
-	vec3_t top;
+	vec3_t top = {};
 	G_FighterTestOpenAir(player, height, top);
 
 	if (best)
@@ -3136,7 +3136,7 @@ void Svcmd_FighterTest_f()
 		if (!anyKind)
 		{
 			//take it there, the player a little behind it
-			vec3_t fwd, behind;
+			vec3_t fwd = {}, behind = {};
 			vec3_t yawOnly = { 0.0f, 0.0f, 0.0f };
 			yawOnly[YAW] = best->client->ps.viewangles[YAW];
 			AngleVectors(yawOnly, fwd, nullptr, nullptr);

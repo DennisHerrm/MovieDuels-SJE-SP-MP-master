@@ -33,7 +33,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 static void WP_RepeaterMainFire(gentity_t* ent, vec3_t dir)
 //---------------------------------------------------------
 {
-	vec3_t start;
+	vec3_t start = {};
 	int damage = weaponData[WP_REPEATER].damage;
 
 	VectorCopy(muzzle, start);
@@ -77,7 +77,7 @@ static void WP_RepeaterMainFire(gentity_t* ent, vec3_t dir)
 static void WP_RepeaterAltFire(gentity_t* ent)
 //---------------------------------------------------------
 {
-	vec3_t start;
+	vec3_t start = {};
 	int damage = weaponData[WP_REPEATER].altDamage;
 	gentity_t* missile = nullptr;
 
@@ -147,7 +147,7 @@ extern qboolean PM_WalkingAnim(int anim);
 //---------------------------------------------------------
 void WP_FireRepeater(gentity_t* ent, const qboolean alt_fire)
 {
-	vec3_t angs;
+	vec3_t angs = {};
 
 	vectoangles(forward_vec, angs);
 
@@ -163,7 +163,7 @@ void WP_FireRepeater(gentity_t* ent, const qboolean alt_fire)
 	}
 	else
 	{
-		vec3_t dir;
+		vec3_t dir = {};
 
 		if (ent->client->NPC_class == CLASS_VEHICLE)
 		{

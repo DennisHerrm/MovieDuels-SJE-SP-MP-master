@@ -6007,7 +6007,7 @@ int bg_parse_animation_file(const char* filename, animation_t* anim_set, const q
 		anim_set[i].frameLerp = 100;
 	}
 
-	char realisticBlockingBuf[16];
+	char realisticBlockingBuf[16] = { 0 };
 	trap->Cvar_VariableStringBuffer("bg_realisticBlocking", realisticBlockingBuf, sizeof realisticBlockingBuf); // set by the server (g_main.c)
 	const qboolean realisticBlocking = atoi(realisticBlockingBuf) ? qtrue : qfalse;
 
@@ -6212,7 +6212,7 @@ static const char* const bgHumanoidKeyBones[] = {
 
 static qboolean BG_GLAIsHumanoid(const char* glaName)
 {
-	char path[MAX_QPATH];
+	char path[MAX_QPATH] = { 0 };
 
 	Com_sprintf(path, sizeof path, "%s.gla", glaName);
 	const int glaLen = BG_ReadFileStart(path, bgGLASkelBuf, BG_GLA_SKEL_READ_SIZE);
@@ -6335,7 +6335,7 @@ static int BG_HumanoidSetCandidate(const animation_t* animations, const char* na
 	for (int i = 0; i < (int)ARRAY_LEN(suffixes); i++)
 	{
 		const size_t sufLen = strlen(suffixes[i]);
-		char base[MAX_QPATH];
+		char base[MAX_QPATH] = { 0 };
 
 		if (nameLen <= sufLen || nameLen >= sizeof base || Q_stricmp(name + nameLen - sufLen, suffixes[i]))
 		{
@@ -6566,7 +6566,7 @@ static int BG_OwnSkelReplacement(const animation_t* animations, const char* name
 static void BG_SetAnimSetSkeletonInfo(const int index, const char* filename)
 {
 	bgLoadedAnim_t* set = NULL;
-	char gla[MAX_QPATH];
+	char gla[MAX_QPATH] = { 0 };
 
 	if (index <= 0 || index >= MAX_ANIM_FILES)
 	{
@@ -7245,7 +7245,7 @@ void PM_SaberStartTransAnim(const int clientNum, const int saberAnimLevel, const
 	{
 		*animSpeed *= SABERBLASTER_IMPALE_STAB_SPEED;
 	}
-	char	buf[128];
+	char	buf[128] = { 0 };
 
 	// Read global saber animation speed multiplier
 	trap->Cvar_VariableStringBuffer("g_saberAnimSpeed", buf, sizeof buf);
@@ -7822,8 +7822,8 @@ static void BG_BuildStyleAnims(void)
 
 		for (int s = 0; s < ANIMSTYLE_COUNT; s++)
 		{
-			char name[128];
-			stringID_table_t key;
+			char name[128] = { 0 };
+			stringID_table_t key = { 0 };
 			const stringID_table_t* keyPtr = &key;
 
 			if (!bgAnimStyleSuffix[s])
@@ -7957,7 +7957,7 @@ static void BG_BuildStyleVariants(void)
 		for (int s = ANIMSTYLE_DEFAULT + 1; s < ANIMSTYLE_COUNT; s++)
 		{
 			const int sufLen = (int)strlen(bgAnimStyleSuffix[s]);
-			char baseName[MAX_QPATH];
+			char baseName[MAX_QPATH] = { 0 };
 
 			if (len <= sufLen + 1 || name[len - sufLen - 1] != '_' || Q_stricmp(name + len - sufLen, bgAnimStyleSuffix[s]))
 			{
@@ -8017,7 +8017,7 @@ animation_t* BG_StyledAnims(animation_t* animations, const int animStyle)
 		{
 			return bgHumanoidAnimations;
 		}
-		char realisticBlockingBuf[16];
+		char realisticBlockingBuf[16] = { 0 };
 		trap->Cvar_VariableStringBuffer("bg_realisticBlocking", realisticBlockingBuf, sizeof realisticBlockingBuf);
 		const qboolean slowSaber = g_SaberAttackSpeedMD.integer && atoi(realisticBlockingBuf) ? qtrue : qfalse;
 
@@ -8051,7 +8051,7 @@ animation_t* BG_StyledAnims(animation_t* animations, const int animStyle)
 			}
 		}
 		bgStyledAnims[animStyle] = copy;
-		char devBuf[8];
+		char devBuf[8] = { 0 };
 		trap->Cvar_VariableStringBuffer("developer", devBuf, sizeof devBuf);
 		if (atoi(devBuf))
 		{
@@ -8091,7 +8091,7 @@ int BG_StyleAnim(const int animStyle, const animation_t* animations, const int a
 // are covered by these flags)
 animFlags_t BG_AnimStyleFlags(const int animStyle)
 {
-	animFlags_t flags;
+	animFlags_t flags = { 0 };
 
 	memset(&flags, 0, sizeof flags);
 

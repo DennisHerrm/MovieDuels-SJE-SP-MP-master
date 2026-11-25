@@ -61,8 +61,8 @@ CG_GrappleTrail
 */
 void CG_GrappleTrail(centity_t* ent)
 {
-	vec3_t from, to;
-	vec3_t forward, up;
+	vec3_t from = {}, to = {};
+	vec3_t forward = {}, up = {};
 	vec3_t BLUER = { 0.0f, 0.0f, 1.0f };
 
 	const entityState_t* es = &ent->currentState;
@@ -81,9 +81,9 @@ void CG_GrappleTrail(centity_t* ent)
 
 static void CG_StunTrail(centity_t* ent, const weaponInfo_t* wi)
 {
-	vec3_t origin;
-	vec3_t forward, up;
-	refEntity_t beam;
+	vec3_t origin = {};
+	vec3_t forward = {}, up = {};
+	refEntity_t beam = {};
 
 	const entityState_t* es = &ent->currentState;
 
@@ -127,7 +127,7 @@ angle)
 */
 static void CG_LightningBolt(const centity_t* cent)
 {
-	refEntity_t beam;
+	refEntity_t beam = {};
 
 	//Must be a duration weapon that continuously generates an effect.
 	if (cent->currentState.weapon == WP_DEMP2 && cent->currentState.eFlags & EF_ALT_FIRING)
@@ -179,8 +179,8 @@ The server says this item is used on this level
 void CG_RegisterWeapon(const int weapon_num)
 {
 	gitem_t* item = nullptr, * ammo = nullptr;
-	char path[MAX_QPATH];
-	vec3_t mins, maxs;
+	char path[MAX_QPATH] = {};
+	vec3_t mins = {}, maxs = {};
 	int i = 0;
 	const gentity_t* cent = &g_entities[g_entities[0].client->ps.clientNum];
 
@@ -223,7 +223,7 @@ void CG_RegisterWeapon(const int weapon_num)
 
 	{
 		//in case the weaponmodel isn't _w, precache the _w.glm
-		char weapon_model[64];
+		char weapon_model[64] = {};
 
 		Q_strncpyz(weapon_model, weaponData[weapon_num].weaponMdl, sizeof weapon_model);
 
@@ -243,7 +243,7 @@ void CG_RegisterWeapon(const int weapon_num)
 
 	{
 		//in case the altweaponmodel isn't _w, precache the _w.glm - kotor
-		char alt_weapon_model[64];
+		char alt_weapon_model[64] = {};
 
 		Q_strncpyz(alt_weapon_model, weaponData[weapon_num].altweaponMdl, sizeof alt_weapon_model);
 
@@ -1519,7 +1519,7 @@ static void CG_CalculateWeaponPosition(vec3_t origin, vec3_t angles)
 		static vec3_t previous_angles = { 0, 0, 0 };
 		static int previous_time = 0;
 
-		vec3_t delta_angles;
+		vec3_t delta_angles = {};
 		AnglesSubtract(angles, previous_angles, delta_angles);
 		VectorScale(delta_angles, 1.0f, delta_angles);
 
@@ -1750,9 +1750,9 @@ void CG_AddViewWeaponDuals(playerState_t* ps);
 
 void CG_AddViewWeapon(playerState_t* ps)
 {
-	refEntity_t hand;
-	refEntity_t flash;
-	vec3_t angles;
+	refEntity_t hand = {};
+	refEntity_t flash = {};
+	vec3_t angles = {};
 	const weaponInfo_t* weapon = nullptr;
 	weaponData_t* w_data = nullptr;
 	centity_t* cent = nullptr;
@@ -1762,7 +1762,7 @@ void CG_AddViewWeapon(playerState_t* ps)
 	if (cg.renderingThirdPerson && !cg_trueguns.integer && !cg.zoomMode &&
 		(ps->eFlags & EF2_JANGO_DUALS || ps->eFlags & EF2_DUAL_CLONE_PISTOLS || ps->eFlags & EF2_DUAL_PISTOLS || ps->eFlags & EF2_DUAL_CALONORD || ps->weapon == WP_DROIDEKA || ps->weapon == WP_DUAL_PISTOL || ps->weapon == WP_DUAL_CLONEPISTOL))
 	{
-		vec3_t origin;
+		vec3_t origin = {};
 		cent = &cg_entities[ps->clientNum];
 		// special hack for lightning guns...
 		VectorCopy(cg.refdef.vieworg, origin);
@@ -1803,7 +1803,7 @@ void CG_AddViewWeapon(playerState_t* ps)
 	{
 		if (ps->eFlags & EF_FIRING)
 		{
-			vec3_t origin;
+			vec3_t origin = {};
 			VectorCopy(cg.refdef.vieworg, origin);
 			VectorMA(origin, -8, cg.refdef.viewaxis[2], origin);
 			CG_LightningBolt(&cg_entities[ps->clientNum]);
@@ -1836,7 +1836,7 @@ void CG_AddViewWeapon(playerState_t* ps)
 	if (cent->gent && cent->gent->client && cent->gent->client->ps.forcePowersActive & 1 << FP_LIGHTNING && CG_ContinuousFxReady(cent->currentState.number, CFX_VIEW_LIGHTNING))
 	{
 		//doing the electrocuting
-		vec3_t temp;
+		vec3_t temp = {};
 
 		VectorCopy(cent->gent->client->renderInfo.handLPoint, temp);
 		VectorMA(temp, -5, cg.refdef.viewaxis[0], temp);
@@ -1870,7 +1870,7 @@ void CG_AddViewWeapon(playerState_t* ps)
 	if (cent->gent && cent->gent->client && cent->gent->client->ps.forcePowersActive & 1 << FP_LIGHTNING_STRIKE && CG_ContinuousFxReady(cent->currentState.number, CFX_VIEW_LIGHTNING_STRIKE))
 	{
 		//doing the lightning_strike
-		vec3_t t_ang, temp;
+		vec3_t t_ang = {}, temp = {};
 		VectorSet(t_ang, cent->pe.torso.pitchAngle, cent->pe.torso.yawAngle, 0);
 
 		VectorCopy(cent->gent->client->renderInfo.handLPoint, temp);
@@ -1878,13 +1878,13 @@ void CG_AddViewWeapon(playerState_t* ps)
 		if (cent->gent->client->ps.forcePowerLevel[FP_LIGHTNING_STRIKE] > FORCE_LEVEL_2)
 		{
 			//arc
-			vec3_t fx_axis[3];
+			vec3_t fx_axis[3] = {};
 			AnglesToAxis(t_ang, fx_axis);
 			theFxScheduler.PlayEffect(cgs.effects.yellowstrike, temp, fx_axis);
 		}
 		else
 		{
-			vec3_t fx_dir;
+			vec3_t fx_dir = {};
 			//line
 			AngleVectors(t_ang, fx_dir, nullptr, nullptr);
 			theFxScheduler.PlayEffect(cgs.effects.yellowstrike, temp, fx_dir);
@@ -1894,7 +1894,7 @@ void CG_AddViewWeapon(playerState_t* ps)
 	if (cent->gent && cent->gent->client && cent->gent->client->ps.forcePowersActive & 1 << FP_DRAIN && CG_ContinuousFxReady(cent->currentState.number, CFX_VIEW_DRAIN))
 	{
 		//doing the draining
-		vec3_t temp;
+		vec3_t temp = {};
 
 		VectorCopy(cent->gent->client->renderInfo.handLPoint, temp);
 		VectorMA(temp, -5, cg.refdef.viewaxis[0], temp);
@@ -1913,7 +1913,7 @@ void CG_AddViewWeapon(playerState_t* ps)
 	// allow the gun to be completely removed
 	if (!cg_drawGun.integer || cg.zoomMode)
 	{
-		vec3_t origin;
+		vec3_t origin = {};
 
 		// special hack for lightning guns...
 		VectorCopy(cg.refdef.vieworg, origin);
@@ -2101,8 +2101,8 @@ void CG_AddViewWeapon(playerState_t* ps)
 		{
 			for (int bladeNum = 0; bladeNum < cent->gent->client->ps.saber[saberNum].numBlades; bladeNum++)
 			{
-				vec3_t axis[3];
-				vec3_t org;
+				vec3_t axis[3] = {};
+				vec3_t org = {};
 				CG_GetTagWorldPosition(&gun, "tag_flash", org, axis);
 
 				//loop this and do for both blades
@@ -2334,9 +2334,9 @@ void CG_AddViewWeapon(playerState_t* ps)
 
 void CG_AddViewWeaponDuals(playerState_t* ps)
 {
-	refEntity_t hand;
-	refEntity_t flash;
-	vec3_t angles;
+	refEntity_t hand = {};
+	refEntity_t flash = {};
+	vec3_t angles = {};
 	const weaponInfo_t* weapon = nullptr;
 	weaponData_t* w_data = nullptr;
 	centity_t* cent = nullptr;
@@ -2374,7 +2374,7 @@ void CG_AddViewWeaponDuals(playerState_t* ps)
 	if (cent->gent && cent->gent->client && cent->gent->client->ps.forcePowersActive & 1 << FP_LIGHTNING && CG_ContinuousFxReady(cent->currentState.number, CFX_VIEW_LIGHTNING))
 	{
 		//doing the electrocuting
-		vec3_t temp;
+		vec3_t temp = {};
 
 		VectorCopy(cent->gent->client->renderInfo.handLPoint, temp);
 		VectorMA(temp, -5, cg.refdef.viewaxis[0], temp);
@@ -2408,7 +2408,7 @@ void CG_AddViewWeaponDuals(playerState_t* ps)
 	if (cent->gent && cent->gent->client && cent->gent->client->ps.forcePowersActive & 1 << FP_DRAIN && CG_ContinuousFxReady(cent->currentState.number, CFX_VIEW_DRAIN))
 	{
 		//doing the draining
-		vec3_t temp;
+		vec3_t temp = {};
 
 		VectorCopy(cent->gent->client->renderInfo.handLPoint, temp);
 		VectorMA(temp, -5, cg.refdef.viewaxis[0], temp);
@@ -2427,7 +2427,7 @@ void CG_AddViewWeaponDuals(playerState_t* ps)
 	// allow the gun to be completely removed
 	if (!cg_drawGun.integer || cg.zoomMode)
 	{
-		vec3_t origin;
+		vec3_t origin = {};
 
 		// special hack for lightning guns...
 		VectorCopy(cg.refdef.vieworg, origin);
@@ -2610,8 +2610,8 @@ void CG_AddViewWeaponDuals(playerState_t* ps)
 		{
 			for (int bladeNum = 0; bladeNum < cent->gent->client->ps.saber[saberNum].numBlades; bladeNum++)
 			{
-				vec3_t axis[3];
-				vec3_t org;
+				vec3_t axis[3] = {};
+				vec3_t org = {};
 				CG_GetTagWorldPosition(&gun, "tag_flash", org, axis);
 
 				if (cent->gent->client->ps.saber[0].blade[0].active && cent->gent->client->ps.saber[0].blade[0].length <
@@ -3556,7 +3556,7 @@ void CG_DrawWeaponSelect()
 	int x2 = 0, y2 = 0, w2 = 0, h2 = 0;
 	int side_left_icon_cnt = 0, side_right_icon_cnt = 0;
 	int side_max = 0, icon_cnt = 0;
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	constexpr vec4_t text_color = { .875f, .718f, .121f, 1.0f };
 	constexpr int y_offset = 0;
 
@@ -3965,7 +3965,7 @@ void CG_DrawWeaponSelect()
 		}
 		else
 		{
-			char text[1024];
+			char text[1024] = {};
 
 			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", item->classname), text, sizeof text))
 			{
@@ -3994,7 +3994,7 @@ void CG_DrawWeaponSelect_kotor()
 	int x2 = 0, y2 = 0, w2 = 0, h2 = 0;
 	int side_left_icon_cnt = 0, side_right_icon_cnt = 0;
 	int side_max = 0, icon_cnt = 0;
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	constexpr vec4_t text_color = { .875f, .718f, .121f, 1.0f };
 	constexpr int y_offset = 0;
 
@@ -4408,7 +4408,7 @@ void CG_DrawWeaponSelect_kotor()
 		}
 		else
 		{
-			char text[1024];
+			char text[1024] = {};
 
 			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", item->classname), text, sizeof text))
 			{
@@ -4432,7 +4432,7 @@ void CG_DrawWeaponSelect_kotor()
 
 void CG_DrawWeaponSelect_text()
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	constexpr vec4_t text_color = { .875f, .718f, .121f, 1.0f };
 
 	if (cg.weaponSelectTime + WEAPON_SELECT_TIME < cg.time) // Time is up for the HUD to display
@@ -4507,7 +4507,7 @@ void CG_DrawWeaponSelect_text()
 	// draw the selected name
 	if (item && item->classname && item->classname[0])
 	{
-		char text[1024];
+		char text[1024] = {};
 
 		if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", item->classname), text, sizeof text))
 		{

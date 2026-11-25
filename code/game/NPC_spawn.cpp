@@ -117,7 +117,7 @@ NPC_PainFunc
 
 static painFunc_t NPC_PainFunc(const gentity_t* ent)
 {
-	painFunc_t func;
+	painFunc_t func = painF_NULL;
 
 	if (ent->client->ps.weapon == WP_SABER)
 	{
@@ -1704,8 +1704,8 @@ static void NPC_SpawnDroidUnit(gentity_t* veh)
 
 void NPC_Begin(gentity_t* ent)
 {
-	vec3_t spawn_origin, spawn_angles;
-	usercmd_t ucmd;
+	vec3_t spawn_origin = {}, spawn_angles = {};
+	usercmd_t ucmd = {};
 	gentity_t* spawnPoint = nullptr;
 
 	memset(&ucmd, 0, sizeof ucmd);
@@ -2098,7 +2098,7 @@ constexpr auto MAX_SAFESPAWN_ENTS = 4;
 
 static bool NPC_SafeSpawn(const gentity_t* ent, const float safeRadius)
 {
-	gentity_t* radius_ents[MAX_SAFESPAWN_ENTS];
+	gentity_t* radius_ents[MAX_SAFESPAWN_ENTS] = {};
 	vec3_t safeMins{}, safeMaxs{};
 	const float safeRadiusSquared = safeRadius * safeRadius;
 	int i = 0;
@@ -2120,6 +2120,8 @@ static bool NPC_SafeSpawn(const gentity_t* ent, const float safeRadius)
 
 	for (i = 0; i < num_ents; i++)
 	{
+		if (!radius_ents[i])
+			continue;
 		//Don't consider self
 		if (radius_ents[i] == ent)
 			continue;
@@ -2144,7 +2146,7 @@ static bool NPC_SafeSpawn(const gentity_t* ent, const float safeRadius)
 //----------------------------------------------------------------------------------
 static qboolean PickProjectionSpawnPoint_close(vec3_t org, vec3_t fwd, vec3_t right, const int skip, vec3_t spot)
 {
-	vec3_t mins{}, maxs{}, forward, end;
+	vec3_t mins{}, maxs{}, forward = {}, end = {};
 	trace_t tr;
 
 	VectorCopy(fwd, forward);
@@ -2202,7 +2204,7 @@ static qboolean PickProjectionSpawnPoint_close(vec3_t org, vec3_t fwd, vec3_t ri
 //----------------------------------------------------------------------------------
 static qboolean PickProjectionSpawnPoint_near(vec3_t org, vec3_t fwd, vec3_t right, const int skip, vec3_t spot)
 {
-	vec3_t mins{}, maxs{}, forward, end;
+	vec3_t mins{}, maxs{}, forward = {}, end = {};
 	trace_t tr;
 
 	VectorCopy(fwd, forward);
@@ -2260,7 +2262,7 @@ static qboolean PickProjectionSpawnPoint_near(vec3_t org, vec3_t fwd, vec3_t rig
 //----------------------------------------------------------------------------------
 static qboolean PickProjectionSpawnPoint_far(vec3_t org, vec3_t fwd, vec3_t right, const int skip, vec3_t spot)
 {
-	vec3_t mins{}, maxs{}, forward, end;
+	vec3_t mins{}, maxs{}, forward = {}, end = {};
 	trace_t tr;
 
 	VectorCopy(fwd, forward);
@@ -2334,7 +2336,7 @@ static void NPC_Projection_Do_Far(gentity_t* ent)
 
 		if (tent)
 		{
-			vec3_t fwd, right, spot;
+			vec3_t fwd = {}, right = {}, spot = {};
 
 			AngleVectors(ent->client->ps.viewangles, fwd, right, nullptr);
 
@@ -2367,7 +2369,7 @@ static void NPC_Projection_Do_Near(gentity_t* ent)
 
 		if (tent)
 		{
-			vec3_t fwd, right, spot;
+			vec3_t fwd = {}, right = {}, spot = {};
 
 			AngleVectors(ent->client->ps.viewangles, fwd, right, nullptr);
 
@@ -2400,7 +2402,7 @@ static void NPC_Projection_Do_Close(gentity_t* ent)
 
 		if (tent)
 		{
-			vec3_t fwd, right, spot;
+			vec3_t fwd = {}, right = {}, spot = {};
 
 			AngleVectors(ent->client->ps.viewangles, fwd, right, nullptr);
 
@@ -2458,7 +2460,7 @@ void Cmd_UseProjection_f(gentity_t* ent)
 
 gentity_t* NPC_Spawn_Do(gentity_t* ent, const qboolean fullSpawnNow)
 {
-	vec3_t saveOrg;
+	vec3_t saveOrg = {};
 
 	if (ent->spawnflags & 4096)
 	{
@@ -2472,7 +2474,7 @@ gentity_t* NPC_Spawn_Do(gentity_t* ent, const qboolean fullSpawnNow)
 	if (ent->spawnflags & NSF_DROP_TO_FLOOR)
 	{
 		trace_t tr;
-		vec3_t bottom;
+		vec3_t bottom = {};
 
 		VectorCopy(ent->currentOrigin, saveOrg);
 		VectorCopy(ent->currentOrigin, bottom);
@@ -5519,7 +5521,7 @@ NPC_Spawn_f
 static void NPC_Spawn_f()
 {
 	gentity_t* NPCspawner = G_Spawn();
-	vec3_t forward, end;
+	vec3_t forward = {}, end = {};
 	trace_t trace;
 	qboolean isVehicle = qfalse;
 	char* target = nullptr;
@@ -6071,7 +6073,7 @@ static qboolean G_RancorPitAlive()
 // drops spot onto the floor below it; qfalse when there is no floor within 512 units
 static qboolean G_RancorPitFloor(vec3_t spot)
 {
-	vec3_t start, end;
+	vec3_t start = {}, end = {};
 	trace_t tr;
 
 	VectorCopy(spot, start);
@@ -6092,7 +6094,7 @@ static qboolean G_RancorPitRoom(const vec3_t pos)
 {
 	static constexpr vec3_t mins = { -RANCORPIT_HALFWIDTH, -RANCORPIT_HALFWIDTH, 0 };
 	static constexpr vec3_t maxs = { RANCORPIT_HALFWIDTH, RANCORPIT_HALFWIDTH, RANCORPIT_HEIGHT };
-	vec3_t start;
+	vec3_t start = {};
 	trace_t tr;
 
 	VectorCopy(pos, start);
@@ -6103,7 +6105,7 @@ static qboolean G_RancorPitRoom(const vec3_t pos)
 
 static qboolean G_RancorPitNobodyNear(const vec3_t spot)
 {
-	int i;
+	int i = 0;
 
 	for (i = 0; i < globals.num_entities; i++)
 	{
@@ -6124,7 +6126,7 @@ static qboolean G_RancorPitNobodyNear(const vec3_t spot)
 // a straight, open line between the two floor points (so the spot is in the same pit, not behind a wall)
 static qboolean G_RancorPitClearLine(const vec3_t a, const vec3_t b)
 {
-	vec3_t start, end;
+	vec3_t start = {}, end = {};
 	trace_t tr;
 
 	VectorCopy(a, start);
@@ -6137,8 +6139,8 @@ static qboolean G_RancorPitClearLine(const vec3_t a, const vec3_t b)
 
 static qboolean G_RancorPitSpawn()
 {
-	vec3_t spots[64], center, spot, face;
-	int numSpots = 0, i, ring, step;
+	vec3_t spots[64] = {}, center = {}, spot = {}, face = {};
+	int numSpots = 0, i = 0, ring = 0, step = 0;
 	gentity_t* found = nullptr;
 	qboolean ok = qfalse;
 
@@ -6325,7 +6327,7 @@ static unsigned civilianBadTypes; // types that failed to spawn (bit per positio
 // can any player see this spot (or is one closer than near)
 static qboolean G_CivilianSeen(const vec3_t pos, const float near, float* closest)
 {
-	int p;
+	int p = 0;
 	trace_t tr;
 
 	*closest = 999999.0f;
@@ -6337,7 +6339,7 @@ static qboolean G_CivilianSeen(const vec3_t pos, const float near, float* closes
 			continue;
 		}
 		{
-			vec3_t eye, top;
+			vec3_t eye = {}, top = {};
 			const float d = Distance(pl->currentOrigin, pos);
 
 			if (d < *closest)
@@ -6365,7 +6367,7 @@ static qboolean G_CivilianSeen(const vec3_t pos, const float near, float* closes
 // a free spot on the ground out of sight near a random player, qfalse = none found this time
 static qboolean G_CivilianSpot(vec3_t out)
 {
-	int tries, p, count = 0, pick;
+	int tries = 0, p = 0, count = 0, pick = 0;
 	const gentity_t* around = nullptr;
 	vec3_t mins = { -16, -16, -24 }, maxs = { 16, 16, 40 };
 
@@ -6403,8 +6405,8 @@ static qboolean G_CivilianSpot(vec3_t out)
 	for (tries = 0; tries < 8; tries++)
 	{
 		trace_t tr;
-		vec3_t start, end;
-		float closest;
+		vec3_t start = {}, end = {};
+		float closest = 0;
 		const float yaw = Q_flrand(0.0f, 2.0f * M_PI), dist = Q_flrand(CIVILIAN_NEAR, CIVILIAN_FAR);
 
 		VectorCopy(around->currentOrigin, start);
@@ -6453,13 +6455,13 @@ static void G_CivilianCalm(gentity_t* civ)
 
 static void G_CivilianSpawn(void)
 {
-	char list[512];
-	char* types[32];
-	int num_types = 0, i, pick;
-	char* s;
-	gentity_t* spawner;
-	gentity_t* civ;
-	vec3_t pos;
+	char list[512] = {};
+	char* types[32] = {};
+	int num_types = 0, i = 0, pick = 0;
+	char* s = nullptr;
+	gentity_t* spawner = nullptr;
+	gentity_t* civ = nullptr;
+	vec3_t pos = {};
 
 	Q_strncpyz(list, (g_civilianTypes ? g_civilianTypes->string : ""), sizeof list);
 	for (s = strtok(list, " ,;"); s && num_types < 32; s = strtok(nullptr, " ,;"))
@@ -6518,7 +6520,7 @@ static void G_CivilianSpawn(void)
 void G_CivilianThink(void)
 {
 	const int want = (g_civilians ? g_civilians->integer : 0) > MAX_CIVILIANS ? MAX_CIVILIANS : (g_civilians ? g_civilians->integer : 0);
-	int i, have = 0;
+	int i = 0, have = 0;
 
 	if (level.time < civilianNextSpawn || in_camera)
 	{
@@ -6528,8 +6530,8 @@ void G_CivilianThink(void)
 
 	for (i = 0; i < MAX_CIVILIANS; i++)
 	{
-		gentity_t* civ;
-		float closest;
+		gentity_t* civ = nullptr;
+		float closest = 0;
 
 		if (!civilianEnts[i])
 		{

@@ -77,7 +77,7 @@ static int UI_ParseInfos(const char* buf, int max, char* infos[])
 
 		info[0] = '\0';
 		while (1) {
-			char key[MAX_TOKEN_CHARS];
+			char key[MAX_TOKEN_CHARS] = { 0 };
 			token = COM_ParseExt(&buf, qtrue);
 			if (!token[0]) {
 				Com_Printf("Unexpected end of info file\n");
@@ -167,7 +167,7 @@ void UI_LoadArenas(void)
 	char* dirptr = dirlist;
 	for (int i = 0; i < numdirs; i++, dirptr += dirlen + 1)
 	{
-		char filename[MAX_QPATH];
+		char filename[MAX_QPATH] = { 0 };
 		dirlen = strlen(dirptr);
 		strcpy(filename, "scriptsmp/");
 		strcat(filename, dirptr);
@@ -266,7 +266,7 @@ void UI_LoadSPArenas(void)
 	char* dirptr = dirlist;
 	for (int i = 0; i < numdirs; i++, dirptr += dirlen + 1)
 	{
-		char filename[MAX_QPATH];
+		char filename[MAX_QPATH] = { 0 };
 		dirlen = strlen(dirptr);
 		strcpy(filename, "scriptsmp/");
 		strcat(filename, dirptr);
@@ -361,7 +361,7 @@ static void UI_DropRepeatedBots(const int first, const char* filename)
 
 	for (int n = first; n < ui_numBots; n++)
 	{
-		char name[MAX_QPATH];
+		char name[MAX_QPATH] = { 0 };
 		qboolean repeated = qfalse;
 
 		Q_strncpyz(name, Info_ValueForKey(ui_botInfos[n], "name"), sizeof name);
@@ -440,16 +440,16 @@ UI_LoadBots
 */
 void UI_LoadBots(void)
 {
-	vmCvar_t	ui_md_bots_rebels;
-	vmCvar_t	ui_md_bots_Empire;
-	vmCvar_t	ui_md_bots_sith_empire;
-	vmCvar_t	ui_md_bots_resistance;
-	vmCvar_t	ui_md_bots_first_order;
-	vmCvar_t	ui_md_bots_separatists;
-	vmCvar_t	ui_md_bots_republic;
-	vmCvar_t	ui_md_bots_old_republic;
+	vmCvar_t	ui_md_bots_rebels = { 0 };
+	vmCvar_t	ui_md_bots_Empire = { 0 };
+	vmCvar_t	ui_md_bots_sith_empire = { 0 };
+	vmCvar_t	ui_md_bots_resistance = { 0 };
+	vmCvar_t	ui_md_bots_first_order = { 0 };
+	vmCvar_t	ui_md_bots_separatists = { 0 };
+	vmCvar_t	ui_md_bots_republic = { 0 };
+	vmCvar_t	ui_md_bots_old_republic = { 0 };
 
-	char		dirlist[2048];
+	char		dirlist[2048] = { 0 };
 	int			dirlen = 0;
 
 	ui_numBots = 0;
@@ -516,7 +516,7 @@ void UI_LoadBots(void)
 		char* dirptr = dirlist;
 		for (int i = 0; i < numdirs; i++, dirptr += dirlen + 1)
 		{
-			char filename[MAX_QPATH];
+			char filename[MAX_QPATH] = { 0 };
 			dirlen = strlen(dirptr);
 			Com_sprintf(filename, sizeof filename, "%s/%s", botFolders[folder], dirptr);
 			UI_LoadBotsFromFile(filename);
@@ -562,7 +562,7 @@ one with the same model folder. The MovieDuels character menu takes the characte
 ===============
 */
 const char* UI_GetBotInfoByModel(const char* model) {
-	char base[MAX_QPATH];
+	char base[MAX_QPATH] = { 0 };
 	const char* slash = NULL;
 	const char* found = NULL;
 
@@ -581,7 +581,7 @@ const char* UI_GetBotInfoByModel(const char* model) {
 		base[slash - base] = 0;
 	}
 	for (int n = 0; n < ui_numBots && !found; n++) {
-		char botBase[MAX_QPATH];
+		char botBase[MAX_QPATH] = { 0 };
 		Q_strncpyz(botBase, Info_ValueForKey(ui_botInfos[n], "model"), sizeof botBase);
 		slash = strchr(botBase, '/');
 		if (slash) {

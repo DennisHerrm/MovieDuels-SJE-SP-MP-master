@@ -1964,7 +1964,7 @@ qboolean sab_beh_block_vs_attack(gentity_t* blocker, gentity_t* attacker, const 
 
 							// 2026-11-10 bug fix: blocking a heavy style cost nothing here. Now it costs the normal
 							// block cost for the blocker's block points plus 2.
-							int heavy_cost;
+							int heavy_cost = 0;
 							if (WP_SaberIsAI(blocker))
 							{
 								heavy_cost = blocker->client->ps.blockPoints <= BLOCKPOINTS_FOURTY ? BLOCKPOINTS_FIVE
@@ -2693,7 +2693,7 @@ qboolean WP_SaberWearHiltHit(gentity_t* ent, const char* surfName, const saberTy
 static void WP_SaberWearBreak(gentity_t* ent, const qboolean heavy)
 {
 	gclient_t* client = ent->client;
-	vec3_t fwd, push;
+	vec3_t fwd = {}, push = {};
 
 	client->ps.stats[STAT_SABER_WEAR] = 0;
 	client->ps.stats[STAT_SABER_WEAR_TIMER] = 0;

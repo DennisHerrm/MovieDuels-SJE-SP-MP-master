@@ -3408,7 +3408,7 @@ void WP_SaberLoadParms()
 {
 	int saberExtFNLen = 0;
 	char* buffer = nullptr;
-	char saberExtensionListBuf[2048]; //	The list of file names read in
+	char saberExtensionListBuf[2048] = {}; //	The list of file names read in
 
 	//gi.Printf( "Parsing *.sab saber definitions\n" );
 

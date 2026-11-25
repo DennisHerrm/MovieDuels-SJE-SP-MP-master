@@ -46,7 +46,7 @@ static void WP_BowcasterMainFire(gentity_t* ent)
 	}
 
 	int damage = weaponData[WP_BOWCASTER].damage;
-	vec3_t angs, start;
+	vec3_t angs = {}, start = {};
 
 	VectorCopy(muzzle, start);
 	WP_TraceSetStart(ent, start);
@@ -90,7 +90,7 @@ static void WP_BowcasterMainFire(gentity_t* ent)
 
 	for (int i = 0; i < count; i++)
 	{
-		vec3_t dir;
+		vec3_t dir = {};
 
 		// Randomized velocity
 		const float vel = BOWCASTER_VELOCITY *
@@ -165,7 +165,7 @@ static void WP_BowcasterMainFire(gentity_t* ent)
 static void WP_BowcasterAltFire(gentity_t* ent)
 //---------------------------------------------------------
 {
-	vec3_t start;
+	vec3_t start = {};
 	int damage = weaponData[WP_BOWCASTER].altDamage;
 
 	VectorCopy(muzzle, start);

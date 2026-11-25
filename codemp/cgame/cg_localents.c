@@ -149,7 +149,7 @@ void CG_BloodTrail(const localEntity_t* le)
 
 	for (; t <= t2; t += step)
 	{
-		vec3_t new_origin;
+		vec3_t new_origin = { 0 };
 		BG_EvaluateTrajectory(&le->pos, t, new_origin);
 
 		localEntity_t* blood = CG_SmokePuff(new_origin, vec3_origin,
@@ -240,7 +240,7 @@ CG_ReflectVelocity
 */
 void CG_ReflectVelocity(localEntity_t* le, const trace_t* trace)
 {
-	vec3_t velocity;
+	vec3_t velocity = { 0 };
 
 	// reflect the velocity on the trace plane
 	const int hitTime = cg.time - cg.frametime + cg.frametime * trace->fraction;
@@ -272,8 +272,8 @@ CG_AddFragment
 */
 void CG_AddFragment(localEntity_t* le)
 {
-	vec3_t new_origin;
-	trace_t trace;
+	vec3_t new_origin = { 0 };
+	trace_t trace = { 0 };
 
 	if (le->forceAlpha)
 	{
@@ -328,7 +328,7 @@ void CG_AddFragment(localEntity_t* le)
 
 		if (le->leFlags & LEF_TUMBLE)
 		{
-			vec3_t angles;
+			vec3_t angles = { 0 };
 
 			BG_EvaluateTrajectory(&le->angles, cg.time, angles);
 			AnglesToAxis(angles, le->refEntity.axis);
@@ -441,7 +441,7 @@ CG_AddMoveScaleFade
 static void CG_AddMoveScaleFade(localEntity_t* le)
 {
 	float c = 0.0f;
-	vec3_t delta;
+	vec3_t delta = { 0 };
 
 	refEntity_t* re = &le->refEntity;
 
@@ -485,7 +485,7 @@ CG_AddPuff
 */
 static void CG_AddPuff(localEntity_t* le)
 {
-	vec3_t delta;
+	vec3_t delta = { 0 };
 
 	refEntity_t* re = &le->refEntity;
 
@@ -527,7 +527,7 @@ There are often many of these, so it needs to be simple.
 */
 static void CG_AddScaleFade(localEntity_t* le)
 {
-	vec3_t delta;
+	vec3_t delta = { 0 };
 
 	refEntity_t* re = &le->refEntity;
 
@@ -562,7 +562,7 @@ There are often 100+ of these, so it needs to be simple.
 */
 static void CG_AddFallScaleFade(localEntity_t* le)
 {
-	vec3_t delta;
+	vec3_t delta = { 0 };
 
 	refEntity_t* re = &le->refEntity;
 
@@ -624,7 +624,7 @@ CG_AddSpriteExplosion
 */
 static void CG_AddSpriteExplosion(localEntity_t* le)
 {
-	refEntity_t re;
+	refEntity_t re = { 0 };
 	float c = 0.0f;
 
 	re = le->refEntity;
@@ -688,9 +688,9 @@ CG_AddScorePlum
 
 void CG_AddScorePlum(localEntity_t* le)
 {
-	vec3_t origin, delta, dir, vec;
+	vec3_t origin = { 0 }, delta = { 0 }, dir = { 0 }, vec = { 0 };
 	const vec3_t up = { 0, 0, 1 };
-	int digits[10], numdigits = 0;
+	int digits[10] = { 0 }, numdigits = 0;
 
 	refEntity_t* re = &le->refEntity;
 

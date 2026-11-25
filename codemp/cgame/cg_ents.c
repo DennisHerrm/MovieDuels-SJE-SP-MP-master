@@ -66,7 +66,7 @@ tag location
 void CG_PositionEntityOnTag(refEntity_t* entity, const refEntity_t* parent,
 	const qhandle_t parent_model, const char* tag_name)
 {
-	orientation_t lerped;
+	orientation_t lerped = { 0 };
 
 	// lerp the tag
 	trap->R_LerpTag(&lerped, parent_model, parent->oldframe, parent->frame,
@@ -95,8 +95,8 @@ tag location
 void CG_PositionRotatedEntityOnTag(refEntity_t* entity, const refEntity_t* parent,
 	const qhandle_t parent_model, const char* tag_name)
 {
-	orientation_t lerped;
-	matrix3_t tempAxis;
+	orientation_t lerped = { 0 };
+	matrix3_t tempAxis = { 0 };
 
 	//AxisClear( entity->axis );
 	// lerp the tag
@@ -136,7 +136,7 @@ void CG_SetEntitySoundPosition(const centity_t* cent)
 {
 	if (cent->currentState.solid == SOLID_BMODEL)
 	{
-		vec3_t origin;
+		vec3_t origin = { 0 };
 
 		const float* v = cgs.inlineModelMidpoints[cent->currentState.modelIndex];
 		VectorAdd(cent->lerpOrigin, v, origin);
@@ -265,7 +265,7 @@ Update any existing looping sounds on the entity.
 void CG_S_UpdateLoopingSounds(const int entityNum)
 {
 	const centity_t* cent = &cg_entities[entityNum];
-	vec3_t lerp_org;
+	vec3_t lerp_org = { 0 };
 	int i = 0;
 
 	if (!cent->numLoopingSounds)
@@ -349,7 +349,7 @@ static void CG_EntityEffects(const centity_t* cent)
 		{
 			if (cent->currentState.solid == SOLID_BMODEL)
 			{
-				vec3_t origin;
+				vec3_t origin = { 0 };
 
 				const float* v = cgs.inlineModelMidpoints[cent->currentState.modelIndex];
 				VectorAdd(cent->lerpOrigin, v, origin);
@@ -451,7 +451,7 @@ static void FX_DrawPortableShield(const centity_t* cent)
 	//rww - this code differs a bit from the draw code in EF, I don't know why I had to do
 	//it this way yet it worked in EF the other way.
 
-	vec3_t start, end, normal;
+	vec3_t start = { 0 }, end = { 0 }, normal = { 0 };
 	qhandle_t shader = 0;
 
 	if (cl_paused.integer)
@@ -579,7 +579,7 @@ static void G2_BoltToGhoul2Model(centity_t* cent, refEntity_t* ent)
 	int model_num = cent->boltInfo >> MODEL_SHIFT;
 	int bolt_num = cent->boltInfo >> BOLT_SHIFT;
 	int entNum = cent->boltInfo >> ENTITY_SHIFT;
-	mdxaBone_t boltMatrix;
+	mdxaBone_t boltMatrix = { 0 };
 
 	model_num &= MODEL_AND;
 	bolt_num &= BOLT_AND;
@@ -658,7 +658,7 @@ char* forceHolocronModels[NUM_FORCE_POWERS] = { // the ported SP powers (FP_STAS
 
 void CG_Disintegration(centity_t* cent, refEntity_t* ent)
 {
-	vec3_t temp_ang, hit_loc;
+	vec3_t temp_ang = { 0 }, hit_loc = { 0 };
 
 	VectorCopy(cent->currentState.origin2, hit_loc);
 
@@ -683,8 +683,8 @@ void CG_Disintegration(centity_t* cent, refEntity_t* ent)
 
 	if (cg.time - ent->endTime < 1000 && timescale.value * timescale.value * Q_flrand(0.0f, 1.0f) > 0.05f)
 	{
-		vec3_t fx_org, fx_dir;
-		mdxaBone_t boltMatrix;
+		vec3_t fx_org = { 0 }, fx_dir = { 0 };
+		mdxaBone_t boltMatrix = { 0 };
 		const int torso_bolt = trap->G2API_AddBolt(cent->ghoul2, 0, "lower_lumbar");
 
 		VectorSet(fx_dir, 0, 1, 0);
@@ -709,8 +709,8 @@ extern int cgSiegeEntityRender;
 static qboolean CG_RenderTimeEntBolt(centity_t* cent)
 {
 	const int clientNum = cent->currentState.boltToPlayer - 1;
-	mdxaBone_t matrix;
-	vec3_t bolt_org, bolt_ang;
+	mdxaBone_t matrix = { 0 };
+	vec3_t bolt_org = { 0 }, bolt_ang = { 0 };
 
 	if (clientNum >= MAX_CLIENTS || clientNum < 0)
 	{
@@ -864,9 +864,9 @@ static fxHandle_t CG_LimbCutEffect(const centity_t* owner)
 
 static void CG_General(centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = { 0 };
 	entityState_t* s1 = NULL;
-	mdxaBone_t matrix;
+	mdxaBone_t matrix = { 0 };
 	qboolean do_not_set_model = qfalse;
 
 	if (cent->currentState.modelGhoul2 == 127)
@@ -905,9 +905,9 @@ static void CG_General(centity_t* cent)
 		&& !Q_stricmp(CG_ConfigString(CS_MODELS + cent->currentState.modelIndex),
 			"models/map_objects/imp_mine/spotlight.md3"))
 	{
-		orientation_t tag;
-		vec3_t axis[3], org, dir;
-		int i;
+		orientation_t tag = { 0 };
+		vec3_t axis[3] = { 0 }, org = { 0 }, dir = { 0 };
+		int i = 0;
 
 		AnglesToAxis(cent->lerpAngles, axis);
 		VectorCopy(cent->lerpOrigin, org);
@@ -931,14 +931,14 @@ static void CG_General(centity_t* cent)
 	if (cent->currentState.weapon == WP_STUN_BATON && cent->currentState.eType != ET_BODY)
 	{
 		int i = 0;
-		orientation_t lerped;
+		orientation_t lerped = { 0 };
 
-		vec3_t start;
-		vec3_t end;
+		vec3_t start = { 0 };
+		vec3_t end = { 0 };
 		vec3_t r_hand_pos = { 0 };
 
 		centity_t* parent = NULL;
-		mdxaBone_t mat;
+		mdxaBone_t mat = { 0 };
 		int color = 0;
 		color = 0x000020;
 
@@ -967,13 +967,13 @@ static void CG_General(centity_t* cent)
 	if (cent->currentState.weapon == WP_MELEE && cent->currentState.eType != ET_BODY)
 	{
 		int i = 0;
-		orientation_t lerped;
+		orientation_t lerped = { 0 };
 
-		vec3_t start;
-		vec3_t end;
+		vec3_t start = { 0 };
+		vec3_t end = { 0 };
 
 		centity_t* parent = NULL;
-		mdxaBone_t mat;
+		mdxaBone_t mat = { 0 };
 		int color = 0;
 		color = 0x000020;
 
@@ -1051,7 +1051,7 @@ static void CG_General(centity_t* cent)
 		{
 			float smooth_factor = 0.5f * timescale.value;
 			int k = 0;
-			vec3_t pos_dif;
+			vec3_t pos_dif = { 0 };
 
 			//Use origin smoothing since dismembered limbs use ExPhys
 			if (DistanceSquared(cent->turAngles, cent->lerpOrigin) > 18000.0f)
@@ -1082,7 +1082,7 @@ static void CG_General(centity_t* cent)
 			!(cent->currentState.eFlags & EF_DISINTEGRATION) &&
 			cent->bodyFadeTime <= cg.time)
 		{
-			vec3_t forced_angles;
+			vec3_t forced_angles = { 0 };
 
 			VectorClear(forced_angles);
 			forced_angles[YAW] = cent->lerpAngles[YAW];
@@ -1155,7 +1155,7 @@ static void CG_General(centity_t* cent)
 		int dismember_settings = cg_dismember.integer;
 		float smooth_factor = 0.5f * timescale.value;
 		int k = 0;
-		vec3_t pos_dif;
+		vec3_t pos_dif = { 0 };
 
 		do_not_set_model = qtrue;
 
@@ -1184,10 +1184,10 @@ static void CG_General(centity_t* cent)
 		if (!cent->ghoul2)
 		{
 			const char* rotate_bone = NULL;
-			char limb_name[MAX_QPATH];
-			char stub_name[MAX_QPATH];
-			char limb_cap_name[MAX_QPATH];
-			char stub_cap_name[MAX_QPATH];
+			char limb_name[MAX_QPATH] = { 0 };
+			char stub_name[MAX_QPATH] = { 0 };
+			char limb_cap_name[MAX_QPATH] = { 0 };
+			char stub_cap_name[MAX_QPATH] = { 0 };
 			char* limb_tag_name = NULL;
 			char* stub_tag_name = NULL;
 			int new_bolt = 0;
@@ -1360,7 +1360,7 @@ static void CG_General(centity_t* cent)
 			new_bolt = trap->G2API_AddBolt(cent->ghoul2, 0, limb_tag_name);
 			if (new_bolt != -1)
 			{
-				vec3_t bolt_org, bolt_ang;
+				vec3_t bolt_org = { 0 }, bolt_ang = { 0 };
 
 				trap->G2API_GetBoltMatrix(cent->ghoul2, 0, new_bolt, &matrix, cent->lerpAngles, cent->lerpOrigin,
 					cg.time, cgs.game_models, cent->modelScale);
@@ -1385,7 +1385,7 @@ static void CG_General(centity_t* cent)
 			new_bolt = trap->G2API_AddBolt(cl_ent->ghoul2, 0, stub_tag_name);
 			if (new_bolt != -1)
 			{
-				vec3_t bolt_org, bolt_ang;
+				vec3_t bolt_org = { 0 }, bolt_ang = { 0 };
 
 				trap->G2API_GetBoltMatrix(cl_ent->ghoul2, 0, new_bolt, &matrix, cl_ent->lerpAngles, cl_ent->lerpOrigin,
 					cg.time, cgs.game_models, cl_ent->modelScale);
@@ -1431,7 +1431,7 @@ static void CG_General(centity_t* cent)
 				(cent->currentState.pos.trDelta[0] || cent->currentState.pos.trDelta[1] || cent->currentState.pos.
 					trDelta[2]))
 			{
-				vec3_t bolt_org, bolt_ang;
+				vec3_t bolt_org = { 0 }, bolt_ang = { 0 };
 
 				trap->G2API_GetBoltMatrix(cent->ghoul2, 0, cent->bolt4, &matrix, cent->lerpAngles, cent->lerpOrigin,
 					cg.time, cgs.game_models, cent->modelScale);
@@ -1457,7 +1457,7 @@ static void CG_General(centity_t* cent)
 		cent->currentState.activeForcePass == NUM_FORCE_POWERS + 1 &&
 		cent->currentState.NPC_class != CLASS_VEHICLE)
 	{
-		vec3_t emp_angles;
+		vec3_t emp_angles = { 0 };
 		centity_t* emp_own = NULL;
 
 		emp_own = &cg_entities[cent->currentState.emplacedOwner];
@@ -1480,7 +1480,7 @@ static void CG_General(centity_t* cent)
 		{
 			// an SP emplaced gun chair (g_weapon.c, 2026-11-18): the whole chair turns the way its user looks, the guns
 			// pitch with him (as SP cg_players.cpp)
-			vec3_t swivel;
+			vec3_t swivel = { 0 };
 			VectorSet(swivel, -emp_angles[PITCH], 0, 0);
 			VectorSet(cent->lerpAngles, 0, emp_angles[YAW], 0);
 			trap->G2API_SetBoneAngles(cent->ghoul2, 0, "swivel_bone", swivel, BONE_ANGLES_POSTMULT, POSITIVE_Y,
@@ -1555,7 +1555,7 @@ static void CG_General(centity_t* cent)
 			{
 				int skin = 0;
 				int l = 0;
-				char skin_name[MAX_QPATH];
+				char skin_name[MAX_QPATH] = { 0 };
 				//well, you'd never want a skinless model, so try to get his skin...
 				Q_strncpyz(skin_name, model_name, MAX_QPATH);
 				l = strlen(skin_name);
@@ -1688,7 +1688,7 @@ static void CG_General(centity_t* cent)
 		if (cent->bodyFadeTime > cg.time)
 		{
 			qboolean light_side = cent->teamPowerType != 0 ? qtrue : qfalse;
-			vec3_t hit_loc, temp_ang;
+			vec3_t hit_loc = { 0 }, temp_ang = { 0 };
 			float temp_length = 0.0f;
 			int cur_time_dif = cg.time + 60000 - cent->bodyFadeTime;
 			int t_mult = cur_time_dif * 0.08;
@@ -1860,7 +1860,7 @@ static void CG_General(centity_t* cent)
 
 		for (int i = -4; i < 10; i += 1)
 		{
-			vec3_t org;
+			vec3_t org = { 0 };
 			VectorMA(ent.origin, -i, ent.axis[2], org);
 
 			VectorCopy(org, fxSArgs.origin);
@@ -1882,7 +1882,7 @@ static void CG_General(centity_t* cent)
 	else if (cent->currentState.trickedentindex3)
 	{
 		//holocron special effects
-		vec3_t org;
+		vec3_t org = { 0 };
 		float wv = 0.0f;
 		addspriteArgStruct_t fxSArgs = { 0 };
 
@@ -1999,7 +1999,7 @@ static void CG_General(centity_t* cent)
 
 	if (cent->currentState.time == -1 && cent->currentState.weapon == WP_TRIP_MINE && cent->currentState.eFlags & EF_FIRING)
 	{
-		vec3_t beam_org;
+		vec3_t beam_org = { 0 };
 		int beam_id = 0;
 		//if force sight is active, render the laser multiple times up to the force sight level to increase visibility
 		if (!cg.snap->ps.duelInProgress ||
@@ -2318,7 +2318,7 @@ CG_Item
 */
 static void CG_Item(centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = { 0 };
 	entityState_t* es = NULL;
 	gitem_t* item = NULL;
 	int msec = 0;
@@ -2350,8 +2350,8 @@ static void CG_Item(centity_t* cent)
 		!(cent->currentState.eFlags & EF_DROPPEDWEAPON) &&
 		!cg_simpleItems.integer)
 	{
-		vec3_t u_norm;
-		qboolean do_grey;
+		vec3_t u_norm = { 0 };
+		qboolean do_grey = qfalse;
 
 		VectorClear(u_norm);
 
@@ -2715,7 +2715,7 @@ static void CG_Item(centity_t* cent)
 
 	if (item->giType == IT_WEAPON && wi->barrelModel)
 	{
-		refEntity_t	barrel;
+		refEntity_t	barrel = { 0 };
 
 		memset(&barrel, 0, sizeof(barrel));
 
@@ -2738,7 +2738,7 @@ static void CG_Item(centity_t* cent)
 	// accompanying rings / spheres for powerups
 	if (!cg_simpleItems.integer)
 	{
-		vec3_t spin_angles;
+		vec3_t spin_angles = { 0 };
 
 		VectorClear(spin_angles);
 
@@ -2778,8 +2778,8 @@ static void CG_Item(centity_t* cent)
 
 static void CG_CreateDistortionTrailPart(const centity_t* cent, const float scale, vec3_t pos)
 {
-	refEntity_t ent;
-	vec3_t ang;
+	refEntity_t ent = { 0 };
+	vec3_t ang = { 0 };
 
 	if (!cg_renderToTextureFX.integer)
 	{
@@ -2872,8 +2872,8 @@ static clientInfo_t* CG_SaberOwnerClientInfo(const int owner)
 static void CG_SaberBodyStickPlace(centity_t* cent)
 {
 	const entityState_t* s1 = &cent->currentState;
-	mdxaBone_t matrix;
-	vec3_t org, axis[3], hilt, dir;
+	mdxaBone_t matrix = { 0 };
+	vec3_t org = { 0 }, axis[3] = { 0 }, hilt = { 0 }, dir = { 0 };
 	int i = 0;
 
 	if (!(s1->eFlags & EF_MISSILE_STICK) || VectorCompare(s1->angles2, vec3_origin)
@@ -2911,7 +2911,7 @@ static void CG_SaberBodyStickPlace(centity_t* cent)
 
 	if (!cent->saberBodyStickSet)
 	{
-		vec3_t rel;
+		vec3_t rel = { 0 };
 		VectorNormalize2(s1->angles2, dir);
 		VectorMA(org, -10.0f, dir, hilt);
 		VectorSubtract(hilt, org, rel);
@@ -2956,7 +2956,7 @@ what it hits are the server's (Jace 2026-10-29).
 
 static qboolean CG_MissileGunFlash(centity_t* owner, const int model, vec3_t out)
 {
-	mdxaBone_t mat;
+	mdxaBone_t mat = { 0 };
 
 	if (!trap->G2API_HasGhoul2ModelOnIndex(&owner->ghoul2, model))
 	{
@@ -3019,7 +3019,7 @@ static void CG_MissileFromMuzzle(centity_t* cent)
 			return;
 		}
 		// the gun nearest the shot's start (dual pistols / the droideka fire from both hands)
-		vec3_t flash, best;
+		vec3_t flash = { 0 }, best = { 0 };
 		float bestDist = MUZZLE_MAX_OFS * MUZZLE_MAX_OFS;
 		qboolean found = qfalse;
 		for (int model = 1; model <= 2; model++)
@@ -3181,14 +3181,14 @@ static void CG_Missile(centity_t* cent)
 	if (s1->weapon == WP_STUN_BATON)
 	{
 		int i = 0;
-		orientation_t lerped;
+		orientation_t lerped = { 0 };
 
-		vec3_t start;
-		vec3_t end;
+		vec3_t start = { 0 };
+		vec3_t end = { 0 };
 		vec3_t r_hand_pos = { 0 };
 
 		centity_t* parent = NULL;
-		mdxaBone_t mat;
+		mdxaBone_t mat = { 0 };
 		int color = 0;
 		color = 0x000020;
 
@@ -3220,13 +3220,13 @@ static void CG_Missile(centity_t* cent)
 	if (s1->weapon == WP_MELEE)
 	{
 		int i = 0;
-		orientation_t lerped;
+		orientation_t lerped = { 0 };
 
-		vec3_t start;
-		vec3_t end;
+		vec3_t start = { 0 };
+		vec3_t end = { 0 };
 
 		centity_t* parent = NULL;
-		mdxaBone_t mat;
+		mdxaBone_t mat = { 0 };
 		int color = 0;
 		color = 0x000020;
 
@@ -3258,7 +3258,7 @@ static void CG_Missile(centity_t* cent)
 	if (s1->otherentityNum2 && s1->weapon != WP_SABER)
 	{
 		//using an over-ridden trail effect!
-		vec3_t forward;
+		vec3_t forward = { 0 };
 
 		if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 		{
@@ -3273,7 +3273,7 @@ static void CG_Missile(centity_t* cent)
 				qfalse);
 			if (g_vehWeaponInfo[s1->otherentityNum2].iLoopSound)
 			{
-				vec3_t velocity;
+				vec3_t velocity = { 0 };
 				BG_EvaluateTrajectoryDelta(&cent->currentState.pos, cg.time, velocity);
 				trap->S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, velocity,
 					g_vehWeaponInfo[s1->otherentityNum2].iLoopSound);
@@ -3290,7 +3290,7 @@ static void CG_Missile(centity_t* cent)
 			trap->FX_PlayEffectID(cgs.gameEffects[s1->otherentityNum2], cent->lerpOrigin, forward, -1, -1, qfalse);
 			if (s1->loopSound)
 			{
-				vec3_t velocity;
+				vec3_t velocity = { 0 };
 				BG_EvaluateTrajectoryDelta(&cent->currentState.pos, cg.time, velocity);
 				trap->S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, velocity, s1->loopSound);
 			}
@@ -3316,7 +3316,7 @@ static void CG_Missile(centity_t* cent)
 		// add missile sound
 		if (weapon->altMissileSound)
 		{
-			vec3_t velocity;
+			vec3_t velocity = { 0 };
 
 			BG_EvaluateTrajectoryDelta(&cent->currentState.pos, cg.time, velocity);
 			trap->S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, velocity, weapon->altMissileSound);
@@ -3369,7 +3369,7 @@ static void CG_Missile(centity_t* cent)
 		// add missile sound
 		if (weapon->missileSound)
 		{
-			vec3_t velocity;
+			vec3_t velocity = { 0 };
 
 			BG_EvaluateTrajectoryDelta(&cent->currentState.pos, cg.time, velocity);
 
@@ -3473,7 +3473,7 @@ static void CG_Missile(centity_t* cent)
 
 		if (saber_own_info)
 		{
-			vec3_t blade_angles;
+			vec3_t blade_angles = { 0 };
 			//we have an owner associated with this player.
 			//get the our owner's information.
 			centity_t* saber_own = &cg_entities[s1->owner];
@@ -3538,7 +3538,7 @@ static void CG_Missile(centity_t* cent)
 
 		for (i = -4; i < 10; i += 1)
 		{
-			vec3_t org;
+			vec3_t org = { 0 };
 			VectorMA(ent.origin, -i, ent.axis[2], org);
 
 			VectorCopy(org, fxSArgs.origin);
@@ -3573,7 +3573,7 @@ static void CG_Missile(centity_t* cent)
 	if (s1->eFlags & EF_FIRING)
 	{
 		//special code for adding the beam to the attached tripwire mine
-		vec3_t beam_org;
+		vec3_t beam_org = { 0 };
 
 		VectorMA(ent.origin, 8, ent.axis[0], beam_org); // forward
 		trap->FX_PlayEffectID(cgs.effects.mTripMineLaser, beam_org, ent.axis[0], -1, -1, qfalse);
@@ -3592,7 +3592,7 @@ CG_PlayDoorLoopSound
 
 void CG_PlayDoorLoopSound(const centity_t* cent)
 {
-	vec3_t origin;
+	vec3_t origin = { 0 };
 
 	if (!cent->currentState.soundSetIndex)
 	{
@@ -3664,7 +3664,7 @@ CG_Mover
 */
 static void CG_Mover(centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = { 0 };
 
 	const entityState_t* s1 = &cent->currentState;
 
@@ -3819,7 +3819,7 @@ Also called as an event
 */
 void CG_Beam(const centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = { 0 };
 
 	const entityState_t* s1 = &cent->currentState;
 
@@ -3854,7 +3854,7 @@ static void CG_Clouds(const centity_t* cent)
 {
 	static qhandle_t haze = 0, haze2 = 0;
 	const entityState_t* s1 = &cent->currentState;
-	refEntity_t ent;
+	refEntity_t ent = { 0 };
 
 	if (!haze)
 	{
@@ -3891,7 +3891,7 @@ recent) from it to s.origin2, with its impact effect (s.time2) at the end each t
 static void CG_TargetBeam(centity_t* cent)
 {
 	const entityState_t* s1 = &cent->currentState;
-	refEntity_t line;
+	refEntity_t line = { 0 };
 
 	if (!s1->time || cg.time - s1->time > 160)
 	{
@@ -3918,7 +3918,7 @@ static void CG_TargetBeam(centity_t* cent)
 
 	if (s1->time2 && s1->time != cent->bolt4 && cg.time >= cent->miscTime)
 	{
-		vec3_t norm;
+		vec3_t norm = { 0 };
 
 		VectorCopy(s1->angles2, norm);
 		if (VectorNormalize(norm) < 0.5f)
@@ -3942,7 +3942,7 @@ extern void CG_GrappleTrail(centity_t* ent, const weaponInfo_t* wi);
 
 static void CG_Grapple(centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = { 0 };
 
 	const entityState_t* s1 = &cent->currentState;
 	const weaponInfo_t* weapon = &cg_weapons[WP_MELEE];
@@ -3979,7 +3979,7 @@ CG_Portal
 */
 static void CG_Portal(const centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = { 0 };
 
 	const entityState_t* s1 = &cent->currentState;
 
@@ -4019,8 +4019,8 @@ Also called by client movement prediction code
 */
 void CG_AdjustPositionForMover(const vec3_t in, const int mover_num, const int from_time, const int to_time, vec3_t out)
 {
-	vec3_t old_origin, origin, delta_origin;
-	vec3_t old_angles, angles, delta_angles;
+	vec3_t old_origin = { 0 }, origin = { 0 }, delta_origin = { 0 };
+	vec3_t old_angles = { 0 }, angles = { 0 }, delta_angles = { 0 };
 
 	if (cg.predictedPlayerState.persistant[PERS_TEAM] == TEAM_SPECTATOR)
 	{
@@ -4062,7 +4062,7 @@ CG_InterpolateEntityPosition
 */
 static void CG_InterpolateEntityPosition(centity_t* cent)
 {
-	vec3_t current, next;
+	vec3_t current = { 0 }, next = { 0 };
 
 	// it would be an internal error to find an entity that interpolates without
 	// a snapshot ahead of the current one
@@ -4235,7 +4235,7 @@ void CG_G2Animated(centity_t* cent);
 
 static void CG_FX(centity_t* cent)
 {
-	vec3_t fx_dir;
+	vec3_t fx_dir = { 0 };
 	int efx_index = 0;
 
 	if (cent->miscTime > cg.time)
@@ -4585,7 +4585,7 @@ void CG_ROFF_NotetrackCallback(const centity_t* cent, const char* notetrack)
 	char type[256] = { 0 };
 	char argument[512] = { 0 };
 	char addl_arg[512] = { 0 };
-	char err_msg[256];
+	char err_msg[256] = { 0 };
 	int addl_args = 0;
 
 	if (!cent || !notetrack)
@@ -4643,7 +4643,7 @@ void CG_ROFF_NotetrackCallback(const centity_t* cent, const char* notetrack)
 	if (strcmp(type, "effect") == 0)
 	{
 		char t[64] = { 0 };
-		vec3_t parsed_offset;
+		vec3_t parsed_offset = { 0 };
 		int posoffset_gathered = 0;
 		if (!addl_args)
 		{
@@ -4698,11 +4698,11 @@ void CG_ROFF_NotetrackCallback(const centity_t* cent, const char* notetrack)
 
 		if (object_id)
 		{
-			vec3_t up;
-			vec3_t right;
-			vec3_t forward;
-			vec3_t use_origin;
-			vec3_t use_angles;
+			vec3_t up = { 0 };
+			vec3_t right = { 0 };
+			vec3_t forward = { 0 };
+			vec3_t use_origin = { 0 };
+			vec3_t use_angles = { 0 };
 			if (addl_args)
 			{
 				vec3_t parsed_angles = { 0 };
@@ -4802,7 +4802,7 @@ functionend:
 void CG_Cube(vec3_t mins, vec3_t maxs, vec3_t color, const float alpha)
 {
 	const vec3_t rot = { 0, 0, 0 };
-	addpolyArgStruct_t apArgs;
+	addpolyArgStruct_t apArgs = { 0 };
 
 	memset(&apArgs, 0, sizeof(apArgs));
 

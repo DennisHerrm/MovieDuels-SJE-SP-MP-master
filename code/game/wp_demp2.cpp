@@ -36,7 +36,7 @@ extern void player_Decloak(gentity_t* self);
 static void WP_DEMP2_MainFire(gentity_t* ent)
 //---------------------------------------------------------
 {
-	vec3_t start;
+	vec3_t start = {};
 	int damage = weaponData[WP_DEMP2].damage;
 
 	VectorCopy(muzzle, start);
@@ -89,7 +89,7 @@ void DEMP2_AltRadiusDamage(gentity_t* ent)
 	static gentity_t* entity_list[MAX_GENTITIES];
 	int i = 0;
 	vec3_t mins{}, maxs{};
-	vec3_t v{}, dir;
+	vec3_t v{}, dir = {};
 
 	frac *= frac * frac;
 	// yes, this is completely ridiculous...but it causes the shell to grow slowly then "explode" at the end
@@ -221,7 +221,7 @@ static void WP_DEMP2_AltFire(gentity_t* ent)
 //---------------------------------------------------------
 {
 	int damage = weaponData[WP_REPEATER].altDamage;
-	vec3_t start;
+	vec3_t start = {};
 	trace_t tr;
 
 	VectorCopy(muzzle, start);

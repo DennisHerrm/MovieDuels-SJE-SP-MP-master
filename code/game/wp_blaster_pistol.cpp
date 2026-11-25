@@ -52,7 +52,7 @@ void WP_FireBryarPistol(gentity_t* ent, const qboolean alt_fire)
 	}
 
 	// Starting point of the shot.
-	vec3_t start;
+	vec3_t start = {};
 	VectorCopy(muzzle, start);
 
 	// Base damage (primary vs alt).
@@ -73,7 +73,7 @@ void WP_FireBryarPistol(gentity_t* ent, const qboolean alt_fire)
 	else if (NPC_IsNotHavingEnoughForceSight(ent) == qtrue && ent->client != NULL)
 	{
 		// Force Sight 2+ gives perfect aim; below that we add spread.
-		vec3_t angs;
+		vec3_t angs = {};
 		vectoangles(forward_vec, angs);
 
 		const qboolean is_player_or_controlled =
@@ -237,7 +237,7 @@ void WP_FireBryarPistolDuals(gentity_t* ent, const qboolean alt_fire, const qboo
 	}
 
 	// Starting point of the shot (primary vs secondary pistol muzzle).
-	vec3_t start;
+	vec3_t start = {};
 	if (second_pistol == qtrue)
 	{
 		VectorCopy(muzzle2, start);
@@ -265,7 +265,7 @@ void WP_FireBryarPistolDuals(gentity_t* ent, const qboolean alt_fire, const qboo
 	else if (NPC_IsNotHavingEnoughForceSight(ent) == qtrue && ent->client != NULL)
 	{
 		// Force Sight 2+ gives perfect aim; below that we add spread.
-		vec3_t angs;
+		vec3_t angs = {};
 		vectoangles(forward_vec, angs);
 
 		const qboolean is_player_or_controlled =
@@ -433,7 +433,7 @@ void WP_FireReyPistol(gentity_t* ent, const qboolean alt_fire)
 	}
 
 	// Starting point of the shot.
-	vec3_t start;
+	vec3_t start = {};
 	VectorCopy(muzzle, start);
 
 	// Base damage (primary vs alt).
@@ -454,7 +454,7 @@ void WP_FireReyPistol(gentity_t* ent, const qboolean alt_fire)
 	else if (NPC_IsNotHavingEnoughForceSight(ent))
 	{
 		// Force Sight 2+ gives perfect aim; below that we add spread.
-		vec3_t angs;
+		vec3_t angs = {};
 		vectoangles(forward_vec, angs);
 
 		const qboolean is_player_or_controlled =
@@ -622,7 +622,7 @@ void WP_FireReyPistolDuals(gentity_t* ent, const qboolean alt_fire, const qboole
 	}
 
 	// Starting point of the shot (primary vs secondary pistol muzzle).
-	vec3_t start;
+	vec3_t start = {};
 	if (second_pistol == qtrue)
 	{
 		VectorCopy(muzzle2, start);
@@ -650,7 +650,7 @@ void WP_FireReyPistolDuals(gentity_t* ent, const qboolean alt_fire, const qboole
 	else if (NPC_IsNotHavingEnoughForceSight(ent))
 	{
 		// Force Sight 2+ gives perfect aim; below that we add spread.
-		vec3_t angs;
+		vec3_t angs = {};
 		vectoangles(forward_vec, angs);
 
 		const qboolean is_player_or_controlled =
@@ -822,7 +822,7 @@ void WP_FireClonePistol(gentity_t* ent, const qboolean alt_fire)
 	}
 
 	// Starting point of the shot.
-	vec3_t start;
+	vec3_t start = {};
 	VectorCopy(muzzle, start);
 
 	// Base damage (primary vs alt).
@@ -843,7 +843,7 @@ void WP_FireClonePistol(gentity_t* ent, const qboolean alt_fire)
 	else if (NPC_IsNotHavingEnoughForceSight(ent) == qtrue && ent->client != NULL)
 	{
 		// Force Sight 2+ gives perfect aim; below that we add spread.
-		vec3_t angs;
+		vec3_t angs = {};
 		vectoangles(forward_vec, angs);
 
 		const qboolean is_player_or_controlled =
@@ -1005,7 +1005,7 @@ void WP_FireClonePistolDuals(gentity_t* ent, const qboolean alt_fire, const qboo
 	}
 
 	// Determine muzzle origin (primary vs secondary pistol).
-	vec3_t start;
+	vec3_t start = {};
 	if (second_pistol == qtrue)
 	{
 		VectorCopy(muzzle2, start);
@@ -1033,7 +1033,7 @@ void WP_FireClonePistolDuals(gentity_t* ent, const qboolean alt_fire, const qboo
 	else if (NPC_IsNotHavingEnoughForceSight(ent))
 	{
 		// Force Sight < 2 → apply spread.
-		vec3_t angs;
+		vec3_t angs = {};
 		vectoangles(forward_vec, angs);
 
 		const qboolean is_player_or_controlled =
@@ -1196,7 +1196,7 @@ void WP_FireMandoClonePistolDuals(gentity_t* ent, const qboolean alt_fire, const
 	}
 
 	// Determine muzzle origin (primary vs secondary pistol).
-	vec3_t start;
+	vec3_t start = {};
 	if (second_pistol == qtrue)
 	{
 		VectorCopy(muzzle2, start);
@@ -1224,7 +1224,7 @@ void WP_FireMandoClonePistolDuals(gentity_t* ent, const qboolean alt_fire, const
 	else if (NPC_IsNotHavingEnoughForceSight(ent))
 	{
 		// Force Sight < 2 → apply spread.
-		vec3_t angs;
+		vec3_t angs = {};
 		vectoangles(forward_vec, angs);
 
 		const qboolean is_player_or_controlled =
@@ -1387,7 +1387,7 @@ void WP_FireSBDPistol(gentity_t* ent, const qboolean alt_fire)
 	}
 
 	// Starting point of the shot.
-	vec3_t start;
+	vec3_t start = {};
 	VectorCopy(muzzle, start);
 
 	// Base damage (primary vs alt).
@@ -1408,7 +1408,7 @@ void WP_FireSBDPistol(gentity_t* ent, const qboolean alt_fire)
 	else if (NPC_IsNotHavingEnoughForceSight(ent))
 	{
 		// Force Sight < 2 → apply spread.
-		vec3_t angs;
+		vec3_t angs = {};
 		vectoangles(forward_vec, angs);
 
 		const qboolean is_player_or_controlled =
@@ -1556,7 +1556,7 @@ void WP_FireJawaPistol(gentity_t* ent, const qboolean alt_fire)
 	}
 
 	// Starting point of the shot.
-	vec3_t start;
+	vec3_t start = {};
 	VectorCopy(muzzle, start);
 
 	// Base damage (primary vs alt).
@@ -1577,7 +1577,7 @@ void WP_FireJawaPistol(gentity_t* ent, const qboolean alt_fire)
 	else if (NPC_IsNotHavingEnoughForceSight(ent) == qtrue && ent->client != NULL)
 	{
 		// Force Sight < 2 → apply spread.
-		vec3_t angs;
+		vec3_t angs = {};
 		vectoangles(forward_vec, angs);
 
 		const qboolean is_player_or_controlled =

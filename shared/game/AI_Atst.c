@@ -60,8 +60,8 @@ static void ATST_PlayEffect(gentity_t* self, const int bolt_id, const char* fx)
 {
 	if (bolt_id >= 0 && fx && fx[0])
 	{
-		mdxaBone_t bolt_matrix;
-		vec3_t org, dir;
+		mdxaBone_t bolt_matrix = { 0 };
+		vec3_t org = { 0 }, dir = { 0 };
 
 		SHR_GetBoltMatrix(self, bolt_id, bolt_matrix, self->SHR_currentAngles, self->SHR_currentOrigin);
 

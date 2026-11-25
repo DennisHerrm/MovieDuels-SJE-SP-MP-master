@@ -193,7 +193,7 @@ static void G_MissileStick(gentity_t* missile, gentity_t* other, trace_t* tr)
 {
 	if (other->NPC || !Q_stricmp(other->classname, "misc_model_breakable"))
 	{
-		vec3_t velocity;
+		vec3_t velocity = {};
 
 		const int hit_time = level.previousTime + (level.time - level.previousTime) * tr->fraction;
 
@@ -275,7 +275,7 @@ static gentity_t* G_BoltBlockTarget(gentity_t* blocker, const gentity_t* missile
 // Aim a reflected bolt at the target's chest (every bolt block mode aims there; "goes to enemy" aimed at the head)
 static void G_BoltBlockAimAt(const gentity_t* target, const gentity_t* missile, vec3_t bounce_dir)
 {
-	vec3_t bullseye;
+	vec3_t bullseye = {};
 
 	if (target->client)
 	{
@@ -297,7 +297,7 @@ static void G_BoltBlockAimAt(const gentity_t* target, const gentity_t* missile, 
 // (it stayed 0 0 0), so every "towards the crosshair" deflection flew at the map's origin instead.
 static void G_BoltBlockUpdateCrosshair(const gentity_t* owner)
 {
-	vec3_t eye, fwd, end;
+	vec3_t eye = {}, fwd = {}, end = {};
 	trace_t tr;
 
 	VectorCopy(owner->client->ps.origin, eye);
@@ -360,7 +360,7 @@ void G_MissileBouncedoffSaber(gentity_t* ent, gentity_t* missile, vec3_t forward
 		return;
 	}
 
-	vec3_t    bounce_dir;
+	vec3_t    bounce_dir = {};
 	qboolean  perfect_reflection = qfalse;
 	qboolean  reflected = qfalse;
 	gentity_t* owner = ent;
@@ -414,7 +414,7 @@ void G_MissileBouncedoffSaber(gentity_t* ent, gentity_t* missile, vec3_t forward
 
 			if (enemy)
 			{
-				vec3_t bullseye;
+				vec3_t bullseye = {};
 				CalcEntitySpot(enemy, SPOT_CHEST, bullseye);
 				bullseye[0] += Q_irand(-4, 4);
 				bullseye[1] += Q_irand(-4, 4);
@@ -460,7 +460,7 @@ void G_MissileBouncedoffSaber(gentity_t* ent, gentity_t* missile, vec3_t forward
 			else
 			{
 				// Fallback: reflect roughly along incoming direction projected on forward
-				vec3_t missile_dir;
+				vec3_t missile_dir = {};
 				VectorSubtract(ent->currentOrigin, missile->currentOrigin, missile_dir);
 
 				VectorCopy(missile->s.pos.trDelta, bounce_dir);
@@ -471,8 +471,8 @@ void G_MissileBouncedoffSaber(gentity_t* ent, gentity_t* missile, vec3_t forward
 		else if (owner && owner->client)
 		{
 			// Player reflection: bias toward crosshair based on defense level
-			vec3_t deflect_dir;
-			vec3_t missile_dir;
+			vec3_t deflect_dir = {};
+			vec3_t missile_dir = {};
 			float  force_factor = 0.0f;
 
 			G_BoltBlockUpdateCrosshair(owner);
@@ -593,7 +593,7 @@ void G_ReflectMissileAuto(gentity_t* ent, gentity_t* missile, vec3_t forward)
 		return;
 	}
 
-	vec3_t    bounce_dir;
+	vec3_t    bounce_dir = {};
 	qboolean  reflected = qfalse;
 	gentity_t* owner = ent;
 
@@ -631,7 +631,7 @@ void G_ReflectMissileAuto(gentity_t* ent, gentity_t* missile, vec3_t forward)
 
 		if (enemy)
 		{
-			vec3_t bullseye;
+			vec3_t bullseye = {};
 
 			// Aim roughly at the enemy’s head, with some random offset
 			CalcEntitySpot(enemy, SPOT_HEAD, bullseye);
@@ -684,7 +684,7 @@ void G_ReflectMissileAuto(gentity_t* ent, gentity_t* missile, vec3_t forward)
 		else
 		{
 			// Fallback: reflect roughly along incoming direction projected on forward
-			vec3_t missile_dir;
+			vec3_t missile_dir = {};
 
 			VectorSubtract(ent->currentOrigin, missile->currentOrigin, missile_dir);
 			VectorCopy(missile->s.pos.trDelta, bounce_dir);
@@ -813,7 +813,7 @@ void G_ReflectMissileNPC(gentity_t* ent, gentity_t* missile, vec3_t forward)
 		return;
 	}
 
-	vec3_t    bounce_dir;
+	vec3_t    bounce_dir = {};
 	qboolean  reflected = qfalse;
 	gentity_t* owner = ent;
 
@@ -851,7 +851,7 @@ void G_ReflectMissileNPC(gentity_t* ent, gentity_t* missile, vec3_t forward)
 
 		if (enemy)
 		{
-			vec3_t bullseye;
+			vec3_t bullseye = {};
 
 			// Aim roughly at the enemy’s head, with some random offset
 			CalcEntitySpot(enemy, SPOT_HEAD, bullseye);
@@ -904,7 +904,7 @@ void G_ReflectMissileNPC(gentity_t* ent, gentity_t* missile, vec3_t forward)
 		else
 		{
 			// Fallback: reflect roughly along incoming direction projected on forward
-			vec3_t missile_dir;
+			vec3_t missile_dir = {};
 
 			VectorSubtract(ent->currentOrigin, missile->currentOrigin, missile_dir);
 			VectorCopy(missile->s.pos.trDelta, bounce_dir);
@@ -1019,7 +1019,7 @@ static int G_GetBlockerDefenseLevel(const gentity_t* blocker)
 
 static void G_BoltBlockMissile(gentity_t* ent, gentity_t* missile, vec3_t forward)
 {
-	vec3_t  bounce_dir;
+	vec3_t  bounce_dir = {};
 	int     i = 0;
 	qboolean saber_block_reflection = qfalse;
 	qboolean bolt_block_reflection = qfalse;
@@ -1103,7 +1103,7 @@ static void G_BoltBlockMissile(gentity_t* ent, gentity_t* missile, vec3_t forwar
 	// --- Saber block: reflect toward crosshair ---
 	if (saber_block_reflection && !npc_reflection) // GOES TO CROSSHAIR
 	{
-		vec3_t angs;
+		vec3_t angs = {};
 
 		if (level.time - blocker->client->ps.ManualblockStartTime < 3000) // Blocking 2 (good)
 		{
@@ -1350,7 +1350,7 @@ static void G_BoltBlockMissile(gentity_t* ent, gentity_t* missile, vec3_t forwar
 			}
 			else
 			{
-				vec3_t missile_dir;
+				vec3_t missile_dir = {};
 				VectorSubtract(ent->currentOrigin, missile->currentOrigin, missile_dir);
 				VectorCopy(missile->s.pos.trDelta, bounce_dir);
 				VectorScale(bounce_dir, DotProduct(forward, missile_dir), bounce_dir);
@@ -1359,7 +1359,7 @@ static void G_BoltBlockMissile(gentity_t* ent, gentity_t* missile, vec3_t forwar
 		}
 		else // deflect off at an angle toward crosshair
 		{
-			vec3_t deflect_dir, missile_dir;
+			vec3_t deflect_dir = {}, missile_dir = {};
 			float  force_factor = 0.0f;
 
 			G_BoltBlockUpdateCrosshair(blocker);
@@ -1635,7 +1635,7 @@ void G_ReflectMissile_JKA(gentity_t* ent, gentity_t* missile, vec3_t forward)
 	// If owner has no client, fall back to simple reflection later
 	qboolean hasClient = (owner && owner->client) ? qtrue : qfalse;
 
-	vec3_t bounce_dir;
+	vec3_t bounce_dir = {};
 	VectorClear(bounce_dir); // Prevents uninitialized use
 
 	qboolean reflected = qfalse;
@@ -1662,7 +1662,7 @@ void G_ReflectMissile_JKA(gentity_t* ent, gentity_t* missile, vec3_t forward)
 
 		if (enemy)
 		{
-			vec3_t bullseye;
+			vec3_t bullseye = {};
 			CalcEntitySpot(enemy, SPOT_HEAD, bullseye);
 
 			bullseye[0] += Q_irand(-4, 4);
@@ -1706,7 +1706,7 @@ void G_ReflectMissile_JKA(gentity_t* ent, gentity_t* missile, vec3_t forward)
 		else
 		{
 			// Reflect based on incoming direction
-			vec3_t missile_dir;
+			vec3_t missile_dir = {};
 			VectorSubtract(ent->currentOrigin, missile->currentOrigin, missile_dir);
 
 			VectorCopy(missile->s.pos.trDelta, bounce_dir);
@@ -1803,7 +1803,7 @@ G_BounceRollMissile
 */
 static void G_BounceRollMissile(gentity_t* ent, const trace_t* trace)
 {
-	vec3_t velocity, normal;
+	vec3_t velocity = {}, normal = {};
 
 	// reflect the velocity on the trace plane
 	const int hit_time = level.previousTime + (level.time - level.previousTime) * trace->fraction;
@@ -1854,7 +1854,7 @@ G_BounceMissile
 */
 void G_BounceMissile(gentity_t* ent, trace_t* trace)
 {
-	vec3_t velocity;
+	vec3_t velocity = {};
 
 	// reflect the velocity on the trace plane
 	const int hitTime = level.previousTime + (level.time - level.previousTime) * trace->fraction;
@@ -2082,7 +2082,7 @@ void G_MissileImpacted(gentity_t* ent, gentity_t* other, vec3_t impact_pos, vec3
 	{
 		if (ent->damage)
 		{
-			vec3_t velocity;
+			vec3_t velocity = {};
 			EvaluateTrajectoryDelta(&ent->s.pos, level.time, velocity);
 
 			if (VectorLength(velocity) == 0.0f)
@@ -2145,7 +2145,7 @@ void G_MissileImpacted(gentity_t* ent, gentity_t* other, vec3_t impact_pos, vec3
 					{
 						if (PM_CrouchAnim(other->client->ps.legsAnim))
 						{
-							vec3_t dir;
+							vec3_t dir = {};
 							VectorSubtract(ent->currentOrigin, other->currentOrigin, dir);
 							VectorNormalize(dir);
 
@@ -2260,7 +2260,7 @@ void G_MissileImpacted(gentity_t* ent, gentity_t* other, vec3_t impact_pos, vec3
 		// if the missile's weapon has one there and no vehicle weapon's own impact replaces it (CG_VehicleWeaponImpact):
 		// then its radius damage is not a map explosion as well
 		extern qboolean g_clothBlastByCgame;
-		float clothRadius, clothStrength;
+		float clothRadius = 0, clothStrength = 0;
 		g_clothBlastByCgame = !(ent->s.otherentityNum2 && g_vehWeaponInfo[ent->s.otherentityNum2].iImpactFX)
 			&& CG_ClothBlastSize(ent->s.weapon, ent->alt_fire, &clothRadius, &clothStrength) ? qtrue : qfalse;
 		G_RadiusDamage(impact_pos, ent->owner, ent->splashDamage,
@@ -2306,7 +2306,7 @@ static void G_MissileAddAlerts(gentity_t* ent)
 //------------------------------------------------------
 static void G_MissileImpact_MD(gentity_t* ent, trace_t* trace, const int hit_loc = HL_NONE)
 {
-	vec3_t diff;
+	vec3_t diff = {};
 
 	gentity_t* other = &g_entities[trace->entityNum];
 
@@ -2416,7 +2416,7 @@ static void G_MissileImpact_MD(gentity_t* ent, trace_t* trace, const int hit_loc
 		{// 75% chance to play pain anim
 			if (PM_CrouchAnim(other->client->ps.legsAnim))
 			{
-				vec3_t dir;
+				vec3_t dir = {};
 				VectorSubtract(ent->currentOrigin, other->currentOrigin, dir);
 				VectorNormalize(dir);
 
@@ -2571,7 +2571,7 @@ static void G_MissileImpact_MD(gentity_t* ent, trace_t* trace, const int hit_loc
 
 				if (other->client->ps.stats[STAT_HEALTH] <= 0) // if we are dead
 				{
-					vec3_t spot;
+					vec3_t spot = {};
 
 					VectorCopy(other->currentOrigin, spot);
 
@@ -2647,7 +2647,7 @@ static void G_MissileImpact_MD(gentity_t* ent, trace_t* trace, const int hit_loc
 				// the hook yanks him off his feet towards the grappler, as force pull does (MD team)
 				if (other->health > 0 && ent->parent && ent->parent->client && other != ent->parent)
 				{
-					vec3_t pull_dir;
+					vec3_t pull_dir = {};
 					VectorSubtract(ent->parent->currentOrigin, other->currentOrigin, pull_dir);
 					pull_dir[2] = 0;
 					VectorNormalize(pull_dir);
@@ -2829,7 +2829,7 @@ static void G_MissileImpact_MD(gentity_t* ent, trace_t* trace, const int hit_loc
 
 static void G_MissileImpactJKA(gentity_t* ent, trace_t* trace, const int hit_loc = HL_NONE)
 {
-	vec3_t diff;
+	vec3_t diff = {};
 
 	gentity_t* other = &g_entities[trace->entityNum];
 
@@ -2942,7 +2942,7 @@ static void G_MissileImpactJKA(gentity_t* ent, trace_t* trace, const int hit_loc
 		{// 75% chance to play pain anim
 			if (PM_CrouchAnim(other->client->ps.legsAnim))
 			{
-				vec3_t dir;
+				vec3_t dir = {};
 				VectorSubtract(ent->currentOrigin, other->currentOrigin, dir);
 				VectorNormalize(dir);
 
@@ -3136,7 +3136,7 @@ static void G_MissileImpactJKA(gentity_t* ent, trace_t* trace, const int hit_loc
 
 				if (Q_irand(0, block_chance))
 				{
-					vec3_t diff;
+					vec3_t diff = {};
 					VectorSubtract(ent->currentOrigin, other->currentOrigin, diff);
 					VectorNormalize(diff);
 
@@ -3178,7 +3178,7 @@ Explode a missile without an impact
 static void G_ExplodeMissile(gentity_t* ent)
 {
 	vec3_t dir{};
-	vec3_t origin;
+	vec3_t origin = {};
 
 	EvaluateTrajectory(&ent->s.pos, level.time, origin);
 	SnapVector(origin);
@@ -3325,10 +3325,10 @@ static void G_RollMissile(gentity_t* ent)
 {
 	int numPlanes = 0;
 	vec3_t planes[MAX_CLIP_PLANES]{};
-	vec3_t primal_velocity;
+	vec3_t primal_velocity = {};
 	int i = 0;
 	trace_t trace;
-	vec3_t end_velocity;
+	vec3_t end_velocity = {};
 	pml_t objPML;
 	float bounceAmt = 0.0f;
 
@@ -3369,7 +3369,7 @@ static void G_RollMissile(gentity_t* ent)
 
 	for (int bumpcount = 0; bumpcount < numbumps; bumpcount++)
 	{
-		vec3_t end;
+		vec3_t end = {};
 		// calculate position we are trying to move to
 		VectorMA(ent->currentOrigin, time_left, ent->s.pos.trDelta, end);
 
@@ -3464,8 +3464,8 @@ static void G_RollMissile(gentity_t* ent)
 		// find a plane that it enters
 		for (i = 0; i < numPlanes; i++)
 		{
-			vec3_t end_clip_velocity;
-			vec3_t clip_velocity;
+			vec3_t end_clip_velocity = {};
+			vec3_t clip_velocity = {};
 			const float into = DotProduct(ent->s.pos.trDelta, planes[i]);
 			if (into >= 0.1)
 			{
@@ -3487,7 +3487,7 @@ static void G_RollMissile(gentity_t* ent)
 			// see if there is a second plane that the new move enters
 			for (int j = 0; j < numPlanes; j++)
 			{
-				vec3_t dir;
+				vec3_t dir = {};
 				if (j == i)
 				{
 					continue;
@@ -3557,7 +3557,7 @@ void G_MoverTouchPushTriggers(gentity_t* ent, vec3_t old_org);
 
 void G_RunMissile(gentity_t* ent)
 {
-	vec3_t old_org;
+	vec3_t old_org = {};
 	trace_t tr;
 	int tr_hit_loc = HL_NONE;
 
@@ -3566,7 +3566,7 @@ void G_RunMissile(gentity_t* ent)
 		//in a sand creature's mouth
 		if (ent->activator)
 		{
-			mdxaBone_t bolt_matrix;
+			mdxaBone_t bolt_matrix = {};
 			// Getting the bolt here
 			//in hand
 			vec3_t sc_angles = { 0 };
@@ -3610,7 +3610,7 @@ void G_RunMissile(gentity_t* ent)
 			}
 			else
 			{
-				vec3_t ang, fwd_dir, rt_dir;
+				vec3_t ang = {}, fwd_dir = {}, rt_dir = {};
 
 				ent->s.apos.trType = TR_INTERPOLATE;
 				VectorSet(ang, 0, ent->s.apos.trBase[1], 0);
@@ -3633,7 +3633,7 @@ void G_RunMissile(gentity_t* ent)
 	}
 	else
 	{
-		vec3_t origin;
+		vec3_t origin = {};
 		EvaluateTrajectory(&ent->s.pos, level.time, origin);
 		// trace a line from the previous position to the current position,
 		// ignoring interactions with the missile owner
@@ -3867,7 +3867,7 @@ static void wp_handle_bolt_block_sje_blockpoints(gentity_t* ent, gentity_t* miss
 	if (!G_HasClient(blocker))
 	{
 		// Fallback: simple reflection using current direction
-		vec3_t bounce_dir;
+		vec3_t bounce_dir = {};
 		VectorCopy(missile->s.pos.trDelta, bounce_dir);
 		VectorNormalize(bounce_dir);
 
@@ -3882,7 +3882,7 @@ static void wp_handle_bolt_block_sje_blockpoints(gentity_t* ent, gentity_t* miss
 	// ------------------------------------------------------------
 	//  INITIAL SETUP
 	// ------------------------------------------------------------
-	vec3_t bounce_dir;
+	vec3_t bounce_dir = {};
 	VectorClear(bounce_dir); // Prevent uninitialized use
 
 	qboolean saber_block_reflection = qfalse;
@@ -3965,7 +3965,7 @@ static void wp_handle_bolt_block_sje_blockpoints(gentity_t* ent, gentity_t* miss
 	// ============================================================
 	if (saber_block_reflection && !npc_reflection)
 	{
-		vec3_t angs;
+		vec3_t angs = {};
 
 		if (level.time - blocker->client->ps.ManualblockStartTime < 3000)
 		{
@@ -4193,7 +4193,7 @@ static void wp_handle_bolt_block_sje_blockpoints(gentity_t* ent, gentity_t* miss
 			}
 			else
 			{
-				vec3_t missile_dir;
+				vec3_t missile_dir = {};
 				VectorSubtract(ent->currentOrigin, missile->currentOrigin, missile_dir);
 
 				VectorCopy(missile->s.pos.trDelta, bounce_dir);
@@ -4203,7 +4203,7 @@ static void wp_handle_bolt_block_sje_blockpoints(gentity_t* ent, gentity_t* miss
 		}
 		else
 		{
-			vec3_t deflect_dir, missile_dir;
+			vec3_t deflect_dir = {}, missile_dir = {};
 			G_BoltBlockUpdateCrosshair(blocker);
 			VectorSubtract(g_crosshairWorldCoord, missile->currentOrigin, deflect_dir);
 
@@ -4307,7 +4307,7 @@ static void wp_handle_bolt_block_sje_forcepoints(gentity_t* ent, gentity_t* miss
 	// If we somehow don't have a valid client, fall back to a simple reflect
 	if (!blocker || !blocker->client)
 	{
-		vec3_t bounce_dir;
+		vec3_t bounce_dir = {};
 		const float speed = VectorNormalize(missile->s.pos.trDelta);
 
 		// Just keep current direction
@@ -4323,7 +4323,7 @@ static void wp_handle_bolt_block_sje_forcepoints(gentity_t* ent, gentity_t* miss
 	// -----------------------------------------------------------------
 	// INITIAL SETUP
 	// -----------------------------------------------------------------
-	vec3_t bounce_dir;
+	vec3_t bounce_dir = {};
 	int i = 0;
 	qboolean saber_block_reflection = qfalse;
 	qboolean bolt_block_reflection = qfalse;
@@ -4413,7 +4413,7 @@ static void wp_handle_bolt_block_sje_forcepoints(gentity_t* ent, gentity_t* miss
 	// -----------------------------------------------------------------
 	if (saber_block_reflection && !npc_reflection)
 	{
-		vec3_t angs;
+		vec3_t angs = {};
 
 		if (level.time - blocker->client->ps.ManualblockStartTime < 3000)
 		{
@@ -4690,7 +4690,7 @@ static void wp_handle_bolt_block_sje_forcepoints(gentity_t* ent, gentity_t* miss
 			}
 			else
 			{
-				vec3_t missile_dir;
+				vec3_t missile_dir = {};
 
 				VectorSubtract(ent->currentOrigin, missile->currentOrigin, missile_dir);
 				VectorCopy(missile->s.pos.trDelta, bounce_dir);
@@ -4700,7 +4700,7 @@ static void wp_handle_bolt_block_sje_forcepoints(gentity_t* ent, gentity_t* miss
 		}
 		else
 		{
-			vec3_t deflect_dir, missile_dir;
+			vec3_t deflect_dir = {}, missile_dir = {};
 			float force_factor = 0.0f;
 
 			G_BoltBlockUpdateCrosshair(blocker);

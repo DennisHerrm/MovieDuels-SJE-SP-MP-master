@@ -775,7 +775,7 @@ static void EvaluateFields(
 			ulChid,
 			instance))
 		{
-			RetailGClient retail_client;
+			RetailGClient retail_client = {};
 
 			saved_game.reset_buffer_offset();
 

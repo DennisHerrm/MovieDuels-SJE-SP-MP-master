@@ -32,7 +32,7 @@ void SpawnPointRender()
 	//warning: It's assumed that the debounce for this function is handled elsewhere (in this case BotWaypointRender)
 	//without a debounce, this can overload and crash the game with events!
 	gentity_t* spawnpoint = NULL;
-	vec3_t end;
+	vec3_t end = { 0 };
 
 	while ((spawnpoint = G_Find(spawnpoint, FOFS(classname), "info_player_deathmatch")) != NULL)
 	{
@@ -59,8 +59,8 @@ void AutosaveRender()
 		//Scan thru all the coop autosaves
 		if (autosave->spawnflags & AUTOSAVE_EDITOR)
 		{
-			vec3_t start;
-			vec3_t end;
+			vec3_t start = { 0 };
+			vec3_t end = { 0 };
 			//this is an autosave created by our coopeditor, display it.
 			VectorAdd(autosave->r.currentOrigin, autosave->r.maxs, start);
 			VectorAdd(autosave->r.currentOrigin, autosave->r.mins, end);
@@ -141,9 +141,9 @@ void Create_Autosave(vec3_t origin, int size, const qboolean teleportPlayers)
 	// load in our autosave from the .autosp
 	fileHandle_t f = 0;
 	static char buf[MAX_AUTOSAVE_FILESIZE + 1]; // +1 for guaranteed terminator
-	char loadPath[MAX_QPATH];
+	char loadPath[MAX_QPATH] = { 0 };
 	int sizeData = 0;
-	vmCvar_t mapname;
+	vmCvar_t mapname = { 0 };
 	qboolean teleportPlayers = qfalse;
 
 	Com_Printf("^5Loading Autosave File Data...");
@@ -228,9 +228,9 @@ void Save_Autosaves(void)
 	//save the autosaves
 	const fileHandle_t f = 0;
 
-	char fileBuf[MAX_AUTOSAVE_FILESIZE];
-	char loadPath[MAX_QPATH];
-	vmCvar_t mapname;
+	char fileBuf[MAX_AUTOSAVE_FILESIZE] = { 0 };
+	char loadPath[MAX_QPATH] = { 0 };
+	vmCvar_t mapname = { 0 };
 
 	fileBuf[0] = '\0';
 
@@ -253,8 +253,8 @@ void Delete_Autosaves(const gentity_t* ent)
 	static int s_touchList[MAX_GENTITIES];
 
 	gentity_t* hit = NULL;
-	vec3_t mins;
-	vec3_t maxs;
+	vec3_t mins = { 0 };
+	vec3_t maxs = { 0 };
 
 	if (ent == NULL)
 	{

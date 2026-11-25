@@ -121,7 +121,7 @@ void WP_FireClone(gentity_t* ent, const qboolean alt_fire)
 		return;
 	}
 
-	vec3_t dir, angs;
+	vec3_t dir = {}, angs = {};
 
 	vectoangles(forward_vec, angs);
 
@@ -272,7 +272,7 @@ void WP_FireCloneRifleMissile(gentity_t* ent, vec3_t start, vec3_t dir, const qb
 void WP_FireCloneRifle(gentity_t* ent, const qboolean alt_fire)
 //---------------------------------------------------------
 {
-	vec3_t dir, angs;
+	vec3_t dir = {}, angs = {};
 
 	vectoangles(forward_vec, angs);
 
@@ -426,7 +426,7 @@ void WP_FireCloneCommandoMissile(gentity_t* ent, vec3_t start, vec3_t dir, const
 void WP_FireCloneCommando(gentity_t* ent, const qboolean alt_fire)
 //---------------------------------------------------------
 {
-	vec3_t dir, angs;
+	vec3_t dir = {}, angs = {};
 
 	vectoangles(forward_vec, angs);
 
@@ -571,7 +571,7 @@ void WP_FireZ6RotaryCannonMissile(gentity_t* ent, vec3_t start, vec3_t dir)
 void WP_FireZ6RotaryCannon(gentity_t* ent)
 //---------------------------------------------------------
 {
-	vec3_t dir, angs;
+	vec3_t dir = {}, angs = {};
 
 	vectoangles(forward_vec, angs);
 

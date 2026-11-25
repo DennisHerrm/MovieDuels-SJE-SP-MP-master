@@ -48,7 +48,7 @@ vmCvar_t bot_minplayers;
 
 static float trap_Cvar_VariableValue(const char* var_name)
 {
-	char buf[MAX_CVAR_VALUE_STRING];
+	char buf[MAX_CVAR_VALUE_STRING] = { 0 };
 
 	trap->Cvar_VariableStringBuffer(var_name, buf, sizeof buf);
 	return atof(buf);
@@ -91,7 +91,7 @@ static int G_ParseInfos(const char* buf, const int max, char* infos[])
 		info[0] = '\0';
 		while (1)
 		{
-			char key[MAX_TOKEN_CHARS];
+			char key[MAX_TOKEN_CHARS] = { 0 };
 			token = COM_ParseExt(&buf, qtrue);
 			if (!token[0])
 			{
@@ -284,7 +284,7 @@ const char* G_RefreshNextMap(const int gametype, const qboolean forced)
 	int n = 0;
 	char* type = NULL;
 	qboolean loopingUp = qfalse;
-	vmCvar_t mapname;
+	vmCvar_t mapname = { 0 };
 
 	if (!g_autoMapCycle.integer && !forced)
 	{
@@ -413,7 +413,7 @@ void g_load_arenas(void)
 
 	for (; i < numFiles; i++)
 	{
-		char filename[MAX_QPATH];
+		char filename[MAX_QPATH] = { 0 };
 		const int len = strlen(fileptr);
 
 		Com_sprintf(filename, sizeof(filename), "scriptsmp/%s", fileptr);
@@ -482,7 +482,7 @@ void g_load_sp_arenas(void)
 
 	for (; i < numFiles; i++)
 	{
-		char filename[MAX_QPATH];
+		char filename[MAX_QPATH] = { 0 };
 		const int len = strlen(fileptr);
 
 		Com_sprintf(filename, sizeof(filename), "scripts/%s", fileptr);
@@ -660,7 +660,7 @@ static qboolean G_AddRandomBotOfFaction(const int team, const int faction)
 			num--;
 			if (num <= 0)
 			{
-				char netname[MAX_NETNAME]; // was 36: bot names over 35 characters were cut and "not defined" (test phase 2026-10-13)
+				char netname[MAX_NETNAME] = { 0 }; // was 36: bot names over 35 characters were cut and "not defined" (test phase 2026-10-13)
 				const float skill = trap->Cvar_VariableIntegerValue("g_spSkill"); // bot skill 1-5 (g_npcspskill is the NPC difficulty)
 				if (team == TEAM_RED) teamstr = "red";
 				else if (team == TEAM_BLUE) teamstr = "blue";
@@ -936,7 +936,7 @@ G_BotConnect
 qboolean G_BotConnect(const int clientNum, const qboolean restart)
 {
 	bot_settings_t settings = { 0 };
-	char userinfo[MAX_INFO_STRING];
+	char userinfo[MAX_INFO_STRING] = { 0 };
 
 	trap->GetUserinfo(clientNum, userinfo, sizeof userinfo);
 
@@ -1254,10 +1254,10 @@ void Svcmd_AddBot_f(void)
 {
 	float skill = 0.0f;
 	int delay = 0;
-	char name[MAX_TOKEN_CHARS];
-	char altname[MAX_TOKEN_CHARS];
-	char string[MAX_TOKEN_CHARS];
-	char team[MAX_TOKEN_CHARS];
+	char name[MAX_TOKEN_CHARS] = { 0 };
+	char altname[MAX_TOKEN_CHARS] = { 0 };
+	char string[MAX_TOKEN_CHARS] = { 0 };
+	char team[MAX_TOKEN_CHARS] = { 0 };
 
 	// are bots enabled?
 	if (!trap->Cvar_VariableIntegerValue("bot_enable"))
@@ -1319,14 +1319,14 @@ Svcmd_BotList_f
 */
 void Svcmd_BotList_f(void)
 {
-	char funname[MAX_NETNAME];
+	char funname[MAX_NETNAME] = { 0 };
 
 	trap->Print("name             model            personality              funname\n");
 	for (int i = 0; i < level.bots.num; i++)
 	{
-		char personality[MAX_QPATH];
-		char model[MAX_QPATH];
-		char name[MAX_NETNAME];
+		char personality[MAX_QPATH] = { 0 };
+		char model[MAX_QPATH] = { 0 };
+		char name[MAX_NETNAME] = { 0 };
 		Q_strncpyz(name, Info_ValueForKey(level.bots.infos[i], "name"), sizeof name);
 		if (!*name)
 		{
@@ -1415,7 +1415,7 @@ static void G_DropRepeatedBots(const int first, const char* filename)
 
 	for (int n = first; n < level.bots.num; n++)
 	{
-		char name[MAX_QPATH];
+		char name[MAX_QPATH] = { 0 };
 		qboolean repeated = qfalse;
 
 		Q_strncpyz(name, Info_ValueForKey(level.bots.infos[n], "name"), sizeof name);
@@ -1486,16 +1486,16 @@ G_LoadBots
 */
 static void G_LoadBots(void)
 {
-	vmCvar_t	md_bots_rebels;
-	vmCvar_t	md_bots_Empire;
-	vmCvar_t	md_bots_sith_empire;
-	vmCvar_t	md_bots_resistance;
-	vmCvar_t	md_bots_first_order;
-	vmCvar_t	md_bots_separatists;
-	vmCvar_t	md_bots_republic;
-	vmCvar_t	md_bots_old_republic;
+	vmCvar_t	md_bots_rebels = { 0 };
+	vmCvar_t	md_bots_Empire = { 0 };
+	vmCvar_t	md_bots_sith_empire = { 0 };
+	vmCvar_t	md_bots_resistance = { 0 };
+	vmCvar_t	md_bots_first_order = { 0 };
+	vmCvar_t	md_bots_separatists = { 0 };
+	vmCvar_t	md_bots_republic = { 0 };
+	vmCvar_t	md_bots_old_republic = { 0 };
 
-	char dirlist[2048];
+	char dirlist[2048] = { 0 };
 	int dirlen = 0;
 
 	if (!trap->Cvar_VariableIntegerValue("bot_enable"))
@@ -1567,7 +1567,7 @@ static void G_LoadBots(void)
 		char* dirptr = dirlist;
 		for (int i = 0; i < numdirs; i++, dirptr += dirlen + 1)
 		{
-			char filename[MAX_QPATH];
+			char filename[MAX_QPATH] = { 0 };
 			dirlen = strlen(dirptr);
 			Com_sprintf(filename, sizeof filename, "%s/%s", botFolders[folder], dirptr);
 			G_LoadBotsFromFile(filename);

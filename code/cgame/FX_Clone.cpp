@@ -36,7 +36,7 @@ FX_CloneProjectileThink
 
 void FX_CloneProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = {};
 
 	if (cent->currentState.eFlags & EF_USE_ANGLEDELTA)
 	{
@@ -73,7 +73,7 @@ void FX_CloneProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 
 void FX_stunProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = {};
 
 	if (cent->currentState.eFlags & EF_USE_ANGLEDELTA)
 	{
@@ -170,7 +170,7 @@ FX_CloneAltProjectileThink
 
 void FX_CloneAltProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = {};
 
 	if (VectorNormalize2(cent->gent->s.pos.trDelta, forward) == 0.0f)
 	{
@@ -242,7 +242,7 @@ void FX_CloneAltHitPlayer(vec3_t origin, vec3_t normal, qboolean humanoid)
 
 void FX_WristProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = {};
 
 	if (cent->currentState.eFlags & EF_USE_ANGLEDELTA)
 	{

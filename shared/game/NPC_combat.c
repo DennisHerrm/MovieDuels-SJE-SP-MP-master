@@ -261,7 +261,7 @@ static void G_AttackDelay(const gentity_t* self, const gentity_t* enemy)
 	if (enemy && self->client && self->NPC)
 	{
 		//delay their attack based on how far away they're facing from enemy
-		vec3_t fwd, dir;
+		vec3_t fwd = { 0 }, dir = { 0 };
 
 		VectorSubtract(self->client->renderInfo.eyePoint, enemy->currentOrigin, dir); //purposely backwards
 		VectorNormalize(dir);
@@ -2013,7 +2013,7 @@ qboolean ShotThroughGlass(trace_t* tr, const gentity_t* target, vec3_t spot, con
 	{
 		//ok to shoot through breakable glass
 		const int skip = hit->s.number;
-		vec3_t muzzle;
+		vec3_t muzzle = { 0 };
 
 		VectorCopy(tr->endpos, muzzle);
 		gi.trace(tr, muzzle, nullptr, nullptr, spot, skip, mask, static_cast<EG2_Collision>(0), 0);
@@ -2035,9 +2035,9 @@ extern qboolean NPC_EntityIsBreakable(const gentity_t* ent);
 
 qboolean CanShoot(const gentity_t* ent, const gentity_t* shooter)
 {
-	trace_t tr;
-	vec3_t muzzle;
-	vec3_t spot, diff;
+	trace_t tr = { qfalse };
+	vec3_t muzzle = { 0 };
+	vec3_t spot = { 0 }, diff = { 0 };
 	const qboolean is_breakable = NPC_EntityIsBreakable(ent);
 
 	CalcEntitySpot(shooter, SPOT_WEAPON, muzzle);
@@ -2268,7 +2268,7 @@ qboolean NPC_EnemyTooFar(const gentity_t* enemy, float dist, const qboolean to_s
 
 	if (!dist)
 	{
-		vec3_t vec;
+		vec3_t vec = { 0 };
 		VectorSubtract(NPC->currentOrigin, enemy->currentOrigin, vec);
 		dist = VectorLengthSquared(vec);
 	}
@@ -2319,7 +2319,7 @@ gentity_t* NPC_PickEnemy(const gentity_t* closest_to,
 	int         choice[128] = { 0 }; // NOTE: hard cap on random choices
 	gentity_t* newenemy = nullptr;
 	gentity_t* closest_enemy = nullptr;
-	vec3_t      diff;
+	vec3_t      diff = { 0 };
 	float       rel_dist = 0.0f;
 	float       best_dist = Q3_INFINITE;
 	qboolean    failed = qfalse;
@@ -2716,7 +2716,7 @@ gentity_t* NPC_PickAlly(const qboolean facing_each_other,
 		}
 
 		// Distance check
-		vec3_t diff;
+		vec3_t diff = { 0 };
 		VectorSubtract(NPC->currentOrigin, ally->currentOrigin, diff);
 		float rel_dist = VectorLength(diff);
 
@@ -2728,7 +2728,7 @@ gentity_t* NPC_PickAlly(const qboolean facing_each_other,
 		// Facing-each-other logic
 		if (facing_each_other)
 		{
-			vec3_t vf;
+			vec3_t vf = { 0 };
 
 			// Ally must face NPC
 			AngleVectors(ally->client->ps.viewangles, vf, nullptr, nullptr);
@@ -3002,8 +3002,8 @@ qboolean NPC_ClearShot(const gentity_t* ent)
 	if (NPC == nullptr || ent == nullptr)
 		return qfalse;
 
-	vec3_t muzzle;
-	trace_t tr;
+	vec3_t muzzle = { 0 };
+	trace_t tr = { qfalse };
 
 	CalcEntitySpot(NPC, SPOT_WEAPON, muzzle);
 
@@ -3048,15 +3048,15 @@ int NPC_ShotEntity(const gentity_t* ent, vec3_t impact_pos)
 		return ENTITYNUM_NONE;
 	}
 
-	vec3_t muzzle;
-	vec3_t targ;
-	trace_t tr;
+	vec3_t muzzle = { 0 };
+	vec3_t targ = { 0 };
+	trace_t tr = { qfalse };
 
 	// Determine muzzle origin
 	if (NPC->s.weapon == WP_THERMAL)
 	{
 		// Thermal detonators aim from slightly above the head
-		vec3_t angles, forward, end;
+		vec3_t angles = { 0 }, forward = { 0 }, end = { 0 };
 
 		CalcEntitySpot(NPC, SPOT_HEAD, muzzle);
 
@@ -3202,8 +3202,8 @@ qboolean NPC_CheckCanAttack(float attack_scale)
 	if (attack_scale <= 0.0f)
 		attack_scale = 1.0f;
 
-	vec3_t muzzle, enemy_org, delta, angle_to_enemy;
-	trace_t tr;
+	vec3_t muzzle = { 0 }, enemy_org = { 0 }, delta = { 0 }, angle_to_enemy = { 0 };
+	trace_t tr = { qfalse };
 
 	// Get target position (head for accuracy)
 	CalcEntitySpot(NPC->enemy, SPOT_HEAD, enemy_org);
@@ -3246,7 +3246,7 @@ qboolean NPC_CheckCanAttack(float attack_scale)
 	}
 
 	// In FOV — now check if shot is clean
-	vec3_t forward, hitspot;
+	vec3_t forward = { 0 }, hitspot = { 0 };
 	AngleVectors(client->ps.viewangles, forward, nullptr, nullptr);
 	VectorMA(muzzle, distance, forward, hitspot);
 
@@ -3269,7 +3269,7 @@ qboolean NPC_CheckCanAttack(float attack_scale)
 	// Explosive safety
 	if (!dead_on && hitEnt->health <= 30 && hitEnt->e_DieFunc == dieF_ExplodeDeath_Wait)
 	{
-		vec3_t diff;
+		vec3_t diff = { 0 };
 		VectorSubtract(NPC->currentOrigin, hitEnt->currentOrigin, diff);
 		if (VectorLengthSquared(diff) < hitEnt->splashRadius * hitEnt->splashRadius)
 			return qfalse;
@@ -3279,7 +3279,7 @@ qboolean NPC_CheckCanAttack(float attack_scale)
 
 	// Aim error modelling
 	float max_aim_off = 128.0f - 16.0f * (float)NPCInfo->stats.aim;
-	vec3_t diff;
+	vec3_t diff = { 0 };
 	VectorSubtract(hitspot, enemy_org, diff);
 	float aim_off = VectorLength(diff);
 
@@ -3504,9 +3504,9 @@ int NPC_FindCombatPoint(const vec3_t position, const vec3_t avoid_position, vec3
 	combatPoint_m points;
 
 	constexpr int best = -1; //, cost, bestCost = Q3_INFINITE, waypoint = WAYPOINT_NONE, destWaypoint = WAYPOINT_NONE;
-	trace_t tr;
+	trace_t tr = { qfalse };
 	float coll_rad = CP_COLLECT_RADIUS;
-	vec3_t enemyPosition;
+	vec3_t enemyPosition = { 0 };
 	const float vis_range_sq = NPCInfo->stats.visrange * NPCInfo->stats.visrange;
 	const bool use_horiz_dist = NPC->s.weapon == WP_THERMAL || flags & CP_HORZ_DIST_COLL;
 
@@ -3595,8 +3595,8 @@ int NPC_FindCombatPoint(const vec3_t position, const vec3_t avoid_position, vec3
 		//We want a point on other side of the enemy from current pos
 		if (flags & CP_FLANK)
 		{
-			vec3_t e_dir2_cp;
-			vec3_t e_dir2_me;
+			vec3_t e_dir2_cp = { 0 };
+			vec3_t e_dir2_me = { 0 };
 			VectorSubtract(position, enemyPosition, e_dir2_me);
 			VectorNormalize(e_dir2_me);
 
@@ -3648,7 +3648,7 @@ int NPC_FindCombatPoint(const vec3_t position, const vec3_t avoid_position, vec3
 			// Ignore Points That Do Not Have A Clear LOS To The Player
 			if (flags & CP_CLEAR)
 			{
-				vec3_t weapon_offset;
+				vec3_t weapon_offset = { 0 };
 				CalcEntitySpot(NPC, SPOT_WEAPON, weapon_offset);
 				VectorSubtract(weapon_offset, NPC->currentOrigin, weapon_offset);
 				VectorAdd(weapon_offset, level.combatPoints[i].origin, weapon_offset);
@@ -3959,7 +3959,7 @@ gentity_t* NPC_SearchForWeapons()
 
 static void NPC_SetPickUpGoal(gentity_t* found_weap)
 {
-	vec3_t org;
+	vec3_t org = { 0 };
 
 	//NPCInfo->goalEntity = foundWeap;
 	VectorCopy(found_weap->currentOrigin, org);
@@ -4273,7 +4273,7 @@ static void G_AttackDelay(const gentity_t* self, const gentity_t* enemy)
 	if (enemy && self->client && self->NPC)
 	{
 		//delay their attack based on how far away they're facing from enemy
-		vec3_t fwd, dir;
+		vec3_t fwd = { 0 }, dir = { 0 };
 
 		VectorSubtract(self->client->renderInfo.eyePoint, enemy->r.currentOrigin, dir); //purposely backwards
 		VectorNormalize(dir);
@@ -5530,7 +5530,7 @@ qboolean ShotThroughGlass(trace_t* tr, const gentity_t* target, vec3_t spot, con
 	{
 		//ok to shoot through breakable glass
 		const int skip = hit->s.number;
-		vec3_t muzzle;
+		vec3_t muzzle = { 0 };
 
 		VectorCopy(tr->endpos, muzzle);
 		trap->Trace(tr, muzzle, NULL, NULL, spot, skip, mask, qfalse, 0, 0);
@@ -5550,9 +5550,9 @@ Added: If can't shoot center, try head, if not, see if it's close enough to try 
 */
 qboolean CanShoot(const gentity_t* ent, const gentity_t* shooter)
 {
-	trace_t tr;
-	vec3_t muzzle;
-	vec3_t spot, diff;
+	trace_t tr = { 0 };
+	vec3_t muzzle = { 0 };
+	vec3_t spot = { 0 }, diff = { 0 };
 
 	CalcEntitySpot(shooter, SPOT_WEAPON, muzzle);
 	CalcEntitySpot(ent, SPOT_ORIGIN, spot);
@@ -5879,7 +5879,7 @@ qboolean NPC_EnemyTooFar(const gentity_t* enemy, float dist, const qboolean toSh
 
 	if (!dist)
 	{
-		vec3_t vec;
+		vec3_t vec = { 0 };
 		VectorSubtract(NPCS.NPC->r.currentOrigin, enemy->r.currentOrigin, vec);
 		dist = VectorLengthSquared(vec);
 	}
@@ -5915,10 +5915,10 @@ gentity_t* NPC_PickEnemy(const gentity_t* closestTo, const int enemyTeam, const 
 	const qboolean checkVis = (checkVisIn || !NPC_SeesThroughWalls(NPCS.NPC)) ? qtrue : qfalse;
 
 	int num_choices = 0;
-	int choice[128]; //FIXME: need a different way to determine how many choices?
+	int choice[128] = { 0 }; //FIXME: need a different way to determine how many choices?
 	gentity_t* newenemy = NULL;
 	gentity_t* closestEnemy = NULL;
-	vec3_t diff;
+	vec3_t diff = { 0 };
 	float relDist = 0.0f;
 	float bestDist = 2048.0f;
 	qboolean failed = qfalse;
@@ -6277,7 +6277,7 @@ gentity_t* NPC_PickAlly(const qboolean facingEachOther, const float range,
 		if (ally->client->playerTeam == NPCS.NPC->client->playerTeam ||
 			NPCS.NPC->client->playerTeam == NPCTEAM_ENEMY)
 		{
-			vec3_t diff;
+			vec3_t diff = { 0 };
 
 			// Ignore group logic
 			if (ignoreGroup == qtrue)
@@ -6316,7 +6316,7 @@ gentity_t* NPC_PickAlly(const qboolean facingEachOther, const float range,
 				// Facing requirement
 				if (facingEachOther == qtrue)
 				{
-					vec3_t vf;
+					vec3_t vf = { 0 };
 
 					// Ally facing NPC?
 					AngleVectors(ally->client->ps.viewangles, vf, NULL, NULL);
@@ -6591,8 +6591,8 @@ NPC_ClearShot
 
 qboolean NPC_ClearShot(const gentity_t* ent)
 {
-	vec3_t muzzle;
-	trace_t tr;
+	vec3_t muzzle = { 0 };
+	trace_t tr = { 0 };
 
 	if (NPCS.NPC == NULL || ent == NULL)
 		return qfalse;
@@ -6634,9 +6634,9 @@ NPC_ShotEntity
 
 int NPC_ShotEntity(const gentity_t* ent, vec3_t impactPos)
 {
-	vec3_t muzzle;
-	vec3_t targ;
-	trace_t tr;
+	vec3_t muzzle = { 0 };
+	vec3_t targ = { 0 };
+	trace_t tr = { 0 };
 
 	if (!NPCS.NPC || !ent)
 		return qfalse;
@@ -6645,7 +6645,7 @@ int NPC_ShotEntity(const gentity_t* ent, vec3_t impactPos)
 	{
 		//thermal aims from slightly above head
 		//FIXME: what about low-angle shots, rolling the thermal under something?
-		vec3_t angles, forward, end;
+		vec3_t angles = { 0 }, forward = { 0 }, end = { 0 };
 
 		CalcEntitySpot(NPCS.NPC, SPOT_HEAD, muzzle);
 		VectorSet(angles, 0, NPCS.NPC->client->ps.viewangles[1], 0);
@@ -6765,14 +6765,14 @@ qboolean NPC_CheckDefend(float scale)
 //NOTE: BE SURE TO CHECK PVS BEFORE THIS!
 qboolean NPC_CheckCanAttack(float attack_scale, qboolean stationary)
 {
-	vec3_t delta;
-	vec3_t angleToEnemy;
-	vec3_t muzzle, enemy_org; //, enemy_head;
+	vec3_t delta = { 0 };
+	vec3_t angleToEnemy = { 0 };
+	vec3_t muzzle = { 0 }, enemy_org = { 0 }; //, enemy_head;
 	qboolean attack_ok = qfalse;
 	//	qboolean	duck_ok = qfalse;
 	qboolean dead_on = qfalse;
 	const float max_aim_off = 128 - 16 * (float)NPCS.NPCInfo->stats.aim;
-	trace_t tr;
+	trace_t tr = { 0 };
 	const gentity_t* traceEnt = NULL;
 
 	if (NPCS.NPC->enemy->flags & FL_NOTARGET)
@@ -6824,8 +6824,8 @@ qboolean NPC_CheckCanAttack(float attack_scale, qboolean stationary)
 
 	if (NPCS.enemyVisibility >= VIS_FOV)
 	{
-		vec3_t hitspot;
-		vec3_t forward;
+		vec3_t hitspot = { 0 };
+		vec3_t forward = { 0 };
 		//He's in our FOV
 		attack_ok = qtrue;
 		//CalcEntitySpot( NPC->enemy, SPOT_HEAD, enemy_head);
@@ -6924,7 +6924,7 @@ qboolean NPC_CheckCanAttack(float attack_scale, qboolean stationary)
 				}
 				else
 				{
-					vec3_t diff;
+					vec3_t diff = { 0 };
 					AngleVectors(NPCS.client->ps.viewangles, forward, NULL, NULL);
 					VectorMA(muzzle, distanceToEnemy, forward, hitspot);
 					VectorSubtract(hitspot, enemy_org, diff);
@@ -7156,10 +7156,10 @@ NPC_FindCombatPoint
 int NPC_FindCombatPoint(const vec3_t position, const vec3_t avoidPosition, vec3_t dest_position,
 	const int flags, const float avoidDist, const int ignorePoint)
 {
-	combatPt_t points[MAX_COMBAT_POINTS];
+	combatPt_t points[MAX_COMBAT_POINTS] = { 0 };
 	int best = -1, bestCost = Q3_INFINITE, waypoint = WAYPOINT_NONE;
 	float dist = 0.0f;
-	trace_t tr;
+	trace_t tr = { 0 };
 	float collRad = CP_COLLECT_RADIUS;
 	float modifiedAvoidDist = avoidDist;
 
@@ -7281,7 +7281,7 @@ int NPC_FindCombatPoint(const vec3_t position, const vec3_t avoidPosition, vec3_
 		//We want a point on other side of the enemy from current pos
 		if (flags & CP_FLANK)
 		{
-			vec3_t eDir2Me, eDir2CP;
+			vec3_t eDir2Me = { 0 }, eDir2CP = { 0 };
 
 			VectorSubtract(position, dest_position, eDir2Me);
 			VectorNormalize(eDir2Me);
@@ -7299,8 +7299,8 @@ int NPC_FindCombatPoint(const vec3_t position, const vec3_t avoidPosition, vec3_
 		//See if we're trying to avoid our enemy
 		if (flags & CP_AVOID_ENEMY)
 		{
-			vec3_t eDir, gDir;
-			vec3_t wpOrg;
+			vec3_t eDir = { 0 }, gDir = { 0 };
+			vec3_t wpOrg = { 0 };
 
 			VectorSubtract(position, dest_position, eDir);
 			VectorNormalize(eDir);
@@ -7666,7 +7666,7 @@ gentity_t* NPC_SearchForWeapons(void)
 
 static void NPC_SetPickUpGoal(gentity_t* found_weap)
 {
-	vec3_t org;
+	vec3_t org = { 0 };
 
 	VectorCopy(found_weap->r.currentOrigin, org);
 	org[2] += 24 - found_weap->r.mins[2] * -1; //adjust the origin so that I am on the ground

@@ -189,7 +189,7 @@ CG_ReflectVelocity
 */
 static void CG_ReflectVelocity(localEntity_t* le, const trace_t* trace)
 {
-	vec3_t velocity;
+	vec3_t velocity = {};
 
 	// reflect the velocity on the trace plane
 	const int hitTime = cg.time - cg.frametime + cg.frametime * trace->fraction;
@@ -218,7 +218,7 @@ CG_AddFragment
 */
 static void CG_AddFragment(localEntity_t* le)
 {
-	vec3_t newOrigin;
+	vec3_t newOrigin = {};
 	trace_t trace;
 
 	const int t = le->endTime - cg.time;
@@ -261,7 +261,7 @@ static void CG_AddFragment(localEntity_t* le)
 
 		if (le->leFlags & LEF_TUMBLE)
 		{
-			vec3_t angles;
+			vec3_t angles = {};
 
 			EvaluateTrajectory(&le->angles, cg.time, angles);
 			AnglesToAxis(angles, le->refEntity.axis);
@@ -346,7 +346,7 @@ CG_AddPuff
 */
 static void CG_AddPuff(localEntity_t* le)
 {
-	vec3_t delta;
+	vec3_t delta = {};
 
 	refEntity_t* re = &le->refEntity;
 

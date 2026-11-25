@@ -41,7 +41,7 @@ static void WP_FlechetteMainFire(gentity_t* ent)
 	if (!ent)                     // FIX 1: prevent NULL dereference
 		return;
 
-	vec3_t angs, start;
+	vec3_t angs = {}, start = {};
 	float damage = weaponData[WP_FLECHETTE].damage, vel = FLECHETTE_VEL;
 
 	VectorCopy(muzzle, start);
@@ -56,7 +56,7 @@ static void WP_FlechetteMainFire(gentity_t* ent)
 
 	for (int i = 0; i < FLECHETTE_SHOTS; i++)
 	{
-		vec3_t fwd;
+		vec3_t fwd = {};
 		vectoangles(forward_vec, angs);
 
 		if (i == 0 && ent->s.number == 0)
@@ -259,7 +259,7 @@ static void WP_CreateFlechetteBouncyThing(vec3_t start, vec3_t fwd, gentity_t* s
 static void WP_FlechetteAltFire(gentity_t* self)
 //---------------------------------------------------------
 {
-	vec3_t dir, start, angs;
+	vec3_t dir = {}, start = {}, angs = {};
 
 	vectoangles(forward_vec, angs);
 	VectorCopy(muzzle, start);
@@ -274,7 +274,7 @@ static void WP_FlechetteAltFire(gentity_t* self)
 
 	for (int i = 0; i < 2; i++)
 	{
-		vec3_t fwd;
+		vec3_t fwd = {};
 		VectorCopy(angs, dir);
 
 		dir[PITCH] -= Q_flrand(0.0f, 1.0f) * 4 + 8; // make it fly upwards

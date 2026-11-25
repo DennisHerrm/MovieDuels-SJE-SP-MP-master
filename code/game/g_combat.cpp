@@ -501,7 +501,7 @@ ExplodeDeath
 void ExplodeDeath(gentity_t* self)
 {
 	//	gentity_t	*tent;
-	vec3_t forward;
+	vec3_t forward = {};
 
 	self->takedamage = qfalse; //stop chain reaction runaway loops
 
@@ -697,7 +697,7 @@ G_AlertTeam
 
 void G_AlertTeam(const gentity_t* victim, gentity_t* attacker, const float radius, const float sound_dist)
 {
-	gentity_t* radius_ents[128];
+	gentity_t* radius_ents[128] = {};
 	vec3_t mins{}, maxs{};
 	int i = 0;
 	const float snd_dist_sq = sound_dist * sound_dist;
@@ -718,6 +718,8 @@ void G_AlertTeam(const gentity_t* victim, gentity_t* attacker, const float radiu
 	//Cull this list
 	for (i = 0; i < num_ents; i++)
 	{
+		if (!radius_ents[i])
+			continue;
 		//Validate clients
 		if (radius_ents[i]->client == nullptr)
 			continue;
@@ -821,7 +823,7 @@ extern cvar_t* g_corpseRemovalTime;
 static void G_SpawnProbeWreck(const gentity_t* ent)
 {
 	trace_t tr;
-	vec3_t start, end;
+	vec3_t start = {}, end = {};
 
 	VectorCopy(ent->currentOrigin, start);
 	start[2] += 16;
@@ -863,7 +865,7 @@ void DeathFX(const gentity_t* ent)
 		return;
 	}
 
-	vec3_t effect_pos, right;
+	vec3_t effect_pos = {}, right = {};
 
 	if (ent->m_pVehicle && ent->m_pVehicle->m_pVehicleInfo->type == VH_FIGHTER &&
 		ent->client && ent->client->ps.m_iVehicleNum)
@@ -1396,8 +1398,8 @@ qboolean G_GetHitLocFromSurfName(gentity_t* ent, const char* surf_name, int* hit
 		*hit_loc = HL_WAIST;
 		if (ent->client != nullptr && ent->ghoul2.size())
 		{
-			mdxaBone_t bolt_matrix;
-			vec3_t tag_org, angles;
+			mdxaBone_t bolt_matrix = {};
+			vec3_t tag_org = {}, angles = {};
 
 			VectorSet(angles, 0, ent->currentAngles[YAW], 0);
 			if (ent->kneeLBolt >= 0)
@@ -1437,7 +1439,7 @@ qboolean G_GetHitLocFromSurfName(gentity_t* ent, const char* surf_name, int* hit
 		}
 		else
 		{
-			vec3_t t_fwd, t_rt, t_up, dir_to_impact;
+			vec3_t t_fwd = {}, t_rt = {}, t_up = {}, dir_to_impact = {};
 			AngleVectors(ent->client->renderInfo.torsoAngles, t_fwd, t_rt, t_up);
 			VectorSubtract(point, ent->client->renderInfo.torsoPoint, dir_to_impact);
 			const float front_side = DotProduct(t_fwd, dir_to_impact);
@@ -1505,13 +1507,13 @@ qboolean G_GetHitLocFromSurfName(gentity_t* ent, const char* surf_name, int* hit
 		*hit_loc = HL_ARM_RT;
 		if (ent->client != nullptr && ent->ghoul2.size())
 		{
-			mdxaBone_t bolt_matrix;
-			vec3_t angles;
+			mdxaBone_t bolt_matrix = {};
+			vec3_t angles = {};
 
 			VectorSet(angles, 0, ent->currentAngles[YAW], 0);
 			if (ent->handRBolt >= 0)
 			{
-				vec3_t tag_org;
+				vec3_t tag_org = {};
 				gi.G2API_GetBoltMatrix(ent->ghoul2, ent->playerModel, ent->handRBolt,
 					&bolt_matrix, angles, ent->currentOrigin,
 					actual_time, nullptr, ent->s.modelScale);
@@ -1529,13 +1531,13 @@ qboolean G_GetHitLocFromSurfName(gentity_t* ent, const char* surf_name, int* hit
 		*hit_loc = HL_ARM_LT;
 		if (ent->client != nullptr && ent->ghoul2.size())
 		{
-			mdxaBone_t bolt_matrix;
-			vec3_t angles;
+			mdxaBone_t bolt_matrix = {};
+			vec3_t angles = {};
 
 			VectorSet(angles, 0, ent->currentAngles[YAW], 0);
 			if (ent->handLBolt >= 0)
 			{
-				vec3_t tag_org;
+				vec3_t tag_org = {};
 				gi.G2API_GetBoltMatrix(ent->ghoul2, ent->playerModel, ent->handLBolt,
 					&bolt_matrix, angles, ent->currentOrigin,
 					actual_time, nullptr, ent->s.modelScale);
@@ -1553,13 +1555,13 @@ qboolean G_GetHitLocFromSurfName(gentity_t* ent, const char* surf_name, int* hit
 		*hit_loc = HL_LEG_RT;
 		if (ent->client != nullptr && ent->ghoul2.size())
 		{
-			mdxaBone_t bolt_matrix;
-			vec3_t angles;
+			mdxaBone_t bolt_matrix = {};
+			vec3_t angles = {};
 
 			VectorSet(angles, 0, ent->currentAngles[YAW], 0);
 			if (ent->footRBolt >= 0)
 			{
-				vec3_t tag_org;
+				vec3_t tag_org = {};
 				gi.G2API_GetBoltMatrix(ent->ghoul2, ent->playerModel, ent->footRBolt,
 					&bolt_matrix, angles, ent->currentOrigin,
 					actual_time, nullptr, ent->s.modelScale);
@@ -1577,13 +1579,13 @@ qboolean G_GetHitLocFromSurfName(gentity_t* ent, const char* surf_name, int* hit
 		*hit_loc = HL_LEG_LT;
 		if (ent->client != nullptr && ent->ghoul2.size())
 		{
-			mdxaBone_t bolt_matrix;
-			vec3_t angles;
+			mdxaBone_t bolt_matrix = {};
+			vec3_t angles = {};
 
 			VectorSet(angles, 0, ent->currentAngles[YAW], 0);
 			if (ent->footLBolt >= 0)
 			{
-				vec3_t tag_org;
+				vec3_t tag_org = {};
 				gi.G2API_GetBoltMatrix(ent->ghoul2, ent->playerModel, ent->footLBolt,
 					&bolt_matrix, angles, ent->currentOrigin,
 					actual_time, nullptr, ent->s.modelScale);
@@ -1693,8 +1695,8 @@ qboolean G_GetHitLocFromSurfName(gentity_t* ent, const char* surf_name, int* hit
 					const int tag_bolt = gi.G2API_AddBolt(&ent->ghoul2[ent->playerModel], tag_name);
 					if (tag_bolt != -1)
 					{
-						mdxaBone_t bolt_matrix;
-						vec3_t tag_org, tag_dir, angles;
+						mdxaBone_t bolt_matrix = {};
+						vec3_t tag_org = {}, tag_dir = {}, angles = {};
 						VectorSet(angles, 0, ent->currentAngles[YAW], 0);
 						gi.G2API_GetBoltMatrix(ent->ghoul2, ent->playerModel, tag_bolt,
 							&bolt_matrix, angles, ent->currentOrigin,
@@ -1726,9 +1728,9 @@ qboolean G_GetHitLocFromSurfName(gentity_t* ent, const char* surf_name, int* hit
 
 static int G_GetHitLocation(const gentity_t* target, const vec3_t ppoint)
 {
-	vec3_t point, point_dir;
-	vec3_t forward, right, up;
-	vec3_t tangles, tcenter;
+	vec3_t point = {}, point_dir = {};
+	vec3_t forward = {}, right = {}, up = {};
+	vec3_t tangles = {}, tcenter = {};
 	int vertical = 0;
 	int Forward = 0;
 	int lateral = 0;
@@ -1967,7 +1969,7 @@ extern qboolean G_CorpseSeenByPlayer(const gentity_t* ent);
 void LimbThink(gentity_t* ent)
 {
 	//FIXME: just use object thinking?
-	vec3_t origin;
+	vec3_t origin = {};
 	trace_t tr;
 
 	ent->nextthink = level.time + FRAMETIME;
@@ -2277,7 +2279,7 @@ static void G_RemoveWeaponsWithLimbs(gentity_t* ent, gentity_t* limb, const int 
 	{
 		if (ent->weaponModel[weapon_model_num] >= 0)
 		{
-			char handName[MAX_QPATH];
+			char handName[MAX_QPATH] = {};
 			//have a weapon in this hand
 			if (weapon_model_num == 0 && ent->client->ps.saberInFlight)
 			{
@@ -2364,7 +2366,7 @@ static qboolean G_Dismember(gentity_t* ent, vec3_t point,
 	const int limb_anim, const float limb_roll_base, const float limb_pitch_base,
 	const int hit_loc)
 {
-	vec3_t dir, new_point;
+	vec3_t dir = {}, new_point = {};
 	const vec3_t limb_angles = { 0, ent->client->ps.legsYaw, 0 };
 	trace_t trace;
 
@@ -2466,8 +2468,8 @@ static qboolean G_Dismember(gentity_t* ent, vec3_t point,
 		if (new_bolt != -1)
 		{
 			const int actual_time = cg.time ? cg.time : level.time;
-			mdxaBone_t bolt_matrix;
-			vec3_t angles;
+			mdxaBone_t bolt_matrix = {};
+			vec3_t angles = {};
 
 			VectorSet(angles, 0, ent->currentAngles[YAW], 0);
 			gi.G2API_GetBoltMatrix(ent->ghoul2, ent->playerModel, new_bolt,
@@ -2664,7 +2666,7 @@ static qboolean G_SaberSliceBoltMatrix(gentity_t* ent, const int bolt, mdxaBone_
 	}
 	// the yaw the cgame draws the body with (it writes ps.legsYaw every frame)
 	const vec3_t angles = { 0, ent->client ? ent->client->ps.legsYaw : ent->currentAngles[YAW], 0 };
-	vec3_t origin;
+	vec3_t origin = {};
 	VectorCopy(ent->currentOrigin, origin);
 	if (ent->client && ent->s.modelScale[2] && ent->s.modelScale[2] != 1.0f)
 	{
@@ -2678,12 +2680,12 @@ static qboolean G_SaberSliceBoltMatrix(gentity_t* ent, const int bolt, mdxaBone_
 static qboolean G_SaberSliceBonePos(gentity_t* ent, const char* bone_name, vec3_t out)
 {
 	const int bolt = gi.G2API_AddBolt(&ent->ghoul2[ent->playerModel], bone_name);
-	mdxaBone_t matrix;
+	mdxaBone_t matrix = {};
 	if (!G_SaberSliceBoltMatrix(ent, bolt, &matrix))
 	{
 		return qfalse;
 	}
-	vec3_t pos;
+	vec3_t pos = {};
 	gi.G2API_GiveMeVectorFromMatrix(matrix, ORIGIN, pos);
 	VectorCopy(pos, out);
 	return qtrue;
@@ -2691,7 +2693,7 @@ static qboolean G_SaberSliceBonePos(gentity_t* ent, const char* bone_name, vec3_
 
 static float G_SaberSliceSegmentDist(const vec3_t p, const vec3_t a, const vec3_t b, float* t_out)
 {
-	vec3_t ab, ap, closest;
+	vec3_t ab = {}, ap = {}, closest = {};
 	VectorSubtract(b, a, ab);
 	VectorSubtract(p, a, ap);
 	const float len_sq = DotProduct(ab, ab);
@@ -2775,11 +2777,11 @@ static void G_SaberSliceDropHandWeapons(gentity_t* ent, const int bone, const ve
 		{
 			continue;
 		}
-		qboolean gone;
+		qboolean gone = qfalse;
 		if (SaberSlice_IsTorso(bone))
 		{
 			// the arm goes with the side its shoulder is on
-			vec3_t shoulder;
+			vec3_t shoulder = {};
 			gone = static_cast<qboolean>(G_SaberSliceBonePos(ent, hand == 0 ? "rclavical" : "lclavical", shoulder)
 				&& DotProduct(normal, shoulder) - dist > 0.0f);
 		}
@@ -2854,10 +2856,10 @@ static qboolean G_SaberSlice(gentity_t* ent, const int hit_loc)
 	int best_bone = -1;
 	const saberSliceSeg_t* best_seg = nullptr;
 	float best_score = 9999.0f;
-	vec3_t best_joint, best_child;
+	vec3_t best_joint = {}, best_child = {};
 	for (int b = 0; b < SABERSLICE_SLOT_COUNT; b++)
 	{
-		vec3_t joint, child;
+		vec3_t joint = {}, child = {};
 		const saberSliceSeg_t* seg = SaberSlice_FindSeg(b, G_SaberSliceHasBone, &ent->ghoul2[ent->playerModel]);
 		if (!seg || !G_SaberSliceBonePos(ent, seg->bone, joint) || !G_SaberSliceBonePos(ent, seg->child, child))
 		{
@@ -2891,7 +2893,7 @@ static qboolean G_SaberSlice(gentity_t* ent, const int hit_loc)
 	}
 
 	// the plane the blade swept through, turned towards the bone so a limb is never cut lengthwise
-	vec3_t axis, normal;
+	vec3_t axis = {}, normal = {};
 	VectorSubtract(best_child, best_joint, axis);
 	const float seg_len = VectorNormalize(axis);
 	if (seg_len < 1.0f)
@@ -2911,7 +2913,7 @@ static qboolean G_SaberSlice(gentity_t* ent, const int hit_loc)
 	const float cos_a = DotProduct(normal, axis);
 	if (cos_a < min_cos)
 	{
-		vec3_t perp;
+		vec3_t perp = {};
 		VectorMA(normal, -cos_a, axis, perp);
 		if (VectorNormalize(perp) < 0.001f)
 		{
@@ -2936,13 +2938,13 @@ static qboolean G_SaberSlice(gentity_t* ent, const int hit_loc)
 	// store the cut in the anchor bone's space
 	const int bolt = gi.G2API_AddBolt(&ent->ghoul2[ent->playerModel], best_seg->bone);
 	gi.G2API_AddBolt(&ent->ghoul2[ent->playerModel], best_seg->child); // for the cgame's caps, before the copy
-	mdxaBone_t bone_matrix;
+	mdxaBone_t bone_matrix = {};
 	if (!G_SaberSliceBoltMatrix(ent, bolt, &bone_matrix))
 	{
 		return qfalse;
 	}
 	const float world_plane[4] = { normal[0], normal[1], normal[2], dist };
-	float bone_plane[4];
+	float bone_plane[4] = {};
 	SaberSlice_PlaneToBone(bone_matrix.matrix, world_plane, bone_plane);
 
 	// the piece: a copy of the body that shows only the cut away side
@@ -2951,7 +2953,7 @@ static qboolean G_SaberSlice(gentity_t* ent, const int hit_loc)
 	{
 		return qfalse;
 	}
-	vec3_t cut_center;
+	vec3_t cut_center = {};
 	{
 		const float n_joint = DotProduct(normal, best_joint);
 		const float n_len = DotProduct(normal, axis) * seg_len;
@@ -2984,8 +2986,8 @@ static qboolean G_SaberSlice(gentity_t* ent, const int hit_loc)
 		gi.G2API_SetNewOrigin(&piece->ghoul2[0], bolt);
 	}
 	{
-		mdxaBone_t m;
-		vec3_t pivot;
+		mdxaBone_t m = {};
+		vec3_t pivot = {};
 		G_SaberSliceBoltMatrix(ent, bolt, &m);
 		gi.G2API_GiveMeVectorFromMatrix(m, ORIGIN, pivot);
 		G_SetOrigin(piece, pivot);
@@ -3053,7 +3055,7 @@ static qboolean G_SaberSlice(gentity_t* ent, const int hit_loc)
 	piece->s.apos.trType = TR_LINEAR;
 
 	// thrown along the swing, a little up; the head and small limbs fly further
-	vec3_t swing;
+	vec3_t swing = {};
 	VectorCopy(s_saberSliceHit.swing, swing);
 	VectorNormalize(swing);
 	const float push = SaberSlice_IsTorso(best_bone) ? 70.0f : 140.0f;
@@ -3368,10 +3370,10 @@ qboolean G_DoDismemberment(gentity_t* self, vec3_t point, const int mod, const i
 			int anim = -1;
 			float limb_roll_base = 0, limb_pitch_base = 0;
 			qboolean do_dismemberment = qfalse;
-			char limb_name[MAX_QPATH];
-			char stub_name[MAX_QPATH];
-			char limb_cap_name[MAX_QPATH];
-			char stub_cap_name[MAX_QPATH];
+			char limb_name[MAX_QPATH] = {};
+			char stub_name[MAX_QPATH] = {};
+			char limb_cap_name[MAX_QPATH] = {};
+			char stub_cap_name[MAX_QPATH] = {};
 
 			// Saber Slice (2026-11-17): the cut goes where the blade hit, so with Saber Slice every Model Dismemberment
 			// level above Off cuts the same body parts as High (Low / Medium only limit the Classic limb cuts)
@@ -3555,10 +3557,10 @@ qboolean G_DoDismembermentcin(gentity_t* self, vec3_t point, const int mod, cons
 			int anim = -1;
 			float limb_roll_base = 0, limbPitchBase = 0;
 			qboolean do_dismemberment = qfalse;
-			char limb_name[MAX_QPATH];
-			char stub_name[MAX_QPATH];
-			char limb_cap_name[MAX_QPATH];
-			char stub_cap_name[MAX_QPATH];
+			char limb_name[MAX_QPATH] = {};
+			char stub_name[MAX_QPATH] = {};
+			char limb_cap_name[MAX_QPATH] = {};
+			char stub_cap_name[MAX_QPATH] = {};
 
 			switch (hit_loc)
 			{
@@ -3744,10 +3746,10 @@ static qboolean G_DoGunDismemberment(gentity_t* self, vec3_t point, const int mo
 				int anim = -1;
 				float limb_roll_base = 0, limb_pitch_base = 0;
 				qboolean do_dismemberment = qfalse;
-				char limb_name[MAX_QPATH];
-				char stub_name[MAX_QPATH];
-				char limb_cap_name[MAX_QPATH];
-				char stub_cap_name[MAX_QPATH];
+				char limb_name[MAX_QPATH] = {};
+				char stub_name[MAX_QPATH] = {};
+				char limb_cap_name[MAX_QPATH] = {};
+				char stub_cap_name[MAX_QPATH] = {};
 
 				switch (hit_loc)
 				{
@@ -4044,7 +4046,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			else
 			{
 				//crouch death
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4075,7 +4077,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			else if (self->client->ps.legsAnimTimer < 800)
 			{
 				//crouching
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4110,7 +4112,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			else if (self->client->ps.legsAnimTimer < 850)
 			{
 				//crouching
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4145,7 +4147,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			else if (self->client->ps.legsAnimTimer < 600)
 			{
 				//crouching
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4180,7 +4182,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			else if (self->client->ps.legsAnimTimer < 600)
 			{
 				//crouching
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4227,7 +4229,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			if (self->client->ps.legsAnimTimer < 800)
 			{
 				//crouching
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4258,7 +4260,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			if (self->client->ps.legsAnimTimer < 800)
 			{
 				//crouching
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4298,7 +4300,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			else if (self->client->ps.legsAnimTimer < 900)
 			{
 				//crouching
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4338,7 +4340,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			else if (self->client->ps.legsAnimTimer < 900)
 			{
 				//crouching
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4427,7 +4429,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 			else if (self->client->ps.legsAnimTimer < 425)
 			{
 				//crouching up
-				vec3_t fwd;
+				vec3_t fwd = {};
 				AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 				float thrown = DotProduct(fwd, self->client->ps.velocity);
 				if (thrown < -150)
@@ -4520,7 +4522,7 @@ static int G_CheckSpecialDeathAnim(gentity_t* self)
 	}
 	else if (PM_CrouchAnim(self->client->ps.legsAnim))
 	{
-		vec3_t fwd;
+		vec3_t fwd = {};
 		AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 		float thrown = DotProduct(fwd, self->client->ps.velocity);
 		if (thrown < -200)
@@ -4674,7 +4676,7 @@ static int G_PickDeathAnim(gentity_t* self, vec3_t point, const int damage, int 
 		if (death_anim == -1)
 		{
 			//base on hit_loc
-			vec3_t fwd;
+			vec3_t fwd = {};
 			AngleVectors(self->currentAngles, fwd, nullptr, nullptr);
 			const float thrown = DotProduct(fwd, self->client->ps.velocity);
 			//death anims
@@ -4999,7 +5001,7 @@ int G_CheckLedgeDive(gentity_t* self, const float check_dist, const vec3_t check
 		return 0;
 	}
 
-	vec3_t fall_forward_dir, fall_right_dir;
+	vec3_t fall_forward_dir = {}, fall_right_dir = {};
 	vec3_t angles = { 0 };
 	int cliff_fall = 0;
 
@@ -5425,7 +5427,7 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker,
 
 						if (parent->pos3[0] || parent->pos3[1])
 						{
-							vec3_t throw_dir;
+							vec3_t throw_dir = {};
 
 							VectorCopy(parent->client->ps.velocity, throw_dir);
 							VectorNormalize(throw_dir);
@@ -5566,7 +5568,7 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker,
 		{
 			extern void RunEmplacedWeapon(gentity_t * ent, usercmd_t * *ucmd);
 
-			usercmd_t cmd;
+			usercmd_t cmd = {};
 			usercmd_t* ad_cmd = nullptr;
 
 			memset(&cmd, 0, sizeof(cmd));
@@ -6258,8 +6260,8 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker,
 					(self->client->ps.pm_flags & PMF_TIME_KNOCKBACK) &&
 					self->client->ps.velocity[2] > 0)
 				{
-					vec3_t throwdir;
-					vec3_t forward;
+					vec3_t throwdir = {};
+					vec3_t forward = {};
 
 					AngleVectors(self->currentAngles, forward, nullptr, nullptr);
 
@@ -6458,7 +6460,7 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker,
 		}
 		else if (means_of_death == MOD_SNIPER || means_of_death == MOD_PROJECTION_END)
 		{
-			vec3_t spot;
+			vec3_t spot = {};
 			VectorCopy(self->currentOrigin, spot);
 
 			self->flags |= FL_DISINTEGRATED;
@@ -6631,7 +6633,7 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker,
 		// NEW: Attempt to start ragdoll (server‑side authoritative)
 		// ------------------------------------------------------------
 		{
-			vec3_t forcedAngles;
+			vec3_t forcedAngles = {};
 			VectorCopy(self->client->ps.viewangles, forcedAngles);
 
 			if (G_RagDoll(self, forcedAngles) == qtrue)
@@ -7181,7 +7183,7 @@ void G_Slapdown(gentity_t* self, gentity_t* attacker, const vec3_t push_dir, flo
 			else
 			{
 				//plain old knockdown
-				vec3_t p_l_fwd;
+				vec3_t p_l_fwd = {};
 				const vec3_t p_l_angles = { 0, self->client->ps.viewangles[YAW], 0 };
 				AngleVectors(p_l_angles, p_l_fwd, nullptr, nullptr);
 				if (DotProduct(p_l_fwd, push_dir) > 0.2f)
@@ -7402,7 +7404,7 @@ void G_Knockdown(gentity_t* self, gentity_t* attacker, const vec3_t push_dir, fl
 			else
 			{
 				//plain old knockdown
-				vec3_t p_l_fwd;
+				vec3_t p_l_fwd = {};
 				const vec3_t p_l_angles = { 0, self->client->ps.viewangles[YAW], 0 };
 				AngleVectors(p_l_angles, p_l_fwd, nullptr, nullptr);
 				if (DotProduct(p_l_fwd, push_dir) > 0.2f)
@@ -7615,7 +7617,7 @@ void G_KnockOver(gentity_t* self, gentity_t* attacker, const vec3_t push_dir, co
 			else
 			{
 				//plain old knockdown
-				vec3_t p_l_fwd;
+				vec3_t p_l_fwd = {};
 				const vec3_t p_l_angles = { 0, self->client->ps.viewangles[YAW], 0 };
 				AngleVectors(p_l_angles, p_l_fwd, nullptr, nullptr);
 				if (DotProduct(p_l_fwd, push_dir) > 0.2f)
@@ -7818,7 +7820,7 @@ void G_BlastDown(gentity_t* self, gentity_t* attacker, const vec3_t push_dir, fl
 			else
 			{
 				//plain old knockdown
-				vec3_t p_l_fwd;
+				vec3_t p_l_fwd = {};
 				const vec3_t p_l_angles = { 0, self->client->ps.viewangles[YAW], 0 };
 				AngleVectors(p_l_angles, p_l_fwd, nullptr, nullptr);
 				if (DotProduct(p_l_fwd, push_dir) > 0.2f)
@@ -7917,8 +7919,8 @@ G_LocationDamage
 */
 static int G_LocationDamage(const vec3_t point, const gentity_t* targ, int take)
 {
-	vec3_t bullet_path;
-	vec3_t bullet_angle;
+	vec3_t bullet_path = {};
+	vec3_t bullet_angle = {};
 
 	// First things first.  If we're not damaging them, why are we here?
 	if (!take)
@@ -8233,7 +8235,7 @@ void G_ApplyKnockback(gentity_t* targ, vec3_t new_dir, float knockback)
 		return;
 	}
 
-	vec3_t kvel;
+	vec3_t kvel = {};
 	float mass = 0.0f;
 
 	if (targ->client &&
@@ -8317,7 +8319,7 @@ static void G_ApplyLightningKnockback(gentity_t* targ, vec3_t new_dir, float kno
 	{
 		Com_Printf(S_COLOR_CYAN"WINDU LIGHTNING KNOCKBACK CORRECT\n");
 	}
-	vec3_t kvel;
+	vec3_t kvel = {};
 	float mass = 0.0f;
 
 	if (targ
@@ -8392,7 +8394,7 @@ static void G_ApplyLightningKnockback(gentity_t* targ, vec3_t new_dir, float kno
 
 static int G_CheckForLedge(const gentity_t* self, vec3_t fall_check_dir, const float check_dist)
 {
-	vec3_t start, end;
+	vec3_t start = {}, end = {};
 	trace_t tr;
 
 	VectorMA(self->currentOrigin, check_dist, fall_check_dir, end);
@@ -8780,7 +8782,7 @@ static void G_DeathImpulse(gentity_t* targ, const gentity_t* inflictor, const ve
 {
 	static cvar_t* g_deathImpulse = nullptr;
 	float speed = 0.0f, lift = 0.0f;
-	vec3_t d, push;
+	vec3_t d = {}, push = {};
 
 	if (!g_deathImpulse)
 	{
@@ -8863,7 +8865,7 @@ void G_Damage(gentity_t* targ, gentity_t* inflictor, gentity_t* attacker, const 
 	int take = 0;
 	int asave = 0;
 	int knockback = 0;
-	vec3_t new_dir;
+	vec3_t new_dir = {};
 	qboolean already_dead = qfalse;
 	float shield_absorbed = 0;
 
@@ -9718,8 +9720,8 @@ void G_Damage(gentity_t* targ, gentity_t* inflictor, gentity_t* attacker, const 
 				trace_t test_trace;
 
 				{
-					vec3_t test_end_pos;
-					vec3_t test_start_pos;
+					vec3_t test_end_pos = {};
+					vec3_t test_start_pos = {};
 					vec3_t test_direction{};
 					test_direction[0] = Q_flrand(0.0f, 1.0f) * 0.5f - 0.25f;
 					test_direction[1] = Q_flrand(0.0f, 1.0f) * 0.5f - 0.25f;
@@ -9766,8 +9768,8 @@ void G_Damage(gentity_t* targ, gentity_t* inflictor, gentity_t* attacker, const 
 				attacker->s.number < MAX_CLIENTS && // who is the player
 				G_IsRidingVehicle(attacker)) // who is riding a bike
 			{
-				vec3_t veh_fwd;
-				vec3_t actor_fwd;
+				vec3_t veh_fwd = {};
+				vec3_t actor_fwd = {};
 				AngleVectors(targ->currentAngles, actor_fwd, nullptr, nullptr);
 
 				Vehicle_t* p_veh = G_IsRidingVehicle(attacker);
@@ -10124,7 +10126,7 @@ void G_Damage(gentity_t* targ, gentity_t* inflictor, gentity_t* attacker, const 
 		|| mod == MOD_ENERGY_SPLASH) && shield_absorbed)
 	{
 		gentity_t* ev_ent = nullptr;
-		vec3_t vec3;
+		vec3_t vec3 = {};
 		// Send off an event to show a shield shell on the player, pointing in the right direction.
 		ev_ent = G_TempEntity(targ->currentOrigin, EV_SHIELD_HIT);
 		ev_ent->s.otherEntityNum = targ->s.number;
@@ -10575,9 +10577,9 @@ explosions and melee attacks.
 */
 qboolean CanDamage(const gentity_t* targ, const vec3_t origin)
 {
-	vec3_t dest;
+	vec3_t dest = {};
 	trace_t tr;
-	vec3_t midpoint;
+	vec3_t midpoint = {};
 	qboolean cant_hit_ent = qtrue;
 
 	if (targ->contents & MASK_SOLID)
@@ -10669,7 +10671,7 @@ void G_RadiusDamage(const vec3_t origin, gentity_t* attacker, const float damage
 	static gentity_t* entity_scratch[MAX_GENTITIES];
 	vec3_t mins{}, maxs{};
 	vec3_t v{};
-	vec3_t dir;
+	vec3_t dir = {};
 	int i = 0;
 	int dflags = DAMAGE_RADIUS;
 
@@ -10743,14 +10745,14 @@ void G_RadiusDamage(const vec3_t origin, gentity_t* attacker, const float damage
 				bike = ent->owner;
 			}
 
-			vec3_t veh_move_direction;
+			vec3_t veh_move_direction = {};
 
 			float mass = 0.0f;
 			G_GetMassAndVelocityForEnt(bike, &mass, veh_move_direction);
 			const float veh_move_speed = VectorNormalize(veh_move_direction);
 			if (veh_move_speed > 300.0f)
 			{
-				vec3_t explosion_direction;
+				vec3_t explosion_direction = {};
 				VectorSubtract(bike->currentOrigin, origin, explosion_direction);
 				VectorNormalize(explosion_direction);
 

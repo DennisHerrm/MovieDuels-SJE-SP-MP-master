@@ -86,7 +86,7 @@ static void Pzk_Print(const int clientNum, const char* text)
 // Turns to face the other one (yaw only), before sitting down: the meditate pose then holds the view
 static void Pzk_Face(gentity_t* ent, const gentity_t* other)
 {
-	vec3_t dir, angles;
+	vec3_t dir = { 0 }, angles = { 0 };
 
 	if (!other)
 	{
@@ -221,8 +221,8 @@ static int Pzk_FreeGame(void)
 // The entity in the player's crosshair (up to PZK_LOOK_RANGE away)
 static gentity_t* Pzk_LookTarget(gentity_t* ent)
 {
-	vec3_t start, end, fwd;
-	trace_t tr;
+	vec3_t start = { 0 }, end = { 0 }, fwd = { 0 };
+	trace_t tr = { 0 };
 
 	VectorCopy(ent->client->ps.origin, start);
 	start[2] += ent->client->ps.viewheight;
@@ -366,8 +366,8 @@ static int Pzk_SitTime(const gentity_t* ent)
 // p2: the other player, or NULL for the AI (with aiName; bot: the bot who sits in for it)
 static void Pzk_StartMatch(gentity_t* p1, gentity_t* p2, const char* aiName, gentity_t* bot)
 {
-	int cards[PZK_NUM_SIDECARDS];
-	int aiDeck[PZK_SIDEDECK_SIZE];
+	int cards[PZK_NUM_SIDECARDS] = { 0 };
+	int aiDeck[PZK_SIDEDECK_SIZE] = { 0 };
 	const int index = Pzk_FreeGame();
 	pzkGame_t* g = NULL;
 	int sit = 0;
@@ -592,7 +592,7 @@ qboolean G_Pazaak_ClientCommand(gentity_t* ent, const char* cmd)
 	}
 	if (!Q_stricmp(cmd, "pazaak"))
 	{
-		char arg[MAX_TOKEN_CHARS];
+		char arg[MAX_TOKEN_CHARS] = { 0 };
 		trap->Argv(1, arg, sizeof(arg));
 		if (!Q_stricmp(arg, "accept"))
 		{
@@ -894,7 +894,7 @@ static void G_Shop_Init(void)
 	trap->Cvar_Register(&g_shopAmmoPrice, "g_shopAmmoPrice", "150", CVAR_ARCHIVE);
 	trap->Cvar_Register(&g_shopBactaPrice, "g_shopBactaPrice", "200", CVAR_ARCHIVE);
 	{
-		int i;
+		int i = 0;
 		for (i = 0; i < SHOP_NUM_HOLDABLES; i++)
 		{
 			trap->Cvar_Register(&shopHoldables[i].price, shopHoldables[i].cvarName, shopHoldables[i].defPrice, CVAR_ARCHIVE);
@@ -938,12 +938,12 @@ static int Shop_HoldPrice(const int i)
 static const char* Shop_HoldList(const gentity_t* ent)
 {
 	static char list[256];
-	int i;
+	int i = 0;
 
 	list[0] = 0;
 	for (i = 0; i < SHOP_NUM_HOLDABLES; i++)
 	{
-		char one[32];
+		char one[32] = { 0 };
 		Com_sprintf(one, sizeof(one), "%s%i:%i:1", i ? "," : "", Shop_HoldPrice(i),
 			ent->client->ps.stats[STAT_HOLDABLE_ITEMS] & 1 << shopHoldables[i].holdable ? 1 : 0);
 		Q_strcat(list, sizeof(list), one);
@@ -975,7 +975,7 @@ static int Shop_WeaponByName(const char* name)
 		{ "WP_THERMAL", WP_THERMAL },{ "WP_TRIP_MINE", WP_TRIP_MINE },{ "WP_DET_PACK", WP_DET_PACK },
 		{ "WP_STUN_BATON", WP_STUN_BATON },{ "WP_NOGHRI_STICK", WP_NOGHRI_STICK },{ "WP_TUSKEN_STAFF", WP_TUSKEN_STAFF },
 	};
-	int i;
+	int i = 0;
 	for (i = 0; i < (int)ARRAY_LEN(table); i++)
 	{
 		if (!Q_stricmp(name, table[i].name))
@@ -990,7 +990,7 @@ static int Shop_WeaponByName(const char* name)
 static int Shop_CatByName(const char* name)
 {
 	static const char* cats[] = { "pistols", "rifles", "heavy", "explosives", "melee" };
-	int i;
+	int i = 0;
 	for (i = 0; i < (int)ARRAY_LEN(cats); i++)
 	{
 		if (!Q_stricmp(name, cats[i]))
@@ -1077,9 +1077,9 @@ static const char* Shop_Token(const char** p, char* out, const int size)
 static void Shop_LoadItems(void)
 {
 	fileHandle_t f = 0;
-	int len;
-	const char* p;
-	char tok[MAX_QPATH], key[64];
+	int len = 0;
+	const char* p = NULL;
+	char tok[MAX_QPATH] = { 0 }, key[64] = { 0 };
 
 	if (shopNumItems >= 0)
 	{
@@ -1108,7 +1108,7 @@ static void Shop_LoadItems(void)
 	p = shopFileBuf;
 	while (Shop_Token(&p, tok, sizeof(tok)) && shopNumItems < SHOP_MAX_ITEMS)
 	{
-		shopItem_t* it;
+		shopItem_t* it = NULL;
 		qboolean spOnly = qfalse;
 
 		// <anything> { key value ... }: every block is an item, numbered from 1 in file order (as the UI does)
@@ -1176,8 +1176,8 @@ static void Shop_TalkHint(gentity_t* ent);
 // use icon for someone to talk to
 void G_Shop_PlayerThink(gentity_t* ent)
 {
-	gclient_t* cl;
-	int n;
+	gclient_t* cl = NULL;
+	int n = 0;
 
 	if (!ent || !ent->client || ent->s.number >= MAX_CLIENTS)
 	{
@@ -1219,8 +1219,8 @@ void G_Shop_PlayerThink(gentity_t* ent)
 // g_combat.c player_die: credits for a player's kills, the loss when a player dies
 void G_Shop_Died(gentity_t* victim, gentity_t* attacker)
 {
-	gclient_t* cl;
-	int max, streak, reward;
+	gclient_t* cl = NULL;
+	int max = 0, streak = 0, reward = 0;
 
 	if (!Shop_Cvar(&g_shop) || !victim || !victim->client)
 	{
@@ -1284,7 +1284,7 @@ void G_Shop_Died(gentity_t* victim, gentity_t* attacker)
 // Why this player can't shop now (NULL: he can)
 static const char* Shop_BusyReason(gentity_t* ent)
 {
-	const char* busy;
+	const char* busy = NULL;
 
 	if (!Pzk_CanPlay(ent, qfalse))
 	{
@@ -1308,11 +1308,11 @@ static qboolean Shop_HasWeapon(const gentity_t* ent, const int weapon)
 static void Shop_Send(const gentity_t* ent, const char* what, const char* message)
 {
 	const gclient_t* cl = ent->client;
-	unsigned int owned[8], inHand[8];
-	char ownedHex[8 * 8 + 1], handHex[8 * 8 + 1];
-	char msg[128];
-	char* q;
-	int i;
+	unsigned int owned[8] = { 0 }, inHand[8] = { 0 };
+	char ownedHex[8 * 8 + 1] = { 0 }, handHex[8 * 8 + 1] = { 0 };
+	char msg[128] = { 0 };
+	char* q = NULL;
+	int i = 0;
 
 	// first: the caller's message is often a va() string, and the va() calls below write over it
 	Q_strncpyz(msg, message ? message : "", sizeof(msg));
@@ -1350,7 +1350,7 @@ static void Shop_Send(const gentity_t* ent, const char* what, const char* messag
 
 static void Shop_Open(gentity_t* ent, const char* message)
 {
-	const char* busy;
+	const char* busy = NULL;
 
 	shopPartner[ent->s.number] = 0; // Shop_TalkAnswer sets the bot after
 	if (!Shop_Cvar(&g_shop))
@@ -1375,11 +1375,11 @@ static qboolean Shop_FillAmmo(gentity_t* ent)
 {
 	qboolean filled = qfalse;
 	playerState_t* ps = &ent->client->ps;
-	int w;
+	int w = 0;
 
 	for (w = WP_NONE + 1; w < WP_NUM_WEAPONS; w++)
 	{
-		int a;
+		int a = 0;
 		if (w == WP_SABER || w == WP_MELEE || w == WP_STUN_BATON || !BG_HasWeapon(ps->stats, w))
 		{
 			continue;
@@ -1427,8 +1427,8 @@ static void Shop_BuyHoldable(gentity_t* ent, const int i)
 static void Shop_Buy(gentity_t* ent, const int item)
 {
 	gclient_t* cl = ent->client;
-	const shopItem_t* it;
-	int weapon, price;
+	const shopItem_t* it = NULL;
+	int weapon = 0, price = 0;
 
 	if (!Shop_Cvar(&g_shop) || Shop_BusyReason(ent))
 	{
@@ -1617,8 +1617,8 @@ static qboolean Shop_CanTalk(gentity_t* player, gentity_t* other)
 // Who the player would use: TryUse's trace (g_utils.c, USE_DISTANCE 64 from the eyes)
 static gentity_t* Shop_UseTarget(const gentity_t* ent)
 {
-	trace_t tr;
-	vec3_t src, dest, fwd;
+	trace_t tr = { 0 };
+	vec3_t src = { 0 }, dest = { 0 }, fwd = { 0 };
 
 	VectorCopy(ent->client->ps.origin, src);
 	src[2] += ent->client->ps.viewheight;
@@ -1650,8 +1650,8 @@ static void Shop_TalkHint(gentity_t* ent)
 // g_utils.c TryUse: a friendly NPC or bot asks "challenge to pazaak / buy items / leave" (qtrue: asked)
 qboolean G_Shop_TryTalk(gentity_t* player, const gentity_t* npc)
 {
-	char who[64];
-	char* q;
+	char who[64] = { 0 };
+	char* q = NULL;
 	gentity_t* other = npc ? &g_entities[npc->s.number] : NULL;
 
 	if (!npc || !other || !Shop_CanTalk(player, other))
@@ -1682,8 +1682,8 @@ qboolean G_Shop_TryTalk(gentity_t* player, const gentity_t* npc)
 // sends BUTTON_TALK; 1.5 s for the menu to open), he stays within 300 units, and no enemy NPC comes for either.
 int G_Shop_BotTalkingTo(const int botNum)
 {
-	const gentity_t* bot;
-	int i;
+	const gentity_t* bot = NULL;
+	int i = 0;
 
 	if (botNum < 0 || botNum >= MAX_CLIENTS)
 	{
@@ -1720,9 +1720,9 @@ int G_Shop_BotTalkingTo(const int botNum)
 static void Shop_TalkAnswer(gentity_t* ent, const int answer)
 {
 	const int n = shopTalkNPC[ent->s.number] - 1;
-	gentity_t* npc;
-	const char* busy;
-	const char* name;
+	gentity_t* npc = NULL;
+	const char* busy = NULL;
+	const char* name = NULL;
 
 	shopTalkNPC[ent->s.number] = 0;
 	if (n < 0 || n >= ENTITYNUM_MAX_NORMAL)
@@ -1794,7 +1794,7 @@ static void Shop_TalkAnswer(gentity_t* ent, const int answer)
 // The shop's commands (G_Pazaak_ClientCommand passes them on): shop, shopbuy, shoptalk, shopclosed, shopcredits (cheat)
 static qboolean Shop_ClientCommand(gentity_t* ent, const char* cmd)
 {
-	char arg[MAX_TOKEN_CHARS];
+	char arg[MAX_TOKEN_CHARS] = { 0 };
 
 	if (!Shop_IsHuman(ent))
 	{

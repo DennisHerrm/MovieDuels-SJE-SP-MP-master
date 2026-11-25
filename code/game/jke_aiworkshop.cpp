@@ -386,7 +386,7 @@ void WorkshopToggle(gentity_t* ent)
 
 static void WorkshopSelect_f(gentity_t* ent)
 {
-	vec3_t src, dest, vf;
+	vec3_t src = {}, dest = {}, vf = {};
 	trace_t trace;
 	VectorCopy(ent->client->renderInfo.eyePoint, src);
 	AngleVectors(ent->client->ps.viewangles, vf, nullptr, nullptr);
@@ -619,7 +619,7 @@ static void Workshop_Set_GoalEntity_f(gentity_t* ent)
 		}
 	}
 
-	vec3_t src, dest, vf;
+	vec3_t src = {}, dest = {}, vf = {};
 	trace_t trace;
 	VectorCopy(ent->client->renderInfo.eyePoint, src);
 	AngleVectors(ent->client->ps.viewangles, vf, nullptr, nullptr);
@@ -679,7 +679,7 @@ static void Workshop_Set_Enemy_f(gentity_t* ent)
 		}
 	}
 
-	vec3_t src, dest, vf;
+	vec3_t src = {}, dest = {}, vf = {};
 	trace_t trace;
 	VectorCopy(ent->client->renderInfo.eyePoint, src);
 	AngleVectors(ent->client->ps.viewangles, vf, nullptr, nullptr);
@@ -897,7 +897,7 @@ static void Workshop_Set_Leader_f(gentity_t* ent)
 		//g_entities[selectedAI].client->team_leader = &g_entities[atoi(gi.argv(1))];
 	}
 
-	vec3_t src, dest, vf;
+	vec3_t src = {}, dest = {}, vf = {};
 	trace_t trace;
 	VectorCopy(ent->client->renderInfo.eyePoint, src);
 	AngleVectors(ent->client->ps.viewangles, vf, nullptr, nullptr);

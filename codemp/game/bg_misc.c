@@ -969,7 +969,7 @@ qboolean BG_LegalizedForcePowers(
 	const int gametype,
 	const int fp_disabled)
 {
-	char power_buf[128];
+	char power_buf[128] = { 0 };
 	char read_buf[128] = { 0 };
 	qboolean maintains_validity = qtrue;
 	const int power_len = (int)strlen(power_out);
@@ -3038,7 +3038,7 @@ grabbing them easier
 */
 qboolean BG_PlayerTouchesItem(const playerState_t* ps, const entityState_t* item, const int at_time)
 {
-	vec3_t origin;
+	vec3_t origin = { 0 };
 
 	BG_EvaluateTrajectory(&item->pos, at_time, origin);
 
@@ -4021,8 +4021,8 @@ static int BG_ReadFileHead(const char* path, byte* buf, const int size)
 // the bone count of a GLA (name without ".gla"), 0 when it is missing or not a GLA
 static int BG_GLABoneCount(const char* gla)
 {
-	byte head[BG_MDXA_HEADER_BYTES];
-	char path[MAX_QPATH];
+	byte head[BG_MDXA_HEADER_BYTES] = { 0 };
+	char path[MAX_QPATH] = { 0 };
 	int numBones = 0;
 
 	Com_sprintf(path, sizeof path, "%s.gla", gla);
@@ -4092,8 +4092,8 @@ static qboolean BG_PlayerFolderOfPath(const char* path, char* folder, const int 
 // ("models/players/rockettrooper/rockettrooper"), else <folder>/_humanoid, <folder>/<X> or <folder>/model.
 qboolean BG_SkeletonGLAForPath(const char* path, char* glaOut, const int glaOutSize)
 {
-	char folder[MAX_QPATH];
-	char gla[MAX_QPATH];
+	char folder[MAX_QPATH] = { 0 };
+	char gla[MAX_QPATH] = { 0 };
 	const char* leaf = NULL;
 
 	if (glaOut && glaOutSize > 0)
@@ -4168,8 +4168,8 @@ qboolean BG_IsOwnSkeletonPath(const char* path)
 {
 	static bgSkelCache_t cache[BG_SKEL_CACHE_SIZE];
 	static int numCached = 0;
-	char folder[MAX_QPATH];
-	char gla[MAX_QPATH];
+	char folder[MAX_QPATH] = { 0 };
+	char gla[MAX_QPATH] = { 0 };
 
 	if (!path || !path[0] || !BG_PlayerFolderOfPath(path, folder, sizeof folder, NULL))
 	{
@@ -4203,8 +4203,8 @@ qboolean BG_IsOwnSkeletonModel(const char* model)
 {
 	static bgSkelCache_t cache[BG_SKEL_CACHE_SIZE];
 	static int numCached = 0;
-	char folder[MAX_QPATH];
-	char path[MAX_QPATH];
+	char folder[MAX_QPATH] = { 0 };
+	char path[MAX_QPATH] = { 0 };
 	int n = 0;
 
 	if (!model || !model[0])
@@ -4235,7 +4235,7 @@ qboolean BG_IsOwnSkeletonModel(const char* model)
 	}
 
 	qboolean own = qfalse;
-	byte head[BG_MDXM_HEADER_BYTES];
+	byte head[BG_MDXM_HEADER_BYTES] = { 0 };
 	Com_sprintf(path, sizeof path, "models/players/%s/model.glm", folder);
 	if (BG_ReadFileHead(path, head, sizeof head) == (int)sizeof head && !memcmp(head, "2LGM", 4) &&
 		memchr(head + BG_MDXM_ANIMNAME_OFS, 0, MAX_QPATH))
@@ -4249,7 +4249,7 @@ qboolean BG_IsOwnSkeletonModel(const char* model)
 		// (R_MD_ChooseAnimGLA), so a custom 53-bone skeleton is not animated with the master set's frames
 		if (BG_BoneCountIsOwnSkeleton(numBones) || !BG_IsHumanoidFamilyPath((const char*)(head + BG_MDXM_ANIMNAME_OFS)))
 		{
-			char cfg[MAX_QPATH];
+			char cfg[MAX_QPATH] = { 0 };
 			Q_strncpyz(cfg, (const char*)(head + BG_MDXM_ANIMNAME_OFS), sizeof cfg);
 			char* slash = strrchr(cfg, '/');
 			if (slash && strlen(cfg) + strlen("/animation.cfg") < sizeof cfg)
@@ -4269,7 +4269,7 @@ qboolean BG_IsOwnSkeletonModel(const char* model)
 // in the systeminfo, so game, cgame, ui and the renderers all read the same value.
 qboolean BG_MasterAnimStyleActive(void)
 {
-	char buf[16];
+	char buf[16] = { 0 };
 
 	trap->Cvar_VariableStringBuffer("g_animationStyleActive", buf, sizeof buf);
 	return atoi(buf) == 1 ? qtrue : qfalse;
@@ -4296,7 +4296,7 @@ static qboolean BG_FolderHasAnimCfg(const char* folder)
 // same rule as the renderers' R_MD_ChooseAnimGLA, so the animation.cfg always matches the GLA the model loaded.
 qboolean BG_HumanoidPathUsesMaster(const char* path)
 {
-	char folder[MAX_QPATH];
+	char folder[MAX_QPATH] = { 0 };
 
 	if (BG_MasterAnimStyleActive())
 	{
@@ -4316,8 +4316,8 @@ qboolean BG_ModelUsesOwnAnimSet(const char* model)
 {
 	static bgSkelCache_t cache[BG_SKEL_CACHE_SIZE];
 	static int numCached = 0;
-	char folder[MAX_QPATH];
-	char path[MAX_QPATH];
+	char folder[MAX_QPATH] = { 0 };
+	char path[MAX_QPATH] = { 0 };
 	int n = 0;
 
 	if (BG_IsOwnSkeletonModel(model))
@@ -4352,12 +4352,12 @@ qboolean BG_ModelUsesOwnAnimSet(const char* model)
 	}
 
 	qboolean own = qfalse;
-	byte head[BG_MDXM_HEADER_BYTES];
+	byte head[BG_MDXM_HEADER_BYTES] = { 0 };
 	Com_sprintf(path, sizeof path, "models/players/%s/model.glm", folder);
 	if (BG_ReadFileHead(path, head, sizeof head) == (int)sizeof head && !memcmp(head, "2LGM", 4) &&
 		memchr(head + BG_MDXM_ANIMNAME_OFS, 0, MAX_QPATH))
 	{
-		char glaFolder[MAX_QPATH];
+		char glaFolder[MAX_QPATH] = { 0 };
 		if (BG_PlayerFolderOfPath((const char*)(head + BG_MDXM_ANIMNAME_OFS), glaFolder, sizeof glaFolder, NULL) &&
 			Q_stricmp(glaFolder, "models/players/_humanoid"))
 		{

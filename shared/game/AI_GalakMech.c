@@ -139,8 +139,8 @@ static void GM_CreateExplosion(gentity_t* self, const int bolt_id, const qboolea
 {
 	if (bolt_id >= 0)
 	{
-		mdxaBone_t bolt_matrix;
-		vec3_t org, dir;
+		mdxaBone_t bolt_matrix = { 0 };
+		vec3_t org = { 0 }, dir = { 0 };
 
 		gi.G2API_GetBoltMatrix(self->ghoul2, self->playerModel,
 			bolt_id,
@@ -165,8 +165,8 @@ static void GM_CreateExplosion(gentity_t* self, const int bolt_id, const qboolea
 {
 	if (bolt_id >= 0)
 	{
-		mdxaBone_t boltMatrix;
-		vec3_t org, dir;
+		mdxaBone_t boltMatrix = { 0 };
+		vec3_t org = { 0 }, dir = { 0 };
 
 		trap->G2API_GetBoltMatrix(self->ghoul2, 0, bolt_id, &boltMatrix, self->r.currentAngles, self->r.currentOrigin,
 			level.time, NULL, self->modelScale);
@@ -526,7 +526,7 @@ void NPC_GM_Pain(SHR_PAIN_PARAMS)
 #else // MP keeps its own version of this function
 void NPC_GM_Pain(gentity_t* self, gentity_t* attacker, const int damage)
 {
-	vec3_t point;
+	vec3_t point = { 0 };
 	const gentity_t* inflictor = attacker;
 
 	const int mod = gPainMOD;
@@ -643,7 +643,7 @@ static qboolean GM_Move(void)
 	NPCS.NPCInfo->combatMove = qtrue; //always move straight toward our goal
 
 	const qboolean moved = NPC_MoveToGoal(qtrue);
-	navInfo_t info;
+	navInfo_t info SHR_NAVINFO_INIT;
 
 	//Get the move info
 	SHR_NAV_GetLastMove(info);
@@ -754,7 +754,7 @@ static void GM_CheckFireState(void)
 			if (!Q_irand(0, 10))
 			{
 				//Fire on the last known position
-				vec3_t muzzle;
+				vec3_t muzzle = { 0 };
 				qboolean too_close = qfalse;
 				qboolean too_far = qfalse;
 
@@ -762,9 +762,9 @@ static void GM_CheckFireState(void)
 				if (VectorCompare(impactPos, vec3_origin))
 				{
 					//never checked ShotEntity this frame, so must do a trace...
-					trace_t tr;
+					trace_t tr = { qfalse };
 					//vec3_t	mins = {-2,-2,-2}, maxs = {2,2,2};
-					vec3_t forward, end;
+					vec3_t forward = { 0 }, end = { 0 };
 					AngleVectors(NPCS.NPC->client->ps.viewangles, forward, NULL, NULL);
 					VectorMA(muzzle, 8192, forward, end);
 					gi.trace(&tr, muzzle, vec3_origin, vec3_origin, end, NPCS.NPC->s.number, MASK_SHOT, G2_NOCOLLIDE, 0);
@@ -810,8 +810,8 @@ static void GM_CheckFireState(void)
 
 				if (!too_close && !too_far)
 				{
-					vec3_t angles;
-					vec3_t dir;
+					vec3_t angles = { 0 };
+					vec3_t dir = { 0 };
 					//okay too shoot at last pos
 					VectorSubtract(NPCS.NPCInfo->enemyLastSeenLocation, muzzle, dir);
 					VectorNormalize(dir);
@@ -850,7 +850,7 @@ static void GM_CheckFireState(void)
 			if (!Q_irand(0, 10))
 			{
 				//Fire on the last known position
-				vec3_t muzzle;
+				vec3_t muzzle = { 0 };
 				qboolean tooClose = qfalse;
 				qboolean tooFar = qfalse;
 
@@ -858,9 +858,9 @@ static void GM_CheckFireState(void)
 				if (VectorCompare(impactPos4, vec3_origin))
 				{
 					//never checked ShotEntity this frame, so must do a trace...
-					trace_t tr;
+					trace_t tr = { 0 };
 					//vec3_t	mins = {-2,-2,-2}, maxs = {2,2,2};
-					vec3_t forward, end;
+					vec3_t forward = { 0 }, end = { 0 };
 					AngleVectors(NPCS.NPC->client->ps.viewangles, forward, NULL, NULL);
 					VectorMA(muzzle, 8192, forward, end);
 					trap->Trace(&tr, muzzle, vec3_origin, vec3_origin, end, NPCS.NPC->s.number, MASK_SHOT, qfalse, 0,
@@ -907,8 +907,8 @@ static void GM_CheckFireState(void)
 
 				if (!tooClose && !tooFar)
 				{
-					vec3_t angles;
-					vec3_t dir;
+					vec3_t angles = { 0 };
+					vec3_t dir = { 0 };
 					//okay too shoot at last pos
 					VectorSubtract(NPCS.NPCInfo->enemyLastSeenLocation, muzzle, dir);
 					VectorNormalize(dir);
@@ -1062,7 +1062,7 @@ static void NPC_BSGM_Attack(void)
 			if (enemyDist < MELEE_DIST_SQUARED && InFront(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin,
 				NPCS.NPC->client->ps.viewangles, 0.3f))
 			{
-				vec3_t smack_dir;
+				vec3_t smack_dir = { 0 };
 				VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 				smack_dir[2] += 30;
 				VectorNormalize(smack_dir);
@@ -1152,8 +1152,8 @@ static void NPC_BSGM_Attack(void)
 			{
 				//attack still going
 				//do the trace and damage
-				trace_t trace;
-				vec3_t end;
+				trace_t trace = { qfalse };
+				vec3_t end = { 0 };
 				const vec3_t maxs = { 3, 3, 3 };
 				const vec3_t mins = { -3, -3, -3 };
 				VectorMA(NPCS.NPC->client->renderInfo.muzzlePoint, 1024, NPCS.NPC->client->renderInfo.muzzleDir, end);
@@ -1412,8 +1412,8 @@ static void NPC_BSGM_Attack(void)
 	if (NPCS.NPC->client->ps.weapon == WP_REPEATER && NPCS.NPCInfo->scriptFlags & SCF_ALT_FIRE && shoot && TIMER_Done(
 		NPCS.NPC, "attackDelay"))
 	{
-		vec3_t muzzle;
-		vec3_t target;
+		vec3_t muzzle = { 0 };
+		vec3_t target = { 0 };
 		vec3_t velocity = { 0, 0, 0 };
 		vec3_t mins = { -REPEATER_ALT_SIZE, -REPEATER_ALT_SIZE, -REPEATER_ALT_SIZE }, maxs = {
 				   REPEATER_ALT_SIZE,REPEATER_ALT_SIZE,REPEATER_ALT_SIZE
@@ -1450,7 +1450,7 @@ static void NPC_BSGM_Attack(void)
 		}
 		else
 		{
-			vec3_t angles;
+			vec3_t angles = { 0 };
 			vectoangles(velocity, angles);
 
 			NPCS.NPCInfo->desiredYaw = AngleNormalize360(angles[YAW]);
@@ -1582,7 +1582,7 @@ static void NPC_BSGM_Attack(void)
 			NPCS.NPCInfo->touchedByPlayer = NULL;
 			//FIXME: some shield effect?
 			NPCS.NPC->client->ps.powerups[PW_BATTLESUIT] = level.time + ARMOR_EFFECT_TIME;
-			vec3_t smack_dir;
+			vec3_t smack_dir = { 0 };
 			VectorSubtract(NPCS.NPC->enemy->SHR_currentOrigin, NPCS.NPC->SHR_currentOrigin, smack_dir);
 			smack_dir[2] += 30;
 			VectorNormalize(smack_dir);
@@ -1724,7 +1724,7 @@ static void NPC_BSGM_Attack(void)
 			if (enemyDist4 < MELEE_DIST_SQUARED && InFront(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin,
 				NPCS.NPC->client->ps.viewangles, 0.3f))
 			{
-				vec3_t smack_dir;
+				vec3_t smack_dir = { 0 };
 				VectorSubtract(NPCS.NPC->enemy->r.currentOrigin, NPCS.NPC->r.currentOrigin, smack_dir);
 				smack_dir[2] += 30;
 				VectorNormalize(smack_dir);
@@ -1815,8 +1815,8 @@ static void NPC_BSGM_Attack(void)
 			{
 				//attack still going
 				//do the trace and damage
-				trace_t trace;
-				vec3_t end;
+				trace_t trace = { 0 };
+				vec3_t end = { 0 };
 				const vec3_t maxs = { 3, 3, 3 };
 				const vec3_t mins = { -3, -3, -3 };
 				VectorMA(NPCS.NPC->client->renderInfo.muzzlePoint, 1024, NPCS.NPC->client->renderInfo.muzzleDir, end);
@@ -2078,8 +2078,8 @@ static void NPC_BSGM_Attack(void)
 	if (NPCS.NPC->client->ps.weapon == WP_REPEATER && NPCS.NPCInfo->scriptFlags & SCF_ALT_FIRE && shoot4 && TIMER_Done(
 		NPCS.NPC, "attackDelay"))
 	{
-		vec3_t muzzle;
-		vec3_t target;
+		vec3_t muzzle = { 0 };
+		vec3_t target = { 0 };
 		vec3_t velocity = { 0, 0, 0 };
 		vec3_t mins = { -REPEATER_ALT_SIZE, -REPEATER_ALT_SIZE, -REPEATER_ALT_SIZE }, maxs = {
 				   REPEATER_ALT_SIZE,REPEATER_ALT_SIZE,REPEATER_ALT_SIZE
@@ -2116,7 +2116,7 @@ static void NPC_BSGM_Attack(void)
 		}
 		else
 		{
-			vec3_t angles;
+			vec3_t angles = { 0 };
 			vectoangles(velocity, angles);
 
 			NPCS.NPCInfo->desiredYaw = AngleNormalize360(angles[YAW]);
@@ -2244,7 +2244,7 @@ static void NPC_BSGM_Attack(void)
 		if (NPCS.NPC->client->ps.powerups[PW_GALAK_SHIELD] > 0)
 		{
 			//zap him!
-			vec3_t smack_dir;
+			vec3_t smack_dir = { 0 };
 
 			//animate me
 			NPC_SetAnim(NPCS.NPC, SETANIM_BOTH, BOTH_ATTACK6, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
@@ -2327,7 +2327,7 @@ void NPC_BSGM_Default(void)
 		{
 			//armor regenerated, turn shield back on
 			//do a trace and make sure we can turn this back on?
-			trace_t tr;
+			trace_t tr = { qfalse };
 			gi.trace(&tr, NPCS.NPC->SHR_currentOrigin, shieldMins, shieldMaxs, NPCS.NPC->SHR_currentOrigin, NPCS.NPC->s.number, NPCS.NPC->clipmask,
 				G2_NOCOLLIDE, 0);
 			if (!tr.startsolid)
@@ -2400,7 +2400,7 @@ void NPC_BSGM_Default(void)
 		{
 			//armor regenerated, turn shield back on
 			//do a trace and make sure we can turn this back on?
-			trace_t tr;
+			trace_t tr = { 0 };
 			trap->Trace(&tr, NPCS.NPC->r.currentOrigin, shieldMins, shieldMaxs, NPCS.NPC->r.currentOrigin,
 				NPCS.NPC->s.number, NPCS.NPC->clipmask, qfalse, 0, 0);
 			if (!tr.startsolid)

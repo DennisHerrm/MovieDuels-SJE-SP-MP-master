@@ -57,7 +57,7 @@ tag location
 void CG_PositionEntityOnTag(refEntity_t* entity, const refEntity_t* parent, const qhandle_t parent_model,
 	const char* tag_name)
 {
-	orientation_t lerped;
+	orientation_t lerped = {};
 
 	// lerp the tag
 	cgi_R_LerpTag(&lerped, parent_model, parent->oldframe, parent->frame, 1.0f - parent->backlerp, tag_name);
@@ -76,7 +76,7 @@ void CG_PositionEntityOnTag(refEntity_t* entity, const refEntity_t* parent, cons
 void CG_PositionEntityOnTagDual(refEntity_t* entity, const refEntity_t* parent, const qhandle_t parent_model,
 	const char* tag_name)
 {
-	orientation_t lerped;
+	orientation_t lerped = {};
 
 	// lerp the tag
 	cgi_R_LerpTag(&lerped, parent_model, parent->oldframe, parent->frame, 1.0f - parent->backlerp, tag_name);
@@ -104,8 +104,8 @@ void CG_PositionRotatedEntityOnTag(refEntity_t* entity, const refEntity_t* paren
 	const char* tag_name, orientation_t* tag_orient)
 {
 	int i = 0;
-	orientation_t lerped;
-	vec3_t temp_axis[3];
+	orientation_t lerped = {};
+	vec3_t temp_axis[3] = {};
 
 	// lerp the tag
 	cgi_R_LerpTag(&lerped, parent_model, parent->oldframe, parent->frame,
@@ -151,7 +151,7 @@ vec3_t* CG_SetEntitySoundPosition(const centity_t* cent)
 	static vec3_t v3_return;
 	if (cent->currentState.solid == SOLID_BMODEL)
 	{
-		vec3_t origin;
+		vec3_t origin = {};
 
 		const float* v = cgs.inlineModelMidpoints[cent->currentState.modelindex];
 		VectorAdd(cent->lerpOrigin, v, origin);
@@ -191,7 +191,7 @@ Add continuous entity effects, like local entity emission and lighting
 static void CG_EntityEffects(const centity_t* cent)
 {
 	// update sound origins
-	vec3_t v3_origin;
+	vec3_t v3_origin = {};
 	VectorCopy(*CG_SetEntitySoundPosition(cent), v3_origin);
 
 	// add loop sound
@@ -264,7 +264,7 @@ static void CG_AddRefEntWithTransportEffect(const centity_t* cent, refEntity_t* 
 
 		for (int i = -4; i < 10; i += 1)
 		{
-			vec3_t org;
+			vec3_t org = {};
 			VectorMA(ent->origin, -i, ent->axis[2], org);
 
 			FX_AddSprite(org, nullptr, nullptr, 5.5f, wv, wv, 0.0f, 0.0f, 1.0f, cgs.media.yellowDroppedSaberShader,
@@ -303,7 +303,7 @@ static void G2_BoltToGhoul2Model(const centity_t* cent, refEntity_t* ent)
 	int entNum = cent->currentState.boltInfo >> ENTITY_SHIFT;
 	entNum &= ENTITY_AND;
 
-	mdxaBone_t bolt_matrix;
+	mdxaBone_t bolt_matrix = {};
 
 	// go away and get me the bolt position for this frame please
 	gi.G2API_GetBoltMatrix(cent->gent->ghoul2, model_num, bolt_num, &bolt_matrix,
@@ -379,7 +379,7 @@ extern qboolean CG_InFighter();
 
 static void CG_General(centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = {};
 	entityState_t* s1 = nullptr;
 
 	if (cent->currentState.eFlags2 & EF2_RADAROBJECT)
@@ -479,14 +479,14 @@ static void CG_General(centity_t* cent)
 	if (cent->currentState.weapon == WP_STUN_BATON && cg_SerenityJediEngineMode.integer == 2)
 	{
 		int i = 0;
-		orientation_t lerped;
+		orientation_t lerped = {};
 
-		vec3_t start;
-		vec3_t end;
+		vec3_t start = {};
+		vec3_t end = {};
 		vec3_t r_hand_pos{};
 
 		centity_t* parent = nullptr;
-		mdxaBone_t mat;
+		mdxaBone_t mat = {};
 		int color = 0;
 		color = 0x000020;
 
@@ -516,13 +516,13 @@ static void CG_General(centity_t* cent)
 	if (cent->currentState.weapon == WP_MELEE && cg_SerenityJediEngineMode.integer == 2)
 	{
 		int i = 0;
-		orientation_t lerped;
+		orientation_t lerped = {};
 
-		vec3_t start;
-		vec3_t end;
+		vec3_t start = {};
+		vec3_t end = {};
 
 		centity_t* parent = nullptr;
-		mdxaBone_t mat;
+		mdxaBone_t mat = {};
 		int color = 0;
 		color = 0x000020;
 
@@ -570,7 +570,7 @@ static void CG_General(centity_t* cent)
 		if (cent->gent->s.weapon == WP_EMPLACED_GUN || cent->gent->activator && cent->gent->activator->owner &&
 			cent->gent->activator->s.eFlags & EF_LOCKED_TO_WEAPON)
 		{
-			vec3_t temp;
+			vec3_t temp = {};
 
 			if (cent->gent->health <= 0 && cent->gent->e_ThinkFunc == thinkF_NULL)
 			{
@@ -629,7 +629,7 @@ static void CG_General(centity_t* cent)
 
 			// get alternating muzzle end bolts
 			int bolt = cent->gent->handRBolt;
-			mdxaBone_t bolt_matrix;
+			mdxaBone_t bolt_matrix = {};
 
 			if (!cc->gent->fxID || bolt == -1)
 			{
@@ -955,7 +955,7 @@ static void CG_General(centity_t* cent)
 	if (s1->eFlags & EF_FIRING && cent->gent && cent->gent->inuse)
 	{
 		//special code for adding the beam to the attached tripwire mine
-		vec3_t beam_org;
+		vec3_t beam_org = {};
 		int handle = 0;
 		SEffectTemplate* temp = nullptr;
 
@@ -998,7 +998,7 @@ static void CG_General(centity_t* cent)
 	if (s1->eFlags & EF_PROX_TRIP)
 	{
 		//special code for adding the glow end to proximity tripmine
-		vec3_t beam_org;
+		vec3_t beam_org = {};
 
 		VectorMA(ent.origin, 6.6f, ent.axis[0], beam_org); // forward
 		theFxScheduler.PlayEffect("tripMine/glowBit", beam_org, ent.axis[0]);
@@ -1015,7 +1015,7 @@ static void CG_General(centity_t* cent)
 			return;
 		}
 
-		vec3_t org, axis[3], dir;
+		vec3_t org = {}, axis[3] = {}, dir = {};
 
 		AngleVectors(cent->lerpAngles, dir, NULL, NULL);
 
@@ -1111,7 +1111,7 @@ CG_Item
 */
 static void CG_Item(centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = {};
 	const entityState_t* es = &cent->currentState;
 
 	// ------------------------------------------------------------
@@ -1207,7 +1207,7 @@ static void CG_Item(centity_t* cent)
 	// ------------------------------------------------------------
 	// Determine model
 	// ------------------------------------------------------------
-	vec3_t spinAngles;
+	vec3_t spinAngles = {};
 	VectorCopy(cent->gent->s.angles, spinAngles);
 
 	if (cent->gent->ghoul2.IsValid() && cent->gent->ghoul2.size() > 0)
@@ -1289,7 +1289,7 @@ static void CG_Item(centity_t* cent)
 
 		for (int i = -4; i < 10; i++)
 		{
-			vec3_t org;
+			vec3_t org = {};
 			VectorMA(ent.origin, -i, ent.axis[2], org);
 
 			FX_AddSprite(org, NULL, NULL, 10.0f, wv * 0.5f, wv * 0.5f,
@@ -1311,7 +1311,7 @@ CG_Missile
 */
 static void CG_Missile(centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = {};
 
 	if (!cent->gent->inuse)
 		return;
@@ -1338,7 +1338,7 @@ static void CG_Missile(centity_t* cent)
 	if (s1->otherentityNum2 && (g_vehWeaponInfo[s1->otherentityNum2].iShotFX || g_vehWeaponInfo[s1->otherentityNum2].
 		iModel))
 	{
-		vec3_t forward;
+		vec3_t forward = {};
 
 		if (s1->eFlags & EF_USE_ANGLEDELTA)
 		{
@@ -1373,7 +1373,7 @@ static void CG_Missile(centity_t* cent)
 		CG_PlayEffectID(g_vehWeaponInfo[s1->otherentityNum2].iShotFX, cent->lerpOrigin, forward);
 		if (g_vehWeaponInfo[s1->otherentityNum2].iLoopSound)
 		{
-			vec3_t velocity;
+			vec3_t velocity = {};
 			EvaluateTrajectoryDelta(&cent->currentState.pos, cg.time, velocity);
 			if (cgs.sound_precache[g_vehWeaponInfo[s1->otherentityNum2].iLoopSound] != NULL_SFX)
 			{
@@ -1466,14 +1466,14 @@ static void CG_Missile(centity_t* cent)
 
 	if (s1->weapon == WP_STUN_BATON && cg_SerenityJediEngineMode.integer == 2)
 	{
-		orientation_t lerped;
+		orientation_t lerped = {};
 
-		vec3_t start;
-		vec3_t end;
+		vec3_t start = {};
+		vec3_t end = {};
 		vec3_t r_hand_pos{};
 		vec3_t BLUER = { 0.0f, 0.0f, 1.0f };
 
-		mdxaBone_t mat;
+		mdxaBone_t mat = {};
 
 		// lerp the tag
 		cgi_R_LerpTag(&lerped, weapon->missileModel, 0, 0, 1.0, "tag_extrem");
@@ -1559,12 +1559,12 @@ static void CG_Missile(centity_t* cent)
 
 	if (s1->weapon == WP_MELEE && cg_SerenityJediEngineMode.integer == 2)
 	{
-		orientation_t lerped;
+		orientation_t lerped = {};
 
-		vec3_t start;
-		vec3_t end;
+		vec3_t start = {};
+		vec3_t end = {};
 
-		mdxaBone_t mat;
+		mdxaBone_t mat = {};
 
 		// lerp the tag
 		cgi_R_LerpTag(&lerped, weapon->missileModel, 0, 0, 1.0, "tag_extrem");
@@ -1602,7 +1602,7 @@ constexpr auto DOOR_CLOSED = 4;
 
 static void CG_Mover(centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = {};
 
 	const entityState_t* s1 = &cent->currentState;
 
@@ -1711,7 +1711,7 @@ static void CG_Mover(centity_t* cent)
 		if (!VectorCompare(vec3_origin, cent->gent->modelAngles))
 		{
 			//we have a rotational offset for the model for this brush
-			vec3_t model_angles;
+			vec3_t model_angles = {};
 			VectorAdd(cent->lerpAngles, cent->gent->modelAngles, model_angles);
 			AnglesToAxis(model_angles, ent.axis);
 		}
@@ -1781,7 +1781,7 @@ Also called as an event
 */
 void CG_Beam(const centity_t* cent, const int color)
 {
-	refEntity_t ent;
+	refEntity_t ent = {};
 
 	const entityState_t* s1 = &cent->currentState;
 
@@ -1816,7 +1816,7 @@ This is called when the grapple is sitting up against the wall
 */
 static void CG_Grapple(centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = {};
 
 	const entityState_t* s1 = &cent->currentState;
 	const weaponInfo_t* weapon = &cg_weapons[WP_MELEE];
@@ -1945,7 +1945,7 @@ CG_Portal
 */
 static void CG_Portal(const centity_t* cent)
 {
-	refEntity_t ent;
+	refEntity_t ent = {};
 
 	const entityState_t* s1 = &cent->currentState;
 
@@ -1991,7 +1991,7 @@ Also called by client movement prediction code
 */
 void CG_AdjustPositionForMover(const vec3_t in, const int mover_num, const int at_time, vec3_t out)
 {
-	vec3_t old_origin, origin, delta_origin;
+	vec3_t old_origin = {}, origin = {}, delta_origin = {};
 
 	if (mover_num <= 0)
 	{
@@ -2046,7 +2046,7 @@ void CG_CalcEntityLerpPositions(centity_t* cent)
 	{
 		// if the entity has a valid next state, interpolate a value between the frames
 		// unless it is a mover with a known start and stop
-		vec3_t current, next;
+		vec3_t current = {}, next = {};
 
 		// it would be an internal error to find an entity that interpolates without
 		// a snapshot ahead of the current one
@@ -2253,7 +2253,7 @@ void CG_DLightThink(const centity_t* cent)
 	{
 		const float t_delta = cg.time - cent->gent->painDebounceTime;
 		float percentage = t_delta / cent->gent->speed;
-		vec3_t org;
+		vec3_t org = {};
 		vec4_t current_rgba{};
 		const gentity_t* owner = nullptr;
 		int i = 0;
@@ -2554,8 +2554,8 @@ void CG_MatrixEffect(const centity_t* cent)
 
 	if (cent->currentState.boltInfo & MEF_LOOK_AT_ENEMY)
 	{
-		vec3_t to_enemy;
-		vec3_t to_enemy_angles;
+		vec3_t to_enemy = {};
+		vec3_t to_enemy_angles = {};
 
 		VectorCopy(cg_entities[g_entities[cent->currentState.otherEntityNum].lastEnemy->s.number].lerpOrigin, to_enemy);
 		VectorSubtract(cg_entities[cent->currentState.otherEntityNum].lerpOrigin, to_enemy, to_enemy);
@@ -2743,8 +2743,8 @@ void CG_StasisEffect(const centity_t* cent)
 
 	if (cent->currentState.boltInfo & MEF_LOOK_AT_ENEMY)
 	{
-		vec3_t to_enemy;
-		vec3_t to_enemy_angles;
+		vec3_t to_enemy = {};
+		vec3_t to_enemy_angles = {};
 
 		VectorCopy(cg_entities[g_entities[cent->currentState.otherEntityNum].lastEnemy->s.number].lerpOrigin, to_enemy);
 		VectorSubtract(cg_entities[cent->currentState.otherEntityNum].lerpOrigin, to_enemy, to_enemy);
@@ -2874,8 +2874,8 @@ void CG_StasisEffectLong(const centity_t* cent)
 
 	if (cent->currentState.boltInfo & MEF_LOOK_AT_ENEMY)
 	{
-		vec3_t to_enemy;
-		vec3_t to_enemy_angles;
+		vec3_t to_enemy = {};
+		vec3_t to_enemy_angles = {};
 
 		VectorCopy(cg_entities[g_entities[cent->currentState.otherEntityNum].lastEnemy->s.number].lerpOrigin, to_enemy);
 		VectorSubtract(cg_entities[cent->currentState.otherEntityNum].lerpOrigin, to_enemy, to_enemy);
@@ -3153,7 +3153,7 @@ static void CG_ROFF_NotetrackCallback(const centity_t* cent, const char* notetra
 	char type[256]{};
 	char argument[512]{};
 	char addl_arg[512]{};
-	char err_msg[256];
+	char err_msg[256] = {};
 	int addl_args = 0;
 
 	if (!cent || !notetrack)
@@ -3211,7 +3211,7 @@ static void CG_ROFF_NotetrackCallback(const centity_t* cent, const char* notetra
 	if (strcmp(type, "effect") == 0)
 	{
 		char t[64]{};
-		vec3_t parsed_offset;
+		vec3_t parsed_offset = {};
 		int posoffset_gathered = 0;
 		if (!addl_args)
 		{
@@ -3266,11 +3266,11 @@ static void CG_ROFF_NotetrackCallback(const centity_t* cent, const char* notetra
 
 		if (object_id)
 		{
-			vec3_t up;
-			vec3_t right;
-			vec3_t forward;
-			vec3_t use_origin;
-			vec3_t use_angles;
+			vec3_t up = {};
+			vec3_t right = {};
+			vec3_t forward = {};
+			vec3_t use_origin = {};
+			vec3_t use_angles = {};
 			if (addl_args)
 			{
 				vec3_t parsed_angles{};

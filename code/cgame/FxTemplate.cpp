@@ -344,7 +344,7 @@ bool CPrimitiveTemplate::ParseGroupFlags(const gsl::cstring_view& val, int& flag
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseMin(const gsl::cstring_view& val)
 {
-	vec3_t min;
+	vec3_t min = {};
 
 	if (ParseVector(val, min, min) == true)
 	{
@@ -370,7 +370,7 @@ bool CPrimitiveTemplate::ParseMin(const gsl::cstring_view& val)
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseMax(const gsl::cstring_view& val)
 {
-	vec3_t max;
+	vec3_t max = {};
 
 	if (ParseVector(val, max, max) == true)
 	{
@@ -492,7 +492,7 @@ bool CPrimitiveTemplate::ParseElasticity(const gsl::cstring_view& val)
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseOrigin1(const gsl::cstring_view& val)
 {
-	vec3_t min, max;
+	vec3_t min = {}, max = {};
 
 	if (ParseVector(val, min, max) == true)
 	{
@@ -517,7 +517,7 @@ bool CPrimitiveTemplate::ParseOrigin1(const gsl::cstring_view& val)
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseOrigin2(const gsl::cstring_view& val)
 {
-	vec3_t min, max;
+	vec3_t min = {}, max = {};
 
 	if (ParseVector(val, min, max) == true)
 	{
@@ -657,7 +657,7 @@ bool CPrimitiveTemplate::ParseRotationDelta(const gsl::cstring_view& val)
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseAngle(const gsl::cstring_view& val)
 {
-	vec3_t min, max;
+	vec3_t min = {}, max = {};
 
 	if (ParseVector(val, min, max) == true)
 	{
@@ -682,7 +682,7 @@ bool CPrimitiveTemplate::ParseAngle(const gsl::cstring_view& val)
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseAngleDelta(const gsl::cstring_view& val)
 {
-	vec3_t min, max;
+	vec3_t min = {}, max = {};
 
 	if (ParseVector(val, min, max) == true)
 	{
@@ -707,7 +707,7 @@ bool CPrimitiveTemplate::ParseAngleDelta(const gsl::cstring_view& val)
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseVelocity(const gsl::cstring_view& val)
 {
-	vec3_t min, max;
+	vec3_t min = {}, max = {};
 
 	if (ParseVector(val, min, max) == true)
 	{
@@ -837,7 +837,7 @@ bool CPrimitiveTemplate::ParseSpawnFlags(const gsl::cstring_view& val)
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseAcceleration(const gsl::cstring_view& val)
 {
-	vec3_t min, max;
+	vec3_t min = {}, max = {};
 
 	if (ParseVector(val, min, max) == true)
 	{
@@ -936,7 +936,7 @@ bool CPrimitiveTemplate::ParseVariance(const gsl::cstring_view& val)
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseRGBStart(const gsl::cstring_view& val)
 {
-	vec3_t min, max;
+	vec3_t min = {}, max = {};
 
 	if (ParseVector(val, min, max) == true)
 	{
@@ -961,7 +961,7 @@ bool CPrimitiveTemplate::ParseRGBStart(const gsl::cstring_view& val)
 //------------------------------------------------------
 bool CPrimitiveTemplate::ParseRGBEnd(const gsl::cstring_view& val)
 {
-	vec3_t min, max;
+	vec3_t min = {}, max = {};
 
 	if (ParseVector(val, min, max) == true)
 	{

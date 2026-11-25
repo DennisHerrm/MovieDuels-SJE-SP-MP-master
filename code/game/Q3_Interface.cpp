@@ -1221,7 +1221,7 @@ static qboolean G_AddSexToPlayerString(char* string, const qboolean qDoBoth)
 	bool bUseCustomDirectory = false;
 
 	if VALIDSTRING(string) {
-		char snddir[MAX_QPATH];
+		char snddir[MAX_QPATH] = {};
 #ifdef JADEN_VOICES_CUSTOM
 		gi.Cvar_VariableStringBuffer("snd", snddir, MAX_QPATH);
 		bUseCustomDirectory = (strlen(snddir) == 10 && !Q_stricmpn(snddir, "jaden_", 6));
@@ -2010,7 +2010,7 @@ static void Q3_SetOriginOffset(const int entID, const int axis, const float offs
 		return;
 	}
 
-	vec3_t origin;
+	vec3_t origin = {};
 	VectorCopy(ent->s.origin, origin);
 	origin[axis] += offset;
 	float duration = 0;
@@ -2116,7 +2116,7 @@ Sets the navigational goal of an entity
 static qboolean Q3_SetNavGoal(const int entID, const char* name)
 {
 	gentity_t* ent = &g_entities[entID];
-	vec3_t goalPos;
+	vec3_t goalPos = {};
 
 	if (!ent->health)
 	{
@@ -3215,7 +3215,7 @@ static void Q3_SetViewTarget(const int entID, const char* name)
 {
 	const gentity_t* self = &g_entities[entID];
 	const gentity_t* viewtarget = G_Find(nullptr, FOFS(targetname), name);
-	vec3_t viewspot, selfspot, viewvec, viewangles;
+	vec3_t viewspot = {}, selfspot = {}, viewvec = {}, viewangles = {};
 
 	if (!self)
 	{
@@ -7502,7 +7502,7 @@ static void Q3_DismemberLimb(const int entID, char* hitLocName)
 {
 	gentity_t* self = &g_entities[entID];
 	const int hit_loc = GetIDForString(HLTable, hitLocName);
-	vec3_t point;
+	vec3_t point = {};
 
 	if (!self)
 	{
@@ -7920,7 +7920,7 @@ VariableLoadFloats
 void CQuake3GameInterface::VariableLoadFloats(varFloat_m& fmap)
 {
 	int numFloats = 0;
-	char tempBuffer[1024];
+	char tempBuffer[1024] = {};
 
 	ojk::SavedGameHelper saved_game(
 		gi.saved_game);
@@ -7969,8 +7969,8 @@ VariableLoadStrings
 void CQuake3GameInterface::VariableLoadStrings(const int type, varString_m& fmap)
 {
 	int numFloats = 0;
-	char tempBuffer[1024];
-	char tempBuffer2[1024];
+	char tempBuffer[1024] = {};
+	char tempBuffer2[1024] = {};
 
 	ojk::SavedGameHelper saved_game(
 		gi.saved_game);
@@ -8158,7 +8158,7 @@ void CQuake3GameInterface::FreeEntity(gentity_t* pEntity)
 	// ICARUS doesn't try to affect the new (incorrect) pEntity.
 	if VALIDSTRING(pEntity->script_targetname)
 	{
-		char temp[1024];
+		char temp[1024] = {};
 
 		strncpy(temp, pEntity->script_targetname, 1023);
 		temp[1023] = 0;
@@ -8202,7 +8202,7 @@ bool CQuake3GameInterface::ValidEntity(gentity_t* pEntity)
 // Associate the entity's id and name so that it can be referenced later.
 void CQuake3GameInterface::AssociateEntity(const gentity_t* pEntity)
 {
-	char temp[1024];
+	char temp[1024] = {};
 
 	if (VALIDSTRING(pEntity->script_targetname) == false)
 		return;
@@ -8221,7 +8221,7 @@ int CQuake3GameInterface::MakeValidScriptName(char** strScriptName)
 
 	// ensure "scripts" (Q3_SCRIPT_DIR), which will be missing if this was called recursively...
 	// MAX_FILENAME_LENGTH should really be MAX_QPATH (and 64 bytes instead of 1024), but this fits the rest of the code
-	char sFilename[MAX_FILENAME_LENGTH];
+	char sFilename[MAX_FILENAME_LENGTH] = {};
 
 	if (!Q_stricmpn(*strScriptName, Q3_SCRIPT_DIR, strlen(Q3_SCRIPT_DIR)))
 	{
@@ -8247,7 +8247,7 @@ int CQuake3GameInterface::RegisterScript(const char* strFileName, void** ppBuf, 
 
 	// Ensure "scripts" (Q3_SCRIPT_DIR), which will be missing if this was called recursively...
 	// MAX_FILENAME_LENGTH should really be MAX_QPATH (and 64 bytes instead of 1024), but this fits the rest of the code
-	char sFilename[MAX_FILENAME_LENGTH];
+	char sFilename[MAX_FILENAME_LENGTH] = {};
 
 	if (!Q_stricmpn(strFileName, Q3_SCRIPT_DIR, strlen(Q3_SCRIPT_DIR)))
 	{
@@ -8423,8 +8423,8 @@ int CQuake3GameInterface::LoadFile(const char* name, void** buf)
 // Prints a message in the center of the screen.
 void CQuake3GameInterface::CenterPrint(const char* format, ...)
 {
-	va_list argptr;
-	char text[1024];
+	va_list argptr = {};
+	char text[1024] = {};
 
 	va_start(argptr, format);
 	Q_vsnprintf(text, sizeof text, format, argptr);
@@ -8456,8 +8456,8 @@ void CQuake3GameInterface::DebugPrint(const e_DebugPrintLevel level, const char*
 		return;
 	}
 
-	va_list argptr;
-	char text[1024];
+	va_list argptr = {};
+	char text[1024] = {};
 
 	va_start(argptr, format);
 	Q_vsnprintf(text, sizeof(text), format, argptr);
@@ -8527,7 +8527,7 @@ extern void G_SoundBroadcast(const gentity_t* ent, int sound_index);
 int CQuake3GameInterface::PlayIcarusSound(const int taskID, const int entID, const char* name, const char* channel)
 {
 	gentity_t* ent = &g_entities[entID];
-	char finalName[MAX_QPATH];
+	char finalName[MAX_QPATH] = {};
 	soundChannel_t voice_chan = CHAN_VOICE; // set a default so the compiler doesn't bitch
 	qboolean type_voice = qfalse;
 
@@ -10294,7 +10294,7 @@ void CQuake3GameInterface::Set(int taskID, int entID, const char* type_name, con
 			extern cvar_t* g_char_skin_torso;
 			extern cvar_t* g_char_skin_head;
 			extern cvar_t* g_char_model;
-			char strSkin[MAX_QPATH];
+			char strSkin[MAX_QPATH] = {};
 			// Set the Winter Gear Skin if true, otherwise set back to normal configuration.
 			if (Q_stricmp("true", data) == 0)
 			{
@@ -11567,7 +11567,7 @@ int CQuake3GameInterface::GetFloat(const int entID, const char* name, float* val
 	// kef 4/16/03 -- just trying to put together some scripted meta-AI for swoop riders
 	case SET_DISTSQRD_TO_PLAYER:
 	{
-		vec3_t distSquared;
+		vec3_t distSquared = {};
 
 		VectorSubtract(player->currentOrigin, ent->s.origin, distSquared);
 
@@ -12342,7 +12342,7 @@ int CQuake3GameInterface::CreateIcarus(const int entID)
 //Polls the engine for the sequencer of the entity matching the name passed
 int CQuake3GameInterface::GetByName(const char* name)
 {
-	char temp[1024];
+	char temp[1024] = {};
 
 	if (name == nullptr || name[0] == '\0')
 		return -1;
@@ -12396,7 +12396,7 @@ void CQuake3GameInterface::PrecacheRoff(const char* name)
 
 void CQuake3GameInterface::PrecacheScript(const char* name)
 {
-	char newname[1024]; //static char newname[1024];
+	char newname[1024] = {}; //static char newname[1024];
 	// Strip the extension since we want the real name of the script.
 	COM_StripExtension(name, newname, sizeof newname);
 
@@ -12430,7 +12430,7 @@ void CQuake3GameInterface::PrecacheScript(const char* name)
 
 void CQuake3GameInterface::PrecacheSound(const char* name)
 {
-	char finalName[MAX_QPATH];
+	char finalName[MAX_QPATH] = {};
 
 	Q_strncpyz(finalName, name, MAX_QPATH);
 	Q_strlwr(finalName);
@@ -12479,7 +12479,7 @@ void CQuake3GameInterface::PrecacheFromSet(const char* setname, const char* file
 		if (com_buildScript->integer)
 		{
 			fileHandle_t file = 0;
-			char name[MAX_OSPATH];
+			char name[MAX_OSPATH] = {};
 
 			if (strstr(filename, "/") == nullptr && strstr(filename, "\\") == nullptr)
 			{

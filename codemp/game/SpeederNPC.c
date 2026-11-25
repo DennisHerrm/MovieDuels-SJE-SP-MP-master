@@ -152,8 +152,8 @@ static void ProcessMoveCommands(Vehicle_t* p_veh)
 							p_veh->m_pParentEntity->ghoul2 &&
 							p_veh->m_pParentEntity->playerState)
 						{
-							vec3_t bolt_org, boltDir;
-							mdxaBone_t boltMatrix;
+							vec3_t bolt_org = { 0 }, boltDir = { 0 };
+							mdxaBone_t boltMatrix = { 0 };
 
 							VectorSet(boltDir, 0.0f,
 								p_veh->m_pParentEntity->playerState->viewangles[YAW],

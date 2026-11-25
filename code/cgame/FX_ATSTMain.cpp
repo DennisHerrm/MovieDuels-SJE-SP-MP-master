@@ -32,7 +32,7 @@ FX_ATSTMainProjectileThink
 */
 void FX_ATSTMainProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = {};
 
 	if (VectorNormalize2(cent->gent->s.pos.trDelta, forward) == 0.0f)
 	{
@@ -94,7 +94,7 @@ FX_ATSTSideAltProjectileThink
 */
 void FX_ATSTSideAltProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = {};
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{
@@ -111,7 +111,7 @@ FX_ATSTSideMainProjectileThink
 */
 void FX_ATSTSideMainProjectileThink(centity_t* cent, const weaponInfo_s* weapon)
 {
-	vec3_t forward;
+	vec3_t forward = {};
 
 	if (VectorNormalize2(cent->currentState.pos.trDelta, forward) == 0.0f)
 	{

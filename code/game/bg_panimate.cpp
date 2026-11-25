@@ -696,7 +696,7 @@ void PM_VelocityForSaberMove(const playerState_t* ps, vec3_t throw_dir)
 
 qboolean PM_VelocityForBlockedMove(const playerState_t* ps, vec3_t throw_dir)
 {
-	vec3_t v_forward, v_right, v_up;
+	vec3_t v_forward = {}, v_right = {}, v_up = {};
 	AngleVectors(ps->viewangles, v_forward, v_right, v_up);
 	switch (ps->saberBlocked)
 	{
@@ -3110,7 +3110,7 @@ static qboolean PM_CheckEnemyInBack(const float back_check_dist)
 		return qfalse;
 	}
 	trace_t trace;
-	vec3_t end, fwd;
+	vec3_t end = {}, fwd = {};
 	const vec3_t fwd_angles = { 0, pm->ps->viewangles[YAW], 0 };
 
 	AngleVectors(fwd_angles, fwd, nullptr, nullptr);
@@ -3262,7 +3262,7 @@ static saberMoveName_t PM_CheckStabDown()
 			return LS_NONE;
 		}
 	}
-	vec3_t enemy_dir, face_fwd;
+	vec3_t enemy_dir = {}, face_fwd = {};
 	const vec3_t facing_angles = { 0, pm->ps->viewangles[YAW], 0 };
 	AngleVectors(facing_angles, face_fwd, nullptr, nullptr);
 	VectorSubtract(pm->gent->enemy->currentOrigin, pm->ps->origin, enemy_dir);
@@ -3313,7 +3313,7 @@ saberMoveName_t PM_AttackForEnemyPos(const qboolean allow_fb, const qboolean all
 		return LS_NONE;
 	}
 
-	vec3_t enemy_org, enemy_dir, face_fwd, face_right, face_up;
+	vec3_t enemy_org = {}, enemy_dir = {}, face_fwd = {}, face_right = {}, face_up = {};
 	const vec3_t facing_angles = { 0, pm->ps->viewangles[YAW], 0 };
 	AngleVectors(facing_angles, face_fwd, face_right, face_up);
 	//FIXME: predict enemy position?
@@ -3321,7 +3321,7 @@ saberMoveName_t PM_AttackForEnemyPos(const qboolean allow_fb, const qboolean all
 	{
 		//VectorCopy( pm->gent->enemy->currentOrigin, enemy_org );
 		//HMM... using this will adjust for bbox size, so let's do that...
-		vec3_t size;
+		vec3_t size = {};
 		VectorSubtract(pm->gent->enemy->absmax, pm->gent->enemy->absmin, size);
 		VectorMA(pm->gent->enemy->absmin, 0.5, size, enemy_org);
 
@@ -3332,7 +3332,7 @@ saberMoveName_t PM_AttackForEnemyPos(const qboolean allow_fb, const qboolean all
 		if (pm->gent->enemy->bmodel && VectorCompare(vec3_origin, pm->gent->enemy->currentOrigin))
 		{
 			//a brush model without an origin brush
-			vec3_t size;
+			vec3_t size = {};
 			VectorSubtract(pm->gent->enemy->absmax, pm->gent->enemy->absmin, size);
 			VectorMA(pm->gent->enemy->absmin, 0.5, size, enemy_org);
 		}
@@ -3537,7 +3537,7 @@ qboolean PM_InSecondaryStyle()
 
 saberMoveName_t PM_SaberLungeAttackMove(const qboolean fallback_to_normal_lunge)
 {
-	vec3_t fwd_angles, jumpFwd;
+	vec3_t fwd_angles = {}, jumpFwd = {};
 
 	if (in_camera)
 	{
@@ -3960,7 +3960,7 @@ saberMoveName_t PM_SaberJumpForwardAttackMove()
 
 		return LS_JUMPATTACK_DUAL;
 	}
-	vec3_t fwd_angles, jump_fwd;
+	vec3_t fwd_angles = {}, jump_fwd = {};
 
 	VectorCopy(pm->ps->viewangles, fwd_angles);
 	fwd_angles[PITCH] = fwd_angles[ROLL] = 0;
@@ -3991,7 +3991,7 @@ saberMoveName_t PM_SaberJumpForwardAttackMove()
 
 saberMoveName_t PM_NPC_Force_Leap_Attack()
 {
-	vec3_t fwd_angles, jump_fwd;
+	vec3_t fwd_angles = {}, jump_fwd = {};
 
 	// ------------------------------------------------------------
 	// 1) Check for explicit overrides on the saber(s)
@@ -4141,8 +4141,8 @@ constexpr auto SPECIAL_ATTACK_DISTANCE = 128;
 qboolean PM_Can_Do_Kill_Lunge(void)
 {
 	trace_t tr;
-	vec3_t flatAng;
-	vec3_t fwd, back = { 0 };
+	vec3_t flatAng = {};
+	vec3_t fwd = {}, back = { 0 };
 	const vec3_t trmins = { -15.0f, -15.0f, -8.0f };
 	const vec3_t trmaxs = { 15.0f,  15.0f,  8.0f };
 
@@ -4203,8 +4203,8 @@ qboolean PM_Can_Do_Kill_Lunge(void)
 qboolean PM_Can_Do_Kill_Lunge_back(void)
 {
 	trace_t tr;
-	vec3_t flatAng;
-	vec3_t fwd, back{};
+	vec3_t flatAng = {};
+	vec3_t fwd = {}, back{};
 	const vec3_t trmins = { -15.0f, -15.0f, -8.0f };
 	const vec3_t trmaxs = { 15.0f,  15.0f,  8.0f };
 
@@ -4588,7 +4588,7 @@ saberMoveName_t PM_SaberFlipOverAttackMove()
 	// ------------------------------------------------------------
 	// 3) Build jump direction
 	// ------------------------------------------------------------
-	vec3_t fwd_angles, jump_fwd;
+	vec3_t fwd_angles = {}, jump_fwd = {};
 
 	VectorCopy(pm->ps->viewangles, fwd_angles);
 	fwd_angles[PITCH] = fwd_angles[ROLL] = 0;
@@ -5180,7 +5180,7 @@ saberMoveName_t PM_CheckPullAttack()
 		if (g_saberNewControlScheme->integer
 			|| g_crosshairEntNum < ENTITYNUM_WORLD) //in old control scheme, there has to be someone there
 		{
-			saberMoveName_t pullAttackMove;
+			saberMoveName_t pullAttackMove = LS_NONE;
 			if (pm->ps->saberAnimLevel == SS_FAST)
 			{
 				pullAttackMove = LS_PULL_ATTACK_STAB;
@@ -5379,7 +5379,7 @@ saberMoveName_t PM_SaberAttackForMovement(const int forwardmove, const int right
 				|| (isPlayer && G_TryingCartwheel(pm->gent, &pm->cmd)))) //focus-holding player
 		{
 			//cartwheel right
-			vec3_t right;
+			vec3_t right = {};
 			const vec3_t fwd_angles = { 0, pm->ps->viewangles[YAW], 0 };
 			if (pm->gent)
 			{
@@ -5460,7 +5460,7 @@ saberMoveName_t PM_SaberAttackForMovement(const int forwardmove, const int right
 				|| (isPlayer && G_TryingCartwheel(pm->gent, &pm->cmd)))) //focus-holding player
 		{
 			//cartwheel left
-			vec3_t right;
+			vec3_t right = {};
 			const vec3_t fwd_angles = { 0, pm->ps->viewangles[YAW], 0 };
 			if (pm->gent)
 			{
@@ -5686,7 +5686,7 @@ saberMoveName_t PM_SaberAttackForMovement(const int forwardmove, const int right
 						if (pm->gent && pm->gent->enemy)
 						{
 							//FIXME: or just trace for a valid enemy standing behind me?  And no enemy in front?
-							vec3_t enemy_dir, face_fwd;
+							vec3_t enemy_dir = {}, face_fwd = {};
 							const vec3_t facing_angles = { 0, pm->ps->viewangles[YAW], 0 };
 							AngleVectors(facing_angles, face_fwd, nullptr, nullptr);
 							VectorSubtract(pm->gent->enemy->currentOrigin, pm->ps->origin, enemy_dir);
@@ -6455,7 +6455,7 @@ void PM_SaberStartTransAnim(const int saberAnimLevel,
 	{
 		*animSpeed *= SABERBLASTER_IMPALE_STAB_SPEED;
 	}
-	char buf[128];
+	char buf[128] = {};
 
 	// Read global saber animation speed multiplier
 	gi.Cvar_VariableStringBuffer("g_saberAnimSpeed", buf, sizeof buf);
@@ -7420,10 +7420,10 @@ static bool TorsoAgainstWindTest(gentity_t* ent)
 	{
 		if (Q_stricmp(level.mapname, "t2_wedge") != 0)
 		{
-			vec3_t wind_dir;
+			vec3_t wind_dir = {};
 			if (gi.WE_GetWindVector(wind_dir, ent->currentOrigin))
 			{
-				vec3_t fwd;
+				vec3_t fwd = {};
 				VectorScale(wind_dir, -1.0f, wind_dir);
 				AngleVectors(pm->gent->currentAngles, fwd, nullptr, nullptr);
 				if (DotProduct(fwd, wind_dir) > 0.65f)

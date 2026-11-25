@@ -210,7 +210,7 @@ void SP_info_player_deathmatch(gentity_t* ent)
 	{
 		RegisterItem(FindItemForWeapon(WP_SABER));
 		//these are given in ClientSpawn(), but we register them now before cgame starts
-		saberInfo_t saber;
+		saberInfo_t saber = {};
 		WP_SaberParseParms(g_saber->string, &saber); //get saber sounds and models cached before client begins
 		if (saber.model) G_ModelIndex(saber.model);
 		if (saber.brokenSaber1) G_ModelIndex(saber.brokenSaber1);
@@ -284,7 +284,7 @@ SpotWouldTelefrag
 qboolean SpotWouldTelefrag(const gentity_t* spot, const team_t checkteam)
 {
 	static gentity_t* touch[MAX_GENTITIES];
-	vec3_t mins, maxs;
+	vec3_t mins = {}, maxs = {};
 
 	// If we have a mins, use that instead of the hardcoded bounding box
 	if (!VectorCompare(spot->mins, vec3_origin) && VectorLength(spot->mins))
@@ -322,7 +322,7 @@ qboolean SpotWouldTelefrag(const gentity_t* spot, const team_t checkteam)
 qboolean SpotWouldTelefrag2(const gentity_t* mover, vec3_t dest)
 {
 	static gentity_t* touch[MAX_GENTITIES]; // moved off stack
-	vec3_t mins, maxs;
+	vec3_t mins = {}, maxs = {};
 
 	VectorAdd(dest, mover->mins, mins);
 	VectorAdd(dest, mover->maxs, maxs);
@@ -903,7 +903,7 @@ extern gitem_t* FindItemForInventory(int inv);
 
 void Player_CacheFromPrevLevel()
 {
-	char s[MAX_STRING_CHARS];
+	char s[MAX_STRING_CHARS] = {};
 	int i = 0;
 
 	gi.Cvar_VariableStringBuffer(sCVARNAME_PLAYERSAVE, s, sizeof s);
@@ -977,14 +977,14 @@ static void Player_RestoreFromPrevLevel(gentity_t* ent)
 	assert(client);
 	if (client) // though I can't see it not being true...
 	{
-		char s[MAX_STRING_CHARS];
+		char s[MAX_STRING_CHARS] = {};
 
 		gi.Cvar_VariableStringBuffer(sCVARNAME_PLAYERSAVE, s, sizeof s);
 
 		if (strlen(s)) // actually this would be safe anyway because of the way sscanf() works, but this is clearer
 		{
-			char saber1_name[MAX_QPATH];
-			char saber0_name[MAX_QPATH];
+			char saber1_name[MAX_QPATH] = {};
+			char saber0_name[MAX_QPATH] = {};
 
 			int saber1_blade_active[8]{};
 			int saber2_blade_active[8]{};
@@ -1222,7 +1222,7 @@ static void Player_RestoreFromPrevLevel(gentity_t* ent)
 
 static void G_SetSkin(gentity_t* ent)
 {
-	char skin_name[MAX_QPATH];
+	char skin_name[MAX_QPATH] = {};
 	//ok, lets register the skin name, and then pass that name to the config strings so the client can get it too.
 	if (Q_stricmp("hoth2", level.mapname) == 0 //hack, is this the only map?
 		||
@@ -1730,7 +1730,7 @@ qboolean G_SetG2PlayerModelInfo(gentity_t* ent, const char* model_name, const ch
 				// Setup the droid unit (or other misc tag we're using this for).
 				ent->m_pVehicle->m_iDroidUnitTag = gi.G2API_AddBolt(&ent->ghoul2[ent->playerModel], "*droidunit");
 
-				char str_temp[128];
+				char str_temp[128] = {};
 
 				// Setup the Exhausts.
 				for (int i = 0; i < MAX_VEHICLE_EXHAUSTS; i++)
@@ -2068,7 +2068,7 @@ qboolean G_SetG2PlayerModelInfo(gentity_t* ent, const char* model_name, const ch
 		}
 		else if (ent->client->NPC_class == CLASS_RANCOR)
 		{
-			Eorientations o_up, o_rt, o_fwd;
+			Eorientations o_up = ORIGIN, o_rt = ORIGIN, o_fwd = ORIGIN;
 			//regular bones we need
 			ent->lowerLumbarBone = gi.G2API_GetBoneIndex(&ent->ghoul2[ent->playerModel], "lower_spine", qtrue);
 			if (ent->lowerLumbarBone >= 0)
@@ -2105,7 +2105,7 @@ qboolean G_SetG2PlayerModelInfo(gentity_t* ent, const char* model_name, const ch
 			|| !Q_stricmp("md_dro_am", model_name)
 			|| !Q_stricmp("md_dro_sn", model_name))
 		{
-			Eorientations o_up, o_rt, o_fwd;
+			Eorientations o_up = ORIGIN, o_rt = ORIGIN, o_fwd = ORIGIN;
 
 			if (Q_stricmp("saber_droid", model_name))
 			{
@@ -2282,7 +2282,7 @@ qboolean G_SetG2PlayerModelInfo(gentity_t* ent, const char* model_name, const ch
 constexpr auto TURN_OFF = 0x00000100;
 void g_set_g2_player_model(gentity_t* ent, const char* model_name, const char* customSkin, const char* surf_off, const char* surf_on)
 {
-	char skin_name[MAX_QPATH];
+	char skin_name[MAX_QPATH] = {};
 
 	//ok, lets register the skin name, and then pass that name to the config strings so the client can get it too.
 	if (!customSkin)
@@ -2625,7 +2625,7 @@ void G_InitPlayerFromCvars(gentity_t* ent)
 		gi.Free(ent->client->clientInfo.customBasicSoundDir);
 	}
 
-	char snd[512];
+	char snd[512] = {};
 	gi.Cvar_VariableStringBuffer("snd", snd, sizeof snd);
 
 	ent->client->clientInfo.customBasicSoundDir = G_NewString(snd); //copy current cvar
@@ -2677,7 +2677,7 @@ qboolean G_InitPlayerLookFromPlayer(gentity_t* ent)
 	{
 		return qfalse;
 	}
-	char model_name[MAX_QPATH];
+	char model_name[MAX_QPATH] = {};
 	Q_strncpyz(model_name, g2.mFileName + prefix_len, sizeof model_name);
 	char* slash = strchr(model_name, '/');
 	if (!slash)
@@ -2986,7 +2986,7 @@ void G_ChangePlayerModelAndSabers(gentity_t* ent, const char* new_model)
 		return;
 	}
 
-	saberSetBefore_t sabers_before;
+	saberSetBefore_t sabers_before = {};
 	G_RememberSaberSet(ent, &sabers_before);
 	const qboolean saber_thrown = ent->client->ps.saberInFlight;
 	if (saber_thrown)
@@ -3033,7 +3033,7 @@ void G_ChangePlayerModel(gentity_t* ent, const char* new_model)
 		return;
 	}
 
-	saberSetBefore_t sabers_before;
+	saberSetBefore_t sabers_before = {};
 	G_RememberSaberSet(ent, &sabers_before);
 
 	if (cg_trueguns.integer > 0)
@@ -3130,7 +3130,7 @@ void G_ChangePlayerModel(gentity_t* ent, const char* new_model)
 
 		if (strchr(new_model, '|'))
 		{
-			char name[MAX_QPATH];
+			char name[MAX_QPATH] = {};
 			strcpy(name, new_model);
 			char* p = strchr(name, '|');
 			*p = 0;
@@ -3350,7 +3350,7 @@ void G_ChangePlayerModel(gentity_t* ent, const char* new_model)
 
 		if (strchr(new_model, '|'))
 		{
-			char name[MAX_QPATH];
+			char name[MAX_QPATH] = {};
 			strcpy(name, new_model);
 			char* p = strchr(name, '|');
 			*p = 0;
@@ -3632,8 +3632,8 @@ qboolean ClientSpawn(gentity_t* ent, SavedGameJustLoaded_e e_saved_game_just_loa
 	int index = 0;
 	gclient_t* client = nullptr;
 	int i = 0;
-	clientInfo_t saved_ci;
-	usercmd_t ucmd;
+	clientInfo_t saved_ci = {};
+	usercmd_t ucmd = {};
 	qboolean beam_in_effect = qfalse;
 	extern qboolean g_qbLoadTransition;
 
@@ -3680,7 +3680,7 @@ qboolean ClientSpawn(gentity_t* ent, SavedGameJustLoaded_e e_saved_game_just_loa
 		if (ent->NPC_type && Q_stricmp(ent->NPC_type, "player"))
 		{
 			// FIXME: game doesn't like it when you pass ent->NPC_type into this func. Insert all kinds of noises here --eez
-			char bleh[MAX_SPAWN_VARS_CHARS];
+			char bleh[MAX_SPAWN_VARS_CHARS] = {};
 			Q_strncpyz(bleh, ent->NPC_type, sizeof(bleh));
 
 			// G_ChangePlayerModel re-reads the NPC file (NPC_ParseParms), which puts back that character's
@@ -3770,10 +3770,10 @@ qboolean ClientSpawn(gentity_t* ent, SavedGameJustLoaded_e e_saved_game_just_loa
 	{
 		gentity_t* spawn_point = nullptr;
 		int persistant[MAX_PERSISTANT] = { 0 };
-		clientSession_t savedSess;
-		clientPersistant_t saved;
-		vec3_t spawn_angles;
-		vec3_t spawn_origin;
+		clientSession_t savedSess = {};
+		clientPersistant_t saved = {};
+		vec3_t spawn_angles = {};
+		vec3_t spawn_origin = {};
 
 		// find a spawn point
 		// do it before setting health back up, so farthest
@@ -4057,7 +4057,7 @@ qboolean ClientSpawn(gentity_t* ent, SavedGameJustLoaded_e e_saved_game_just_loa
 			if (ent->NPC_type && Q_stricmp(ent->NPC_type, "player"))
 			{
 				// FIXME: game doesn't like it when you pass ent->NPC_type into this func. Insert all kinds of noises here --eez
-				char bleh[MAX_SPAWN_VARS_CHARS];
+				char bleh[MAX_SPAWN_VARS_CHARS] = {};
 				Q_strncpyz(bleh, ent->NPC_type, sizeof(bleh));
 
 				G_ChangePlayerModel(ent, bleh);

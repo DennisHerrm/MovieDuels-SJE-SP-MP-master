@@ -235,7 +235,7 @@ void CG_TestModelSetAnglespost_f()
 
 void CG_TestModelAnimate_f()
 {
-	char boneName[100];
+	char boneName[100] = {};
 	CGhoul2Info_v& ghoul2 = *cg.testModelEntity.ghoul2;
 
 	strcpy(boneName, CG_Argv(1));
@@ -511,7 +511,7 @@ static void CG_CalcIdealThirdPersonViewTarget()
 		(cg.predictedPlayerState.communicatingflags & (1 << CF_AIMINGGUN)) &&
 		cg_AimingCinematicCamera.integer)
 	{
-		vec3_t forward;
+		vec3_t forward = {};
 		AngleVectors(cg.refdefViewAngles, forward, NULL, NULL);
 
 		// Shorter forward distance so we don't zoom into the back of the head
@@ -526,7 +526,7 @@ static void CG_CalcIdealThirdPersonViewTarget()
 	// Crouch tweak
 	if (cg.predictedPlayerState.pm_flags & PMF_DUCKED && cg.predictedPlayerState.groundEntityNum != ENTITYNUM_NONE)
 	{ // if the player is crouched and on the ground, nudge the camera up a bit so it doesn't clip into the ground
-		vec3_t nudgepos;
+		vec3_t nudgepos = {};
 		trace_t trace;
 
 		VectorCopy(cameraFocusLoc, nudgepos);
@@ -549,7 +549,7 @@ static void CG_CalcIdealThirdPersonViewTarget()
 	// Meditation tweak
 	if (cg.snap->ps.eFlags & EF_MEDITATING)
 	{
-		vec3_t nudgepos;
+		vec3_t nudgepos = {};
 		trace_t trace;
 
 		VectorCopy(cameraFocusLoc, nudgepos);
@@ -749,7 +749,7 @@ static void CG_UpdateThirdPersonTargetDamp()
 		else
 		{
 			float ratio = 0.0f;
-			vec3_t targetdiff;
+			vec3_t targetdiff = {};
 			// Calculate the difference from the current position to the new one.
 			VectorSubtract(cameraIdealTarget, cameraCurTarget, targetdiff);
 
@@ -779,7 +779,7 @@ static void CG_UpdateThirdPersonTargetDamp()
 	else if (cg_thirdPersonTargetDamp.value >= 0.0)
 	{
 		float ratio = 0.0f;
-		vec3_t targetdiff;
+		vec3_t targetdiff = {};
 		// Calculate the difference from the current position to the new one.
 		VectorSubtract(cameraIdealTarget, cameraCurTarget, targetdiff);
 
@@ -905,7 +905,7 @@ static void CG_UpdateThirdPersonCameraDamp()
 	else if (dampfactor >= 0.0)
 	{
 		float ratio = 0.0f;
-		vec3_t locdiff;
+		vec3_t locdiff = {};
 		// Calculate the difference from the current position to the new one.
 		VectorSubtract(cameraIdealLoc, cameraCurLoc, locdiff);
 
@@ -1229,7 +1229,7 @@ static void CG_MeditateCameraOrbit(float* yaw, float* pitch)
 	// the game's meditate state (as CG_CheckModifyUCmd, cg_predict.cpp, which stops resetting the mouse input to the
 	// held view at the same frame), not the snapshot's: else the camera snapped back when meditating ended
 	const qboolean meditating = static_cast<qboolean>(cg.renderingThirdPerson && CG_PlayerMeditating());
-	usercmd_t cmd;
+	usercmd_t cmd = {};
 
 	cgi_GetUserCmd(cgi_GetCurrentCmdNumber(), &cmd);
 
@@ -1286,7 +1286,7 @@ static void CG_OffsetThirdPersonView()
 		return;
 	}
 
-	vec3_t diff;
+	vec3_t diff = {};
 
 	CG_UpdateCameraBlends();
 
@@ -1392,7 +1392,7 @@ static void CG_OffsetThirdPersonView()
 	if ((cg.snap->ps.weapon == WP_SABER || cg.snap->ps.weapon == WP_MELEE) &&
 		cg.renderingThirdPerson == qfalse)
 	{
-		vec3_t org, view_dir;
+		vec3_t org = {}, view_dir = {};
 
 		VectorCopy(cg_entities[0].gent->client->renderInfo.eyePoint, org);
 
@@ -1483,7 +1483,7 @@ static void CG_OffsetThirdPersonView()
 		AnglesToAxis(cg.refdefViewAngles, cg.refdef.viewaxis);
 
 		// desired camera location after applying horizontal offset
-		vec3_t desiredCamLoc;
+		vec3_t desiredCamLoc = {};
 		VectorMA(cameraCurLoc, horz, cg.refdef.viewaxis[1], desiredCamLoc);
 
 		// trace from the camera target to the desired location so we don't end inside walls
@@ -1543,7 +1543,7 @@ static void CG_OffsetFirstPersonView(const qboolean first_person_saber)
 	float delta = 0.0f;
 	float speed = 0.0f;
 	float f = 0.0f;
-	vec3_t predicted_velocity;
+	vec3_t predicted_velocity = {};
 	int time_delta = 0;
 
 	// Ensure snapshot exists before dereferencing.
@@ -1747,7 +1747,7 @@ static void CG_OffsetFirstPersonView(const qboolean first_person_saber)
 	// Lean offset.
 	if (cg.snap->ps.leanofs != 0)
 	{
-		vec3_t right;
+		vec3_t right = {};
 
 		cg.refdefViewAngles[2] += (float)cg.snap->ps.leanofs / 2.0f;
 		AngleVectors(cg.refdefViewAngles, NULL, right, NULL);
@@ -1777,7 +1777,7 @@ Calcs Y FOV from given X FOV
 */
 qboolean CG_CalcFOVFromX(float fov_x)
 {
-	qboolean inwater;
+	qboolean inwater = qfalse;
 
 	if (cg_fovAspectAdjust.integer)
 	{
@@ -2108,7 +2108,7 @@ CG_DamageBlendBlob
 */
 static void CG_DamageBlendBlob()
 {
-	refEntity_t ent;
+	refEntity_t ent = {};
 
 	if (!cg.damageValue)
 	{
@@ -2165,7 +2165,7 @@ void CG_SaberClashFlare()
 		return;
 	}
 
-	vec3_t dif;
+	vec3_t dif = {};
 
 	// Don't do clashes for things that are behind us
 	VectorSubtract(g_saberFlashPos, cg.refdef.vieworg, dif);
@@ -2230,7 +2230,7 @@ static void CG_WalkerViewOrigin(const centity_t* walker, const qboolean boarding
 	static float smoothed_height = 0.0f; // of the walker
 
 	const vec3_t yaw_angles = { 0.0f, walker->lerpAngles[YAW], 0.0f };
-	vec3_t fwd, right, delta, local;
+	vec3_t fwd = {}, right = {}, delta = {}, local = {};
 
 	AngleVectors(yaw_angles, fwd, right, nullptr);
 	VectorSubtract(pilot_org, walker->lerpOrigin, delta);
@@ -2397,7 +2397,7 @@ static qboolean CG_CalcViewValues()
 		{
 			if (cg.snap->ps.weapon == WP_SABER || cg.snap->ps.weapon == WP_MELEE)
 			{
-				vec3_t dir;
+				vec3_t dir = {};
 				CG_OffsetFirstPersonView(qtrue);
 				cg.refdef.vieworg[2] += 32;
 				AngleVectors(cg.refdefViewAngles, dir, nullptr, nullptr);
@@ -2704,7 +2704,7 @@ static void CG_DrawSkyBoxPortal()
 	if (haveSkyOri)
 	{
 		// move the portal camera with the player, as MP's cgame does
-		vec3_t dif;
+		vec3_t dif = {};
 		VectorSubtract(backuprefdef.vieworg, skyOriPos, dif);
 		VectorMA(cg.refdef.vieworg, skyOriScale, dif, cg.refdef.vieworg);
 	}
@@ -2919,7 +2919,7 @@ static void CG_VehicleStickLook(float* pitch_scale, float* yaw_scale)
 	static int turn_time[2] = { 0, 0 };
 	const float full_speed[2] = { cg_vehicleStickPitch.value, cg_vehicleStickYaw.value };
 	float* const scale[2] = { pitch_scale, yaw_scale };
-	usercmd_t cmd;
+	usercmd_t cmd = {};
 
 	cgi_GetUserCmd(cgi_GetCurrentCmdNumber(), &cmd);
 
@@ -3386,7 +3386,7 @@ void CG_DrawActiveFrame(const int server_time, const stereoFrame_t stereo_view)
 	// this game does not have opaque water
 	if (0)
 	{
-		vec3_t	camTest;
+		vec3_t	camTest = {};
 		VectorCopy(cg.refdef.vieworg, camTest);
 		camTest[2] += 6;
 		if (!(CG_PointContents(camTest, 0) & CONTENTS_SOLID) && !gi.inPVS(cg.refdef.vieworg, camTest))

@@ -238,7 +238,7 @@ const char* CG_GetGameStatusText(void) {
 	{
 		if (cg.snap->ps.persistant[PERS_TEAM] != TEAM_SPECTATOR)
 		{
-			char sPlaceWith[256];
+			char sPlaceWith[256] = { 0 };
 			trap->SE_GetStringTextString("MP_INGAME_PLACE_WITH", sPlaceWith, sizeof(sPlaceWith));
 
 			s = va("%s %s %i", CG_PlaceString(cg.snap->ps.persistant[PERS_RANK] + 1), sPlaceWith, cg.snap->ps.persistant[PERS_SCORE]);
@@ -265,7 +265,7 @@ extern int MenuFontToHandle(int iMenuFont);
 //
 static void CG_Text_Paint_Limit(float* maxX, float x, float y, float scale, vec4_t color, const char* text, float adjust, int limit, int iMenuFont)
 {
-	qboolean bIsTrailingPunctuation;
+	qboolean bIsTrailingPunctuation = qfalse;
 
 	// this is kinda dirty, but...
 	//
@@ -323,7 +323,7 @@ extern const char* CG_GetLocationString(const char* loc); //cg_main.c
 static void CG_DrawNewTeamInfo(rectDef_t* rect, float text_x, float text_y, float scale, vec4_t color, qhandle_t shader) {
 	int i = 0, len = 0;
 	const char* p = NULL;
-	vec4_t		hcolor;
+	vec4_t		hcolor = { 0 };
 	float maxx = 0.0f, leftOver = 0.0f;
 	clientInfo_t* ci = NULL;
 	qhandle_t h = 0;

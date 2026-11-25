@@ -297,19 +297,19 @@ void G_LogWeaponOutput(void)
 	int i = 0, j = 0, curwp = 0;
 	float pershot = 0.0f;
 	fileHandle_t weaponfile = 0;
-	char string[1024];
+	char string[1024] = { 0 };
 
-	int totalpickups[WP_NUM_WEAPONS];
-	int totaltime[WP_NUM_WEAPONS];
-	int totaldeaths[WP_NUM_WEAPONS];
-	int totaldamageMOD[MOD_MAX];
-	int totalkillsMOD[MOD_MAX];
-	int totaldamage[WP_NUM_WEAPONS];
-	int totalkills[WP_NUM_WEAPONS];
-	int totalshots[WP_NUM_WEAPONS];
-	int percharacter[WP_NUM_WEAPONS];
-	char info[1024];
-	char mapname[128];
+	int totalpickups[WP_NUM_WEAPONS] = { 0 };
+	int totaltime[WP_NUM_WEAPONS] = { 0 };
+	int totaldeaths[WP_NUM_WEAPONS] = { 0 };
+	int totaldamageMOD[MOD_MAX] = { 0 };
+	int totalkillsMOD[MOD_MAX] = { 0 };
+	int totaldamage[WP_NUM_WEAPONS] = { 0 };
+	int totalkills[WP_NUM_WEAPONS] = { 0 };
+	int totalshots[WP_NUM_WEAPONS] = { 0 };
+	int percharacter[WP_NUM_WEAPONS] = { 0 };
+	char info[1024] = { 0 };
+	char mapname[128] = { 0 };
 	char* nameptr = NULL, * unknownname = "<Unknown>";
 
 	if (!g_statLog.integer)

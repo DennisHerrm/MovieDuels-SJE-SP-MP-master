@@ -229,8 +229,8 @@ static qboolean BG_SkelHasBolt(const int glmLen, const int glaLen, const char* n
 
 static int BG_ModelSkeletonCheck(const char* folder)
 {
-	char path[MAX_QPATH];
-	char gla[MAX_QPATH];
+	char path[MAX_QPATH] = { 0 };
+	char gla[MAX_QPATH] = { 0 };
 	int flags = SKELF_OWN;
 
 	if (!BG_IsOwnSkeletonModel(folder))
@@ -408,7 +408,7 @@ qboolean BG_ClassSkeletonOk(const int botclass, const int skelFlags)
 qboolean BG_ModelUsesHumanoidGLA(const char* model)
 {
 	char folder[MAX_QPATH] = { 0 };
-	char path[MAX_QPATH];
+	char path[MAX_QPATH] = { 0 };
 	int n = 0;
 
 	if (!model || !model[0])

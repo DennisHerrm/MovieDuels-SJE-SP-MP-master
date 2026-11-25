@@ -138,7 +138,7 @@ static void CG_DrawMessageLit(const int x, const int y)
 static void CG_DrawForcePower(const centity_t* cent, const float hud_ratio)
 {
 	qboolean flash = qfalse;
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	float extra = 0, percent = 0.0f;
 
 	if (!cent->gent->client->ps.forcePowersKnown || G_IsRidingVehicle(cent->gent))
@@ -254,7 +254,7 @@ static void CG_DrawForcePower(const centity_t* cent, const float hud_ratio)
 
 static void CG_DrawJK2ForcePower(const centity_t* cent, const int x, const int y)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	float extra = 0;
 	float percent = 0.0f;
 
@@ -845,7 +845,7 @@ static void cg_drawweapontype(const centity_t* cent)
 
 static void CG_DrawClassicsaberfatigue(const centity_t* cent, const float hud_ratio)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	constexpr int saber_fatigue_chain_count = MISHAPLEVEL_MAX;
 	qboolean flash = qfalse;
 
@@ -938,7 +938,7 @@ static void CG_DrawClassicsaberfatigue(const centity_t* cent, const float hud_ra
 
 static void CG_DrawNewClassicsaberfatigue(const centity_t* cent, const float hud_ratio)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	constexpr int saber_fatigue_chain_count = MISHAPLEVEL_MAX;
 	qboolean flash = qfalse;
 
@@ -1145,7 +1145,7 @@ static void CG_DrawoldblockPoints(const centity_t* cent)
 
 static void CG_DrawJK2blockPoints(const int x, const int y)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 
 	//	Outer block circular
 	//==========================================================================================================//
@@ -1261,7 +1261,7 @@ static void CG_DrawJK2blockPoints(const int x, const int y)
 
 static void CG_DrawClassicblockPoints(const centity_t* cent, const float hud_ratio)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	float extra = 0, percent = 0.0f;
 
 	// Make the hud flash by setting forceHUDTotalFlashTime above cg.time
@@ -1398,7 +1398,7 @@ static void CG_DrawDF_RotatePic(const int index, const int rotate, const int off
 // left hud
 static void CG_DrawDF_Health()
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	const playerState_t* ps = &cg.snap->ps;
 	int offset_y = 21;
 
@@ -1489,7 +1489,7 @@ static void CG_DrawDF_Health()
 
 static void CG_DrawDF_Armor()
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	const playerState_t* ps = &cg.snap->ps;
 	int offset_y = 43;
 
@@ -1610,7 +1610,7 @@ static void CG_DrawDF_Armor()
 
 static void CG_DrawDF_Stamina_Sprint()
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	int offset_y = 32;
 
 	// Print all the tics of the health graphic
@@ -1690,7 +1690,7 @@ static float cg_dfFuelOverride = -1.0f;
 
 static void CG_DrawDF_JetPackFuel()
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	int offset_y = 32;
 
 	// Print all the tics of the health graphic
@@ -1751,7 +1751,7 @@ static void CG_DrawDF_JetPackFuel()
 
 static void CG_DrawDF_CloakFuel()
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	int offset_y = 32;
 
 	// Print all the tics of the health graphic
@@ -1812,7 +1812,7 @@ static void CG_DrawDF_CloakFuel()
 
 static void CG_DrawDF_BarrierFuel()
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	int offset_y = 32;
 
 	// Print all the tics of the health graphic
@@ -1917,7 +1917,7 @@ static void CG_DrawDF_GunFatigue(const centity_t* cent)
 
 static void CG_DrawDF_Ammo(const centity_t* cent)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	int offset_y = 21;
 
 	if (!cent->currentState.weapon) // We don't have a weapon right now
@@ -2056,7 +2056,7 @@ static void CG_DrawDF_Ammo(const centity_t* cent)
 static void CG_DrawDF_BlockPoints(const centity_t* cent)
 {
 	qboolean flash = qfalse;
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	float percent = 0.0f;
 	const playerState_t* ps = &cg.snap->ps;
 	int offset_y = 21;
@@ -2211,7 +2211,7 @@ static void CG_DrawDF_BlockPoints(const centity_t* cent)
 static void CG_DrawDF_ForcePowers(const centity_t* cent)
 {
 	qboolean flash = qfalse;
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	float extra = 0, percent = 0.0f;
 	int offset_y = 43;
 
@@ -2746,7 +2746,7 @@ static void CG_DrawBarrierFuel()
 
 static void CG_DrawAmmo(const centity_t* cent, const float hud_ratio)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 
 	if (!cent->currentState.weapon) // We don't have a weapon right now
 	{
@@ -2854,7 +2854,7 @@ static void CG_DrawAmmo(const centity_t* cent, const float hud_ratio)
 static void CG_DrawJK2Ammo(const centity_t* cent, const int x, const int y)
 {
 	int num_color_i = 0;
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 
 	const playerState_t* ps = &cg.snap->ps;
 
@@ -2992,7 +2992,7 @@ static void CG_DrawJK2Ammo(const centity_t* cent, const int x, const int y)
 
 static void CG_DrawHealth(const float hud_ratio)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	const playerState_t* ps = &cg.snap->ps;
 
 	// Print all the tics of the health graphic
@@ -3043,7 +3043,7 @@ static void CG_DrawHealth(const float hud_ratio)
 
 static void CG_DrawArmor(const float hud_ratio)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	const playerState_t* ps = &cg.snap->ps;
 
 	// Print all the tics of the armor graphic
@@ -3143,7 +3143,7 @@ static void CG_DrawArmor(const float hud_ratio)
 
 static void CG_DrawJK2Armor(const centity_t* cent, const int x, const int y)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 
 	const playerState_t* ps = &cg.snap->ps;
 
@@ -3192,7 +3192,7 @@ static void CG_DrawJK2Armor(const centity_t* cent, const int x, const int y)
 
 static void CG_DrawJK2Health(const centity_t* cent, const int x, const int y)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 
 	const playerState_t* ps = &cg.snap->ps;
 
@@ -3225,7 +3225,7 @@ static void CG_DrawJK2Health(const centity_t* cent, const int x, const int y)
 
 static void CG_DrawJK2HealthSJE(const centity_t* cent, const int x, const int y)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 
 	const playerState_t* ps = &cg.snap->ps;
 
@@ -3264,7 +3264,7 @@ constexpr auto MAX_VHUD_AMMO_TICS = 5;
 static void CG_DrawVehicleSheild(const Vehicle_t* p_veh)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t color, calc_color;
+	vec4_t color = {}, calc_color = {};
 	qhandle_t background = 0;
 	float curr_value = 0.0f, max_health = 0.0f;
 
@@ -3300,7 +3300,7 @@ static void CG_DrawVehicleSheild(const Vehicle_t* p_veh)
 	const float inc = max_health / MAX_VHUD_SHIELD_TICS;
 	for (int i = 1; i <= MAX_VHUD_SHIELD_TICS; i++)
 	{
-		char item_name[64];
+		char item_name[64] = {};
 		Com_sprintf(item_name, sizeof item_name, "shield_tic%d", i);
 
 		if (!cgi_UI_GetMenuItemInfo(
@@ -3341,7 +3341,7 @@ static void CG_DrawVehicleTurboRecharge(const Vehicle_t* p_veh)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
 	qhandle_t background = 0;
-	vec4_t color;
+	vec4_t color = {};
 
 	if (cgi_UI_GetMenuItemInfo(
 		"swoopvehiclehud",
@@ -3385,7 +3385,7 @@ static void CG_DrawVehicleSpeed(const Vehicle_t* p_veh, const char* ent_hud)
 	qhandle_t background = 0;
 	const gentity_t* parent = p_veh->m_pParentEntity;
 	const playerState_t* parent_ps = &parent->client->ps;
-	vec4_t color, calc_color;
+	vec4_t color = {}, calc_color = {};
 
 	if (cgi_UI_GetMenuItemInfo(
 		ent_hud,
@@ -3410,7 +3410,7 @@ static void CG_DrawVehicleSpeed(const Vehicle_t* p_veh, const char* ent_hud)
 	const float inc = static_cast<float>(max_speed) / MAX_VHUD_SPEED_TICS;
 	for (int i = 1; i <= MAX_VHUD_SPEED_TICS; i++)
 	{
-		char itemName[64];
+		char itemName[64] = {};
 		Com_sprintf(itemName, sizeof itemName, "speed_tic%d", i);
 
 		if (!cgi_UI_GetMenuItemInfo(
@@ -3477,7 +3477,7 @@ static void CG_DrawVehicleArmor(const Vehicle_t* p_veh)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
 	qhandle_t background = 0;
-	vec4_t color, calc_color;
+	vec4_t color = {}, calc_color = {};
 
 	if (cgi_UI_GetMenuItemInfo(
 		"swoopvehiclehud",
@@ -3502,7 +3502,7 @@ static void CG_DrawVehicleArmor(const Vehicle_t* p_veh)
 	const float inc = static_cast<float>(max_armor) / MAX_VHUD_ARMOR_TICS;
 	for (int i = 1; i <= MAX_VHUD_ARMOR_TICS; i++)
 	{
-		char item_name[64];
+		char item_name[64] = {};
 		Com_sprintf(item_name, sizeof item_name, "armor_tic%d", i);
 
 		if (!cgi_UI_GetMenuItemInfo(
@@ -3548,7 +3548,7 @@ static void CG_DrawVehicleAmmoBar(const Vehicle_t* p_veh, const int weapon_num, 
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
 	qhandle_t background = 0;
-	vec4_t color, calc_color;
+	vec4_t color = {}, calc_color = {};
 
 	if (cgi_UI_GetMenuItemInfo(
 		"swoopvehiclehud",
@@ -3569,7 +3569,7 @@ static void CG_DrawVehicleAmmoBar(const Vehicle_t* p_veh, const int weapon_num, 
 	const float inc = static_cast<float>(max_ammo) / MAX_VHUD_AMMO_TICS;
 	for (int i = 1; i <= num_tics; i++)
 	{
-		char item_name[64];
+		char item_name[64] = {};
 		Com_sprintf(item_name, sizeof item_name, "%s%d", tic_item, i);
 
 		if (!cgi_UI_GetMenuItemInfo(
@@ -3647,7 +3647,7 @@ static void CG_DrawVehicleWeaponsLinked(const Vehicle_t* p_veh)
 	{
 		int x_pos = 0, y_pos = 0, width = 0, height = 0;
 		qhandle_t background = 0;
-		vec4_t color;
+		vec4_t color = {};
 
 		if (cgi_UI_GetMenuItemInfo("swoopvehiclehud", "weaponslinked", &x_pos, &y_pos, &width, &height, color,
 			&background))
@@ -3701,7 +3701,7 @@ static void CG_DrawVehicleDamage(const Vehicle_t* p_veh, const int broken_limbs,
 	const int index)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t color;
+	vec4_t color = {};
 	qhandle_t background = 0;
 
 	if (!cgi_UI_GetMenuItemInfo(menu_name, vehDamageData[index].itemName, &x_pos, &y_pos, &width, &height, color,
@@ -3762,7 +3762,7 @@ static void CG_DrawVehicleDamageHUD(const Vehicle_t* p_veh, const float perc_shi
 	const float alpha)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t item_color, color = { 0, 0, 0, 0 };
+	vec4_t item_color = {}, color = { 0, 0, 0, 0 };
 	qhandle_t background = 0;
 	const gentity_t* veh = p_veh->m_pParentEntity;
 
@@ -3905,7 +3905,7 @@ static const Vehicle_t* CG_CheckTargetVehicle(const Vehicle_t* my_veh, float* al
 static void CG_DrawVehicleHud(const centity_t* cent, const Vehicle_t* p_veh)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t color;
+	vec4_t color = {};
 	qhandle_t background = 0;
 
 	CG_DrawVehicleTurboRecharge(p_veh);
@@ -3967,7 +3967,7 @@ static void CG_DrawVehicleHud(const centity_t* cent, const Vehicle_t* p_veh)
 static void CG_DrawTauntaunHud(const Vehicle_t* p_veh)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t color;
+	vec4_t color = {};
 	qhandle_t background = 0;
 
 	CG_DrawVehicleTurboRecharge(p_veh);
@@ -4009,7 +4009,7 @@ static void CG_DrawTauntaunHud(const Vehicle_t* p_veh)
 static void CG_DrawEmplacedGunHealth(const centity_t* cent)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0, health = 0;
-	vec4_t color, calc_color;
+	vec4_t color = {}, calc_color = {};
 	qhandle_t background = 0;
 
 	if (cent->gent && cent->gent->owner)
@@ -4053,7 +4053,7 @@ static void CG_DrawEmplacedGunHealth(const centity_t* cent)
 	const float inc = static_cast<float>(max_health) / MAX_VHUD_SHIELD_TICS;
 	for (int i = 1; i <= MAX_VHUD_SHIELD_TICS; i++)
 	{
-		char item_name[64];
+		char item_name[64] = {};
 		Com_sprintf(item_name, sizeof item_name, "shield_tic%d", i);
 
 		if (!cgi_UI_GetMenuItemInfo(
@@ -4092,7 +4092,7 @@ static void CG_DrawEmplacedGunHealth(const centity_t* cent)
 static void CG_DrawEmplacedGunHud(const centity_t* cent)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t color;
+	vec4_t color = {};
 	qhandle_t background = 0;
 
 	// Draw frame
@@ -4130,7 +4130,7 @@ static void CG_DrawEmplacedGunHud(const centity_t* cent)
 static void CG_DrawItemHealth(float curr_value, const float max_health)
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t color, calc_color;
+	vec4_t color = {}, calc_color = {};
 	qhandle_t background = 0;
 
 	if (cgi_UI_GetMenuItemInfo(
@@ -4153,7 +4153,7 @@ static void CG_DrawItemHealth(float curr_value, const float max_health)
 	const float inc = max_health / MAX_VHUD_SHIELD_TICS;
 	for (int i = 1; i <= MAX_VHUD_SHIELD_TICS; i++)
 	{
-		char item_name[64];
+		char item_name[64] = {};
 		Com_sprintf(item_name, sizeof item_name, "shield_tic%d", i);
 
 		if (!cgi_UI_GetMenuItemInfo(
@@ -4192,7 +4192,7 @@ static void CG_DrawItemHealth(float curr_value, const float max_health)
 static void CG_DrawPanelTurretHud()
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t color;
+	vec4_t color = {};
 	qhandle_t background = 0;
 
 	// Draw frame
@@ -4233,7 +4233,7 @@ static void CG_DrawPanelTurretHud()
 static void CG_DrawATSTHud()
 {
 	int x_pos = 0, y_pos = 0, width = 0, height = 0;
-	vec4_t color;
+	vec4_t color = {};
 	qhandle_t background = 0;
 	float health = 0.0f;
 
@@ -5484,7 +5484,7 @@ CG_DrawDatapadHealth
 */
 static void CG_DrawDatapadHealth(const int x, const int y)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 
 	const playerState_t* ps = &cg.snap->ps;
 
@@ -5510,7 +5510,7 @@ static void CG_DrawDatapadHealth(const int x, const int y)
 
 static void CG_DrawDataPadArmor(const int x, const int y)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 
 	const playerState_t* ps = &cg.snap->ps;
 
@@ -5557,7 +5557,7 @@ CG_DrawForcePower
 */
 static void CG_DrawDatapadForcePower(const centity_t* cent, const int x, const int y)
 {
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 	float extra = 0, percent = 0.0f;
 
 	if (!cent->gent->client->ps.forcePowersKnown)
@@ -5621,7 +5621,7 @@ CG_DrawAmmo
 static void CG_DrawDataPadAmmo(const centity_t* cent, const int x, const int y)
 {
 	int num_color_i = 0;
-	vec4_t calc_color;
+	vec4_t calc_color = {};
 
 	const playerState_t* ps = &cg.snap->ps;
 
@@ -6486,7 +6486,7 @@ constexpr auto HEALTHBARRANGE = 200;
 // units from the view (a gentle shrink, the bars keep about the same size on screen)
 static qboolean CG_OverheadAnchor(const centity_t* cent, float* x, float* y, float* scale)
 {
-	vec3_t pos;
+	vec3_t pos = {};
 	VectorCopy(cent->lerpOrigin, pos);
 	pos[2] += cent->gent->maxs[2] + OVERHEAD_HEAD_GAP;
 	if (cent->gent->client)
@@ -6661,7 +6661,7 @@ static void CG_DrawOverheadBars(const qboolean drawHealth, const qboolean drawBl
 				colors[bars++] = healthColor;
 			}
 
-			float x, y, scale;
+			float x = 0, y = 0, scale = 0;
 			if (!bars || !CG_OverheadAnchor(cent, &x, &y, &scale))
 			{
 				continue;
@@ -6689,7 +6689,7 @@ static void CG_DrawOverheadBars(const qboolean drawHealth, const qboolean drawBl
 // the crosshair name over cent's head, with the bars' anchor, scale and fade, just above its top bar this frame
 static void CG_DrawOverheadName(const centity_t* cent, const char* name, const vec4_t color)
 {
-	float x, y, scale;
+	float x = 0, y = 0, scale = 0;
 	if (!cent || !cent->gent || !name || !name[0] || !CG_OverheadAnchor(cent, &x, &y, &scale))
 	{
 		return;
@@ -7295,7 +7295,7 @@ qboolean CG_WorldCoordToScreenCoord(vec3_t worldCoord, int *x, int *y)
 */
 qboolean CG_WorldCoordToScreenCoordFloat(vec3_t world_coord, float* x, float* y)
 {
-	vec3_t trans;
+	vec3_t trans = {};
 
 	const float px = tan(cg.refdef.fov_x * (M_PI / 360));
 	const float py = tan(cg.refdef.fov_y * (M_PI / 360));
@@ -7464,7 +7464,7 @@ static void CG_ScanForCrosshairEntity(const qboolean scan_all)
 {
 	trace_t trace;
 	const gentity_t* traceEnt = nullptr;
-	vec3_t start, end;
+	vec3_t start = {}, end = {};
 	int ignoreEnt = cg.snap->ps.clientNum;
 	const Vehicle_t* p_veh = nullptr;
 	float range = 4096; //was 8192
@@ -7476,7 +7476,7 @@ static void CG_ScanForCrosshairEntity(const qboolean scan_all)
 		// <-Mike said it should always do this   //if (cg_crosshairForceHint.integer &&
 	{
 		//try to check for force-affectable stuff first
-		vec3_t d_f, d_rt, d_up;
+		vec3_t d_f = {}, d_rt = {}, d_up = {};
 
 		// If you're riding a vehicle and not being drawn.
 		if ((p_veh = CG_PlayerInsideVehicle()) != nullptr)
@@ -7610,7 +7610,7 @@ static void CG_ScanForCrosshairEntity(const qboolean scan_all)
 		if (cg_dynamicCrosshair.integer)
 		{
 			//100% accurate
-			vec3_t d_f, d_rt, d_up;
+			vec3_t d_f = {}, d_rt = {}, d_up = {};
 			// If you're riding a vehicle and not being drawn.
 			if ((p_veh = CG_PlayerInsideVehicle()) != nullptr)
 			{
@@ -7807,7 +7807,7 @@ static void CG_DrawCrosshairBackupNames()
 		return;
 	}
 
-	vec3_t diff;
+	vec3_t diff = {};
 	VectorSubtract(cg_entities[g_crosshairEntNum].lerpOrigin, cg.refdef.vieworg, diff);
 
 	centity_t* cent = &cg_entities[g_crosshairEntNum];
@@ -8484,7 +8484,7 @@ static void CG_DrawCrosshairNames(void)
 		return;
 	}
 
-	vec3_t diff;
+	vec3_t diff = {};
 	VectorSubtract(cg_entities[g_crosshairEntNum].lerpOrigin, cg.refdef.vieworg, diff);
 
 	centity_t* cent = &cg_entities[g_crosshairEntNum];
@@ -8563,7 +8563,7 @@ static void CG_DrawCrosshairItem()
 
 	if (cg_entities[cg.crosshairclientNum].currentState.eType == ET_ITEM && cg.snap->ps.weapon != WP_DROIDEKA)
 	{
-		vec3_t diff;
+		vec3_t diff = {};
 		VectorSubtract(cg_entities[cg.crosshairclientNum].lerpOrigin, cg.refdef.vieworg, diff);
 
 		float distSq = VectorLengthSquared(diff);
@@ -8628,7 +8628,7 @@ static void CG_DrawRocketLocking(const int lock_ent_num)
 	}
 
 	int cx = 0, cy = 0;
-	vec3_t org;
+	vec3_t org = {};
 
 	VectorCopy(gent->currentOrigin, org);
 	org[2] += (gent->mins[2] + gent->maxs[2]) * 0.5f;
@@ -8918,8 +8918,8 @@ static float cg_draw_radar(const float y)
 	// Draw all of the radar entities.  Draw them backwards so players are drawn last
 	for (int i = cg.radarEntityCount - 1; i >= 0; i--)
 	{
-		vec3_t dir_look;
-		vec3_t dir_player;
+		vec3_t dir_look = {};
+		vec3_t dir_player = {};
 		qboolean far_away = qfalse;
 
 		const centity_t* cent = &cg_entities[cg.radarEntities[i]];
@@ -9169,7 +9169,7 @@ static float cg_draw_radar(const float y)
 					{
 						if (radarLockSoundDebounceTime < cg.time)
 						{
-							vec3_t sound_org;
+							vec3_t sound_org = {};
 							int alarm_sound = 0;
 							if (actual_dist > RADAR_MISSILE_RANGE * 0.66f)
 							{
@@ -9363,7 +9363,7 @@ static void CG_UseIcon()
 	{
 		cgi_R_SetColor(nullptr);
 
-		vec3_t diff;
+		vec3_t diff = {};
 		VectorSubtract(cg_entities[cg.crosshairclientNum].lerpOrigin, cg.refdef.vieworg, diff);
 
 		float distSq = VectorLengthSquared(diff);
@@ -9933,7 +9933,7 @@ static void CG_DrawVehicleTargets()
 		}
 		const qboolean is_enemy = static_cast<qboolean>(pilot->client->playerTeam != player->client->playerTeam);
 
-		vec3_t dif;
+		vec3_t dif = {};
 		VectorSubtract(cent->lerpOrigin, cg.refdef.vieworg, dif);
 		const float len = VectorNormalize(dif);
 		if (cg.crosshairclientNum != ship->s.number)
@@ -9951,7 +9951,7 @@ static void CG_DrawVehicleTargets()
 			}
 		}
 		float x = 0.0f, y = 0.0f;
-		vec3_t org;
+		vec3_t org = {};
 		VectorCopy(cent->lerpOrigin, org);
 		if (!CG_WorldCoordToScreenCoordFloat(org, &x, &y))
 		{
@@ -9981,7 +9981,7 @@ static void CG_DrawVehicleTargets()
 		if (cg_drawVehLeadIndicator.integer && is_enemy && shot_speed > 0.0f
 			&& VectorLengthSquared(ship->client->ps.velocity) > 1.0f)
 		{
-			vec3_t lead_pos;
+			vec3_t lead_pos = {};
 			const float eta = Distance(cent->lerpOrigin, my_ship->currentOrigin) / shot_speed;
 			VectorMA(cent->lerpOrigin, eta, ship->client->ps.velocity, lead_pos);
 			float lead_x = 0.0f, lead_y = 0.0f;
@@ -10065,7 +10065,7 @@ static qboolean CG_DynamicHudEnemyNear()
 			continue;
 		}
 
-		vec3_t spot;
+		vec3_t spot = {};
 		VectorCopy(ent->currentOrigin, spot);
 		spot[2] += 16.0f;
 		if (Distance(cg.refdef.vieworg, spot) > range)
@@ -10975,7 +10975,7 @@ Perform all drawing needed to completely fill the screen
 void CG_DrawActive(const stereoFrame_t stereoView)
 {
 	float separation = 0.0f;
-	vec3_t base_org;
+	vec3_t base_org = {};
 
 	// optionally draw the info screen instead
 	if (!cg.snap)

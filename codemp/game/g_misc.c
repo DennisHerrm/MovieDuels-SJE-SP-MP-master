@@ -124,7 +124,7 @@ static void misc_lightstyle_set(const gentity_t* ent)
 		//turn off
 		if (mLightOffStyle) //i have a light style i'd like to use when off
 		{
-			char lightstyle[32];
+			char lightstyle[32] = { 0 };
 			trap->GetConfigstring(CS_LIGHT_STYLES + mLightOffStyle * 3 + 0, lightstyle, 32);
 			trap->SetConfigstring(CS_LIGHT_STYLES + mLightStyle * 3 + 0, lightstyle);
 
@@ -146,7 +146,7 @@ static void misc_lightstyle_set(const gentity_t* ent)
 		//Turn myself on now
 		if (mLightSwitchStyle) //i have a light style i'd like to use when on
 		{
-			char lightstyle[32];
+			char lightstyle[32] = { 0 };
 			trap->GetConfigstring(CS_LIGHT_STYLES + mLightSwitchStyle * 3 + 0, lightstyle, 32);
 			trap->SetConfigstring(CS_LIGHT_STYLES + mLightStyle * 3 + 0, lightstyle);
 
@@ -480,7 +480,7 @@ void SP_misc_exploding_crate(gentity_t* ent)
 //blast out small jet of frame when hurt.  This flame will hurt new by entities
 void GasBurst(gentity_t* self, gentity_t* attacker, int damage)
 {
-	vec3_t pt;
+	vec3_t pt = { 0 };
 
 	VectorCopy(self->r.currentOrigin, pt);
 	pt[2] += 46;
@@ -498,7 +498,7 @@ void GasBurst(gentity_t* self, gentity_t* attacker, int damage)
 //very rarely fire off a jet of gas
 static void gas_random_jet(gentity_t* self)
 {
-	vec3_t pt;
+	vec3_t pt = { 0 };
 
 	VectorCopy(self->r.currentOrigin, pt);
 	pt[2] += 50;
@@ -548,7 +548,7 @@ void SP_misc_gas_tank(gentity_t* ent)
 //------------------------------------------------------------
 void CrystalCratePain(gentity_t* self, gentity_t* attacker, int damage)
 {
-	vec3_t pt;
+	vec3_t pt = { 0 };
 
 	VectorCopy(self->r.currentOrigin, pt);
 	pt[2] += 36;
@@ -648,7 +648,7 @@ void SP_misc_G2model(gentity_t* ent)
 
 static void locateCamera(gentity_t* ent)
 {
-	vec3_t dir;
+	vec3_t dir = { 0 };
 
 	gentity_t* owner = G_PickTarget(ent->target);
 	if (!owner)
@@ -775,7 +775,7 @@ void SP_misc_portal_camera(gentity_t* ent)
 */
 void SP_misc_bsp(gentity_t* ent)
 {
-	char temp[MAX_QPATH];
+	char temp[MAX_QPATH] = { 0 };
 	char* out = NULL;
 	float newAngle = 0.0f;
 	int tempint = 0;
@@ -888,7 +888,7 @@ static void G_PortalifyEntities(gentity_t* ent)
 
 		if (scan && scan->inuse && scan->s.number != ent->s.number && trap->InPVS(ent->s.origin, scan->r.currentOrigin))
 		{
-			trace_t tr;
+			trace_t tr = { 0 };
 
 			trap->Trace(&tr, ent->s.origin, vec3_origin, vec3_origin, scan->r.currentOrigin, ent->s.number,
 				CONTENTS_SOLID, qfalse, 0, 0);
@@ -939,7 +939,7 @@ will explode.
 void SP_misc_skyportal(gentity_t* ent)
 {
 	char* fov = NULL;
-	vec3_t fogv; //----(SA)
+	vec3_t fogv = { 0 }; //----(SA)
 	int fogn = 0; //----(SA)
 	int fogf = 0; //----(SA)
 	int isfog = 0; // (SA)
@@ -1449,8 +1449,8 @@ Rules:
 */
 void SP_misc_holocron(gentity_t* ent)
 {
-	vec3_t dest;
-	trace_t tr;
+	vec3_t dest = { 0 };
+	trace_t tr = { 0 };
 
 	if (!ent)
 	{
@@ -1764,7 +1764,7 @@ void Holocron_Add(gentity_t* ent, const char* typeName)
 	Compute spawn position in front of the player
 	============================================================
 	*/
-	vec3_t forward;
+	vec3_t forward = { 0 };
 	vec3_t spawnPos = { 0.0f, 0.0f, 0.0f };
 
 	AngleVectors(ent->client->ps.viewangles, forward, NULL, NULL);
@@ -1867,7 +1867,7 @@ Rules:
 */
 void Holocron_Loadpositions(void)
 {
-	char loadPath[MAX_QPATH];
+	char loadPath[MAX_QPATH] = { 0 };
 	fileHandle_t f = 0;
 	int len = 0;
 	char* buf = NULL;
@@ -1982,7 +1982,7 @@ Notes:
 void Holocron_Savepositions(void)
 {
 	fileHandle_t f = 0;
-	char savePath[MAX_QPATH];
+	char savePath[MAX_QPATH] = { 0 };
 	int i = 0;
 
 	Com_sprintf(savePath, sizeof(savePath),
@@ -2002,7 +2002,7 @@ void Holocron_Savepositions(void)
 	============================================================
 	*/
 	{
-		char line[MAX_INFO_STRING];
+		char line[MAX_INFO_STRING] = { 0 };
 		Com_sprintf(line, sizeof(line), "%i ", number_of_holocronpositions);
 		trap->FS_Write(line, strlen(line), f);
 	}
@@ -2014,7 +2014,7 @@ void Holocron_Savepositions(void)
 	*/
 	for (i = 0; i < number_of_holocronpositions; i++)
 	{
-		char line[MAX_INFO_STRING];
+		char line[MAX_INFO_STRING] = { 0 };
 
 		// Write with consistent float formatting
 		Com_sprintf(line, sizeof(line), "%.3f %.3f %.3f ",
@@ -2176,8 +2176,8 @@ void Create_Holocrons(void)
 
 static void Use_Shooter(gentity_t* ent, gentity_t* other, gentity_t* activator)
 {
-	vec3_t dir;
-	vec3_t up, right;
+	vec3_t dir = { 0 };
+	vec3_t up = { 0 }, right = { 0 };
 
 	// see if we have a target
 	if (ent->enemy)
@@ -2572,8 +2572,8 @@ Gives generic ammo when used
 */
 void SP_misc_ammo_floor_unit(gentity_t* ent)
 {
-	vec3_t dest;
-	trace_t tr;
+	vec3_t dest = { 0 };
+	trace_t tr = { 0 };
 
 	VectorSet(ent->r.mins, -16, -16, 0);
 	VectorSet(ent->r.maxs, 16, 16, 40);
@@ -2657,8 +2657,8 @@ Gives shield energy when used.
 */
 void SP_misc_shield_floor_unit(gentity_t* ent)
 {
-	vec3_t dest;
-	trace_t tr;
+	vec3_t dest = { 0 };
+	trace_t tr = { 0 };
 
 	if (level.gametype != GT_CTF &&
 		level.gametype != GT_CTY &&
@@ -3481,7 +3481,7 @@ static void fx_runner_link(gentity_t* ent)
 		}
 		else
 		{
-			vec3_t dir;
+			vec3_t dir = { 0 };
 			// Our target is valid so let's override the default UP vector
 			VectorSubtract(target->s.origin, ent->s.origin, dir);
 			VectorNormalize(dir);
@@ -3600,8 +3600,8 @@ and hurting what it passes, until it hits something.
 */
 static void fx_explosion_trail_think(gentity_t* ent)
 {
-	vec3_t origin;
-	trace_t tr;
+	vec3_t origin = { 0 };
+	trace_t tr = { 0 };
 
 	BG_EvaluateTrajectory(&ent->s.pos, level.time, origin);
 
@@ -3619,7 +3619,7 @@ static void fx_explosion_trail_think(gentity_t* ent)
 			}
 			if (ent->genericValue6)
 			{
-				vec3_t ang;
+				vec3_t ang = { 0 };
 
 				vectoangles(tr.plane.normal, ang);
 				G_PlayEffectID(ent->genericValue6, tr.endpos, ang);
@@ -3757,8 +3757,8 @@ void SP_CreateWind(gentity_t* ent)
 	//---------------
 	if (ent->spawnflags & 2)
 	{
-		char temp[256];
-		vec3_t windDir;
+		char temp[256] = { 0 };
+		vec3_t windDir = { 0 };
 		AngleVectors(ent->s.angles, windDir, 0, 0);
 		G_SpawnFloat("speed", "500", &ent->speed);
 		VectorScale(windDir, ent->speed, windDir);
@@ -4015,8 +4015,8 @@ void SP_misc_maglock(gentity_t* self)
 void maglock_link(gentity_t* self)
 {
 	//find what we're supposed to be attached to
-	vec3_t forward, start, end;
-	trace_t trace;
+	vec3_t forward = { 0 }, start = { 0 }, end = { 0 };
+	trace_t trace = { 0 };
 
 	AngleVectors(self->s.angles, forward, NULL, NULL);
 	VectorMA(self->s.origin, 128, forward, end);
@@ -4634,7 +4634,7 @@ static void ref_link(gentity_t* ent)
 
 		if (target)
 		{
-			vec3_t dir;
+			vec3_t dir = { 0 };
 			//Find the direction to the target
 			VectorSubtract(target->s.origin, ent->s.origin, dir);
 			VectorNormalize(dir);
@@ -4858,7 +4858,7 @@ gitem_t* BG_FindItemForAmmo(ammo_t ammo);
 void SP_misc_trip_mine(gentity_t* ent)
 {
 	gentity_t* laserTrap = G_Spawn();
-	vec3_t fwd;
+	vec3_t fwd = { 0 };
 
 	//pre load the tripmine effects.
 	RegisterItem(BG_FindItemForWeapon(WP_TRIP_MINE));
@@ -4879,7 +4879,7 @@ void SP_misc_trip_mine(gentity_t* ent)
 
 static void GunRackAddItem(gitem_t* gun, vec3_t org, vec3_t angs, const float ffwd, const float fright, const float fup)
 {
-	vec3_t fwd, right;
+	vec3_t fwd = { 0 }, right = { 0 };
 	gentity_t* it_ent = G_Spawn();
 	qboolean rotate = qtrue;
 	const int skill = trap->Cvar_VariableIntegerValue("g_npcspskill");
@@ -5331,7 +5331,7 @@ extern void ICam_Disable(void);
 
 static void camera_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int damage, int mod)
 {
-	vec3_t ang;
+	vec3_t ang = { 0 };
 
 	if (self->genericValue1)
 	{
@@ -5472,7 +5472,7 @@ static void camera_aim(gentity_t* self)
 		const gentity_t* targ = G_Find(NULL, FOFS(targetname), self->target);
 		if (targ)
 		{
-			vec3_t angles, dir;
+			vec3_t angles = { 0 }, dir = { 0 };
 			VectorSubtract(targ->r.currentOrigin, self->r.currentOrigin, dir);
 			vectoangles(dir, angles);
 			//FIXME: if a G2 model, do a bone override..???
@@ -5596,9 +5596,9 @@ that light (140 units) fires its target2. Using it turns it off or on.
 */
 static void spotlight_think(gentity_t* ent)
 {
-	vec3_t dir, end;
-	trace_t tr;
-	int i;
+	vec3_t dir = { 0 }, end = { 0 };
+	trace_t tr = { 0 };
+	int i = 0;
 
 	if (!ent->genericValue1 || !ent->enemy || !ent->enemy->inuse)
 	{
@@ -5783,8 +5783,8 @@ static void fx_target_beam_set_debounce(gentity_t* self)
 
 static void fx_target_beam_fire(gentity_t* self)
 {
-	trace_t tr;
-	vec3_t dir, org, end;
+	trace_t tr = { 0 };
+	vec3_t dir = { 0 }, org = { 0 }, end = { 0 };
 
 	if (self->enemy && self->enemy->inuse)
 	{
@@ -5875,7 +5875,7 @@ static void fx_target_beam_use(gentity_t* self, gentity_t* other, gentity_t* act
 static void fx_target_beam_link(gentity_t* self)
 {
 	gentity_t* target = self->target && self->target[0] ? G_Find(NULL, FOFS(targetname), self->target) : NULL;
-	vec3_t dir;
+	vec3_t dir = { 0 };
 
 	if (!target)
 	{
@@ -5990,8 +5990,8 @@ point is found on the server's copy of the model.
 
 static void welder_think(gentity_t* self)
 {
-	mdxaBone_t boltMatrix;
-	vec3_t org, dir, ang;
+	mdxaBone_t boltMatrix = { 0 };
+	vec3_t org = { 0 }, dir = { 0 }, ang = { 0 };
 
 	self->nextthink = level.time + 200;
 
@@ -6430,7 +6430,7 @@ extern gentity_t* LaunchItem(gitem_t* item, vec3_t origin, vec3_t velocity);
 
 static void misc_model_cargo_die(gentity_t* self, const gentity_t* inflictor, gentity_t* attacker, const int damage, const int mod, int d_flags, int hit_loc)
 {
-	vec3_t org, temp = { 0 };
+	vec3_t org = { 0 }, temp = { 0 };
 
 	// copy these for later
 	const int flags = self->spawnflags;
@@ -6501,7 +6501,7 @@ static void misc_model_cargo_die(gentity_t* self, const gentity_t* inflictor, ge
 //---------------------------------------------
 void SP_misc_model_cargo_small(gentity_t* ent)
 {
-	vec3_t org, temp = { 0 };
+	vec3_t org = { 0 }, temp = { 0 };
 
 	VectorCopy(ent->r.currentOrigin, org);
 
@@ -6668,8 +6668,8 @@ static void ion_cannon_think(gentity_t* self)
 
 	if (self->genericValue5 && self->ghoul2 && self->genericValue6 >= 0)
 	{
-		mdxaBone_t boltMatrix;
-		vec3_t org, fwd;
+		mdxaBone_t boltMatrix = { 0 };
+		vec3_t org = { 0 }, fwd = { 0 };
 
 		trap->G2API_GetBoltMatrix(self->ghoul2, 0, self->genericValue6, &boltMatrix, self->r.currentAngles,
 			self->r.currentOrigin, level.time, NULL, self->modelScale);
@@ -6701,7 +6701,7 @@ static void ion_cannon_use(gentity_t* self, gentity_t* other, gentity_t* activat
 
 static void ion_cannon_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int damage, int mod)
 {
-	vec3_t org, up = { 0, 0, 1 };
+	vec3_t org = { 0 }, up = { 0, 0, 1 };
 
 	// the damaged md3 in place of the ghoul2 model
 	if (self->ghoul2)
