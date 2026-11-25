@@ -827,6 +827,18 @@ static void G_CheckMinimumPlayers(void)
 	trap->Cvar_Update(&bot_minplayers);
 	int minplayers = bot_minplayers.integer;
 	if (minplayers <= 0) return;
+	if (level.gametype == GT_SINGLE_PLAYER)
+	{
+		// Missions: bots only with g_missionBots 1, and no more than the squad holds
+		if (!g_missionBots.integer)
+		{
+			return;
+		}
+		if (minplayers > G_MissionSquadMax())
+		{
+			minplayers = G_MissionSquadMax();
+		}
+	}
 
 	if (minplayers > sv_maxclients.integer)
 	{
@@ -949,6 +961,14 @@ G_AddBot
 static void G_AddBot(const char* name, const float skill, const char* team, const int delay, const char* altname)
 {
 	char userinfo[MAX_INFO_STRING] = { 0 };
+
+	// Missions: bots only with g_missionBots 1, and not into a full squad (g_cmds.c G_MissionSquadThink)
+	if (level.gametype == GT_SINGLE_PLAYER && (!g_missionBots.integer || G_MissionSquadCount(-1, NULL) >= G_MissionSquadMax()))
+	{
+		trap->Print(S_COLOR_YELLOW "Missions: no bot added (%s)\n",
+			!g_missionBots.integer ? "bots are off: g_missionBots 0" : "the squad is full: g_missionMaxPlayers");
+		return;
+	}
 
 	// have the server allocate a client slot
 	const int clientNum = trap->BotAllocateClient();

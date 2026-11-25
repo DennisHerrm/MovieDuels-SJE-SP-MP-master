@@ -5342,6 +5342,8 @@ void G_RunFrame(const int levelTime)
 	// see if it is time to do a tournament restart
 	CheckTournament();
 
+	G_MissionSquadThink(); // Missions: the squad's queue (g_cmds.c)
+
 	// see if it is time to end the level
 	CheckExitRules();
 

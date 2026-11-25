@@ -3203,8 +3203,10 @@ static void UpdateBotButtons(void)
 		return;
 	}
 
-	if (uiInfo.gameTypes[ui_netGametype.integer].gtEnum == GT_SIEGE)
+	if (uiInfo.gameTypes[ui_netGametype.integer].gtEnum == GT_SIEGE
+		|| uiInfo.gameTypes[ui_netGametype.integer].gtEnum == GT_SINGLE_PLAYER && !trap->Cvar_VariableValue("g_missionBots"))
 	{
+		// (Missions with g_missionBots 0: humans only - 2026-11-25)
 		Menu_ShowItemByName(menu, "humanbotfield", qfalse);
 		Menu_ShowItemByName(menu, "humanbotnonfield", qtrue);
 	}
@@ -7859,6 +7861,11 @@ static void UI_RunMenuScript(char** args)
 				trap->Cvar_SetValue("dedicated", Com_Clamp(0, 2, ui_dedicated.integer));
 			}
 			trap->Cvar_SetValue("g_gametype", Com_Clamp(0, GT_MAX_GAME_TYPE, uiInfo.gameTypes[ui_netGametype.integer].gtEnum));
+			if (uiInfo.gameTypes[ui_netGametype.integer].gtEnum == GT_SINGLE_PLAYER && trap->Cvar_VariableValue("sv_maxClients") < 8)
+			{
+				// Missions (2026-11-25): room for players waiting in the squad's queue (g_missionMaxPlayers in the game)
+				trap->Cvar_Set("sv_maxClients", "8");
+			}
 			trap->Cmd_ExecuteText(EXEC_APPEND, va("wait ; wait ; map %s\n", uiInfo.mapList[ui_currentNetMap.integer].mapLoadName));
 			skill = trap->Cvar_VariableValue("g_spSkill");
 
@@ -7889,6 +7896,11 @@ static void UI_RunMenuScript(char** args)
 
 			for (i = 0; i < PLAYERS_PER_TEAM; i++)
 			{
+				if (uiInfo.gameTypes[ui_netGametype.integer].gtEnum == GT_SINGLE_PLAYER
+					&& (i >= 2 || !trap->Cvar_VariableValue("g_missionBots")))
+				{
+					break; // Missions: the menu's 4 places only, and bots only with g_missionBots 1
+				}
 				int bot = trap->Cvar_VariableValue(va("ui_blueteam%i", i + 1));
 				int maxcl = trap->Cvar_VariableValue("sv_maxClients");
 

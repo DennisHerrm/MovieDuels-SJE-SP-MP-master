@@ -12536,8 +12536,10 @@ bot_aimBallistic 1: lead by the shot's flight time: each bot learns the speed of
 	shot, the old lead is used. Instant hit weapons are aimed as before.
 bot_aimHold 1: a bot with a gun pulls the trigger only when his view points at the spot he is aiming for (his lead and
 	his skill's wobble included) closely enough to hit: the sideways miss at the target's range within a body's half
-	width (16), plus 6 a skill level below 5, plus 32 for splash weapons. Before, any target within 30 degrees of his
-	view (60 closer than 128) was fired at while he was still turning to it. Charging weapons are let be (a charge
+	width (16), plus 6 a skill level below 5, plus 32 for splash weapons, or within 5 degrees (+1 a skill level below
+	5) of it, so a view trailing a moving target still fires. Before, any target within 30 degrees of his view (60
+	closer than 128) was fired at while he was still turning to it. (Checked once his aim at the enemy is set: earlier
+	in the frame goalAngles may still point at his next waypoint, and he never fired.) Charging weapons are let be (a charge
 	fires when let go), and a target closer than 48 is always fired at. 0 = as before.
 ==================
 */
@@ -12556,7 +12558,7 @@ static qboolean bot_jc_safe[MAX_CLIENTS];
 
 static qboolean bot_jc_hurt_between(const vec3_t a, const vec3_t b, const vec3_t mins, const vec3_t maxs)
 {
-	int touch[MAX_GENTITIES];
+	static int touch[MAX_GENTITIES]; // static: 4 KB off the stack (C6262)
 	vec3_t bmins, bmaxs;
 
 	for (int k = 0; k < 3; k++)
@@ -13336,7 +13338,8 @@ static int should_secondary_fire(const bot_state_t* bs)
 	return 0;
 }
 
-// bot_aimHold: qtrue when his view is close enough to his aim (bs->goalAngles) for the shot to hit
+// bot_aimHold: qtrue when his view is close enough to his aim (bs->goalAngles, just set to the enemy: called after
+// bot_aim_offset_goal_angles - before that, goalAngles can still point at his next waypoint) for the shot to hit
 static qboolean bot_aim_on_target(const bot_state_t* bs)
 {
 	vec3_t fwd, want;
@@ -13345,6 +13348,10 @@ static qboolean bot_aim_on_target(const bot_state_t* bs)
 		|| bs->cur_ps.weaponstate == WEAPON_CHARGING || bs->cur_ps.weaponstate == WEAPON_CHARGING_ALT)
 	{
 		return qtrue; // a held charge fires when let go: never cut it short
+	}
+	if (bot_get_weapon_range(bs) == BWEAPONRANGE_SABER || bot_get_weapon_range(bs) == BWEAPONRANGE_MELEE)
+	{
+		return qtrue; // guns only
 	}
 	const float dist = bs->frame_Enemy_Len;
 	if (dist < 48.0f)
@@ -13373,6 +13380,12 @@ static qboolean bot_aim_on_target(const bot_state_t* bs)
 		skill = 5.0f;
 	}
 	float allowed = 16.0f + (5.0f - skill) * 6.0f;
+	// a view that trails a moving target by a few degrees (as a player's does) may still fire
+	const float trail = dist * tanf(DEG2RAD(5.0f + (5.0f - skill)));
+	if (allowed < trail)
+	{
+		allowed = trail;
+	}
 	const int weapon = bs->cur_ps.weapon;
 	if (weapon == WP_ROCKET_LAUNCHER || weapon == WP_THERMAL || weapon == WP_CONCUSSION
 		|| (weapon == WP_FLECHETTE && bs->doAltAttack) || (weapon == WP_REPEATER && bs->doAltAttack))
@@ -13466,7 +13479,7 @@ static int combat_bot_ai(bot_state_t* bs)
 			fovcheck *= 2.0f;
 		}
 
-		if (in_field_of_vision(bs->viewangles, fovcheck, a) && bot_aim_on_target(bs)) // (bot_aimHold)
+		if (in_field_of_vision(bs->viewangles, fovcheck, a))
 		{
 			if (bs->cur_ps.weapon == WP_THERMAL)
 			{
@@ -17731,6 +17744,12 @@ void standard_bot_ai(bot_state_t* bs)
 			}
 
 			bot_aim_offset_goal_angles(bs);
+			if (!bot_aim_on_target(bs))
+			{
+				// bot_aimHold: his gun doesn't point at his aim yet - no shot this frame (combat_bot_ai set it)
+				bs->doAttack = 0;
+				bs->doAltAttack = 0;
+			}
 		}
 	}
 
@@ -19900,6 +19919,12 @@ void Enhanced_bot_ai(bot_state_t* bs)
 			}
 
 			bot_aim_offset_goal_angles(bs);
+			if (!bot_aim_on_target(bs))
+			{
+				// bot_aimHold: his gun doesn't point at his aim yet - no shot this frame (combat_bot_ai set it)
+				bs->doAttack = 0;
+				bs->doAltAttack = 0;
+			}
 		}
 	}
 

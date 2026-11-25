@@ -8248,6 +8248,7 @@ void ClientDisconnect(const int clientNum)
 	G_RemoveQueuedBotBegin(clientNum);
 
 	G_Pazaak_ClientDisconnect(clientNum);
+	G_MissionQueueRemove(clientNum); // Missions: no longer waiting for a place in the squad
 
 	gentity_t* ent = g_entities + clientNum;
 	if (!ent->client || ent->client->pers.connected == CON_DISCONNECTED)

@@ -1142,7 +1142,7 @@ static gentity_t* NPC_PickEnemyExt(const qboolean checkAlerts = qfalse)
 					return event->owner;
 
 				//If it's on our team, then take its enemy as well
-				if (event->owner->client && event->owner->client->playerTeam == NPC->client->playerTeam)
+				if (event->owner && event->owner->client && event->owner->client->playerTeam == NPC->client->playerTeam)
 					return event->owner->enemy;
 			}
 		}
@@ -2865,7 +2865,7 @@ static gentity_t* NPC_PickEnemyExt(const qboolean check_alerts)
 				}
 
 				//If it's on our team, then take its enemy as well
-				if (event->owner->client && event->owner->client->playerTeam == NPCS.NPC->client->playerTeam &&
+				if (event->owner && event->owner->client && event->owner->client->playerTeam == NPCS.NPC->client->playerTeam &&
 					NPC_ValidEnemy(event->owner))
 					return event->owner->enemy;
 			}

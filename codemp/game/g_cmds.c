@@ -1206,6 +1206,241 @@ SetTeam
 qboolean g_dontPenalizeTeam = qfalse;
 qboolean g_preventTeamBegin = qfalse;
 
+/*
+-------------------------
+Missions squad (GT_SINGLE_PLAYER, 2026-11-25, Jace)
+
+At most g_missionMaxPlayers (1-4) players are in a mission. A human who wants in while it is full stays a spectator and
+waits in a queue; the first in line goes in by himself when a place is free (G_MissionSquadThink, from G_RunFrame).
+Bots only with g_missionBots 1: they count in the squad, no bot is added to a full one, and a waiting human takes a
+bot's place (the bot is kicked). With g_missionBots 0 a bot in a mission is kicked. The queue is kept in the cvar
+g_missionQueue (client numbers in order), so it lasts over the campaign's map changes.
+-------------------------
+*/
+static int g_missionQueue[MAX_CLIENTS];	// when he joined the queue (order); 0 = not waiting
+static int g_missionQueueLoaded = -1;
+
+int G_MissionSquadMax(void)
+{
+	const int max = g_missionMaxPlayers.integer;
+
+	return max < 1 ? 1 : max > 4 ? 4 : max;
+}
+
+// the players in the mission (not spectators), not counting ignore; *bots: how many of them are bots
+int G_MissionSquadCount(const int ignore, int* bots)
+{
+	int n = 0;
+
+	if (bots)
+	{
+		*bots = 0;
+	}
+	for (int i = 0; i < level.maxclients; i++)
+	{
+		const gclient_t* cl = &level.clients[i];
+
+		if (i == ignore || cl->pers.connected == CON_DISCONNECTED || cl->sess.sessionTeam == TEAM_SPECTATOR)
+		{
+			continue;
+		}
+		n++;
+		if (bots && g_entities[i].r.svFlags & SVF_BOT)
+		{
+			(*bots)++;
+		}
+	}
+	return n;
+}
+
+static void G_MissionQueueSave(void)
+{
+	char buf[MAX_CLIENTS * 4] = { 0 };
+	int last = 0;
+
+	for (;;)
+	{
+		// next in order after last
+		int best = -1;
+		for (int i = 0; i < MAX_CLIENTS; i++)
+		{
+			if (g_missionQueue[i] > last && (best < 0 || g_missionQueue[i] < g_missionQueue[best]))
+			{
+				best = i;
+			}
+		}
+		if (best < 0)
+		{
+			break;
+		}
+		Q_strcat(buf, sizeof buf, va("%i ", best));
+		last = g_missionQueue[best];
+	}
+	trap->Cvar_Set("g_missionQueue", buf);
+}
+
+static void G_MissionQueueLoad(void)
+{
+	char buf[MAX_CLIENTS * 4];
+	const char* p = buf;
+	int order = 1;
+
+	if (g_missionQueueLoaded == level.startTime)
+	{
+		return;
+	}
+	g_missionQueueLoaded = level.startTime;
+	memset(g_missionQueue, 0, sizeof g_missionQueue);
+	trap->Cvar_VariableStringBuffer("g_missionQueue", buf, sizeof buf);
+	for (;;)
+	{
+		const char* token = COM_ParseExt(&p, qfalse);
+		if (!token[0])
+		{
+			break;
+		}
+		const int n = atoi(token);
+		if (n >= 0 && n < MAX_CLIENTS)
+		{
+			g_missionQueue[n] = order++;
+		}
+	}
+}
+
+static int G_MissionQueuePlace(const int clientNum)
+{
+	int place = 1;
+
+	for (int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if (i != clientNum && g_missionQueue[i] && g_missionQueue[i] < g_missionQueue[clientNum])
+		{
+			place++;
+		}
+	}
+	return place;
+}
+
+void G_MissionQueueAdd(const gentity_t* ent)
+{
+	const int n = ent - g_entities;
+	int newest = 0;
+
+	if (n < 0 || n >= MAX_CLIENTS || ent->r.svFlags & SVF_BOT)
+	{
+		return;
+	}
+	G_MissionQueueLoad();
+	if (!g_missionQueue[n])
+	{
+		for (int i = 0; i < MAX_CLIENTS; i++)
+		{
+			if (g_missionQueue[i] > newest)
+			{
+				newest = g_missionQueue[i];
+			}
+		}
+		g_missionQueue[n] = newest + 1;
+		G_MissionQueueSave();
+	}
+	trap->SendServerCommand(n, va("cp \"" S_COLOR_YELLOW "The squad is full (%i players)\n" S_COLOR_WHITE
+		"You are number %i in the queue\n\"", G_MissionSquadMax(), G_MissionQueuePlace(n)));
+	trap->SendServerCommand(n, va("print \"Missions: the squad is full (%i players). You are number %i in the queue"
+		" and join the mission when a place is free.\n\"", G_MissionSquadMax(), G_MissionQueuePlace(n)));
+}
+
+void G_MissionQueueRemove(const int clientNum)
+{
+	if (clientNum < 0 || clientNum >= MAX_CLIENTS)
+	{
+		return;
+	}
+	G_MissionQueueLoad();
+	if (g_missionQueue[clientNum])
+	{
+		g_missionQueue[clientNum] = 0;
+		G_MissionQueueSave();
+	}
+}
+
+static qboolean G_MissionKickBot(void)
+{
+	for (int i = 0; i < level.maxclients; i++)
+	{
+		if (level.clients[i].pers.connected != CON_DISCONNECTED && g_entities[i].r.svFlags & SVF_BOT)
+		{
+			trap->SendConsoleCommand(EXEC_INSERT, va("clientkick %d\n", i));
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+void G_MissionSquadThink(void)
+{
+	static int next = 0;
+	int bots = 0;
+	int first = -1;
+
+	if (level.gametype != GT_SINGLE_PLAYER || level.intermissiontime)
+	{
+		return;
+	}
+	if (next > level.time && next - level.time <= 2000)
+	{
+		return;
+	}
+	next = level.time + 500;
+	G_MissionQueueLoad();
+
+	const int count = G_MissionSquadCount(-1, &bots);
+	const int max = G_MissionSquadMax();
+
+	// bots are off for missions, or too many players (g_missionMaxPlayers lowered): a bot goes
+	if (bots && (!g_missionBots.integer || count > max))
+	{
+		G_MissionKickBot();
+		next = level.time + 1000;
+		return;
+	}
+
+	// the first in line (still here and still waiting)
+	for (int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if (!g_missionQueue[i])
+		{
+			continue;
+		}
+		if (i >= level.maxclients || level.clients[i].pers.connected == CON_DISCONNECTED
+			|| level.clients[i].sess.sessionTeam != TEAM_SPECTATOR || g_entities[i].r.svFlags & SVF_BOT)
+		{
+			g_missionQueue[i] = 0;
+			G_MissionQueueSave();
+			continue;
+		}
+		if (first < 0 || g_missionQueue[i] < g_missionQueue[first])
+		{
+			first = i;
+		}
+	}
+	if (first < 0 || level.clients[first].pers.connected != CON_CONNECTED)
+	{
+		return;
+	}
+	if (count < max)
+	{
+		g_missionQueue[first] = 0;
+		G_MissionQueueSave();
+		trap->SendServerCommand(first, "cp \"" S_COLOR_GREEN "A place in the squad is free\n\"");
+		SetTeam(&g_entities[first], "free");
+		return;
+	}
+	if (bots && G_MissionKickBot()) // a waiting human takes a bot's place
+	{
+		next = level.time + 1000;
+	}
+}
+
 void SetTeam(gentity_t* ent, const char* s)
 {
 	int team = 0;
@@ -1354,6 +1589,18 @@ void SetTeam(gentity_t* ent, const char* s)
 
 			return;
 		}
+	}
+
+	// Missions: the squad is full - he waits in the queue as a spectator (G_MissionSquadThink lets him in)
+	if (level.gametype == GT_SINGLE_PLAYER && team != TEAM_SPECTATOR && old_team == TEAM_SPECTATOR
+		&& G_MissionSquadCount(clientNum, NULL) >= G_MissionSquadMax())
+	{
+		G_MissionQueueAdd(ent);
+		return;
+	}
+	if (team == TEAM_SPECTATOR)
+	{
+		G_MissionQueueRemove(clientNum); // a spectator by choice no longer waits
 	}
 
 	// override decision if limiting the players
