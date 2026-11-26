@@ -8133,6 +8133,21 @@ void BG_SetAnim(playerState_t* ps, const animation_t* animations, int setAnimPar
 		animations = bgAllAnims[0].anims;
 	}
 
+	// the Master set's saber-out leaps (BOTH_JUMP2 / BOTH_FORCEJUMP2, arms spread) are the Master's own: none of the
+	// dedicated humanoid sets had them, so a character of such a set found no frames here and kept its own jump. On the
+	// Master set the frames are there for everybody - a character with a set's style plays that style's jump instead
+	if (ps->animStyle > ANIMSTYLE_DEFAULT && ps->animStyle < ANIMSTYLE_COUNT)
+	{
+		if (anim == BOTH_JUMP2)
+		{
+			anim = BOTH_JUMP1;
+		}
+		else if (anim == BOTH_FORCEJUMP2)
+		{
+			anim = BOTH_FORCEJUMP1;
+		}
+	}
+
 	// the character's animation style (SP): its own version of this anim, if it has one
 	anim = BG_StyleAnim(ps->animStyle, animations, anim);
 
