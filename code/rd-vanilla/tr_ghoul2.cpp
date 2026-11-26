@@ -3701,6 +3701,8 @@ static void MC_SolverParams(mcParams_t& prm)
 	static cvar_t* brz = nullptr;
 	static cvar_t* bil = nullptr;
 	static cvar_t* wna = nullptr;	// SJE r_meshClothWornAir
+	static cvar_t* wnw = nullptr;	// SJE r_meshClothWornWind
+	static cvar_t* fct = nullptr;	// SJE r_meshClothFreeCut
 	static cvar_t* shn = nullptr;	// SJE r_meshClothShown
 	static cvar_t* cfl = nullptr;	// SJE r_meshClothCarryFloor
 	static cvar_t* nro = nullptr;	// SJE r_meshClothNoRoom
@@ -3736,6 +3738,8 @@ static void MC_SolverParams(mcParams_t& prm)
 		brz = ri.Cvar_Get("r_meshClothBreeze", "1", CVAR_ARCHIVE_ND);
 		bil = ri.Cvar_Get("r_meshClothBillow", "1", CVAR_ARCHIVE_ND);
 		wna = ri.Cvar_Get("r_meshClothWornAir", "0.25", CVAR_ARCHIVE_ND);
+		wnw = ri.Cvar_Get("r_meshClothWornWind", "1", CVAR_ARCHIVE_ND);
+		fct = ri.Cvar_Get("r_meshClothFreeCut", "1", CVAR_ARCHIVE_ND);
 		shn = ri.Cvar_Get("r_meshClothShown", "1", CVAR_ARCHIVE_ND);
 		cfl = ri.Cvar_Get("r_meshClothCarryFloor", "1", CVAR_ARCHIVE_ND);
 		nro = ri.Cvar_Get("r_meshClothNoRoom", "1", CVAR_ARCHIVE_ND);
@@ -3798,6 +3802,8 @@ static void MC_SolverParams(mcParams_t& prm)
 	prm.breeze = brz && brz->value > 0.0f ? brz->value : 0.0f;
 	prm.billow = bil && bil->value > 0.0f ? bil->value : 0.0f;
 	prm.wornAir = wna ? (wna->value > 0.0f ? (wna->value < 1.0f ? wna->value : 1.0f) : 0.0f) : 0.25f;
+	prm.wornWind = wnw ? wnw->value : 0.0f;
+	prm.freeCut = fct ? fct->value : 0.0f;
 	prm.shown = shn ? shn->integer : 1;
 	prm.carryFloor = cfl ? cfl->integer : 1;
 	prm.noRoom = nro ? (nro->value > 0.0f ? (nro->value < 8.0f ? nro->value : 8.0f) : 0.0f) : 1.0f;
@@ -4297,6 +4303,7 @@ static void MC_AirAround(const trRefEntity_t* ent, const void* key, const int ti
 	static cvar_t* whl = nullptr;
 	static cvar_t* aph = nullptr;
 	static cvar_t* frc = nullptr;
+	static cvar_t* bks = nullptr;
 	static cvar_t* af = nullptr;
 	static cvar_t* ts = nullptr;
 	if (!tu)
@@ -4311,6 +4318,8 @@ static void MC_AirAround(const trRefEntity_t* ent, const void* key, const int ti
 		// SJE r_meshClothFree: a cloth line's 'free F' counts - a free cape (tr_meshcloth.cpp, MC_CAPE_UMAX). 0 = ignored (as before),
 		// 1 = free, 2 = calmer, 3 = heavier, 4 = free and it stands out in a fast turn (the default), 5 = the same, stronger
 		frc = ri.Cvar_Get("r_meshClothFree", "4", CVAR_ARCHIVE_ND);
+		// SJE r_meshClothBackstop (1 = on, 0 = off): a cloth line's 'backstop D' counts - worn cloth stays in front of its animated place (tr_meshcloth.cpp)
+		bks = ri.Cvar_Get("r_meshClothBackstop", "1", CVAR_ARCHIVE_ND);
 		// SJE r_meshClothWhirl (1 = on, 0 = off): in a turn that goes on round and round the cape is not flung out level (tr_meshcloth.cpp)
 		// (2 = only the frame 'damp' works in goes round with him; the cloth feels all of the whirl)
 		whl = ri.Cvar_Get("r_meshClothWhirl", "1", CVAR_ARCHIVE_ND);
@@ -4332,6 +4341,7 @@ static void MC_AirAround(const trRefEntity_t* ent, const void* key, const int ti
 	prm.whirl = whl ? whl->value : 0.0f;
 	prm.airPhys = aph ? aph->value : 0.0f;
 	prm.freeCape = frc ? frc->value : 0.0f;
+	prm.backstop = bks ? bks->value : 0.0f;
 	if (prm.airPhys > 0.0f) {
 		// SJE r_meshClothAirPhys: the cloth falls as everything in the game does - the air model is made for that (how fast
 		// a sheet sinks is root(gravity x weight / drag)). r_meshClothGravity (700) belongs to the older air rules.
