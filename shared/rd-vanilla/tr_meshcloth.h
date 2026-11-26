@@ -161,6 +161,10 @@ struct mcParams_t {
 	float	wornAir = 0.25f;	// SJE r_meshClothWornAir: cloth worn round the body (a robe, a skirt: it wraps its wearer, who
 							//   stands in the wind's way) and loose layers under it catch at most this part of the travel
 							//   wind (dragQuad, billow), whatever their tether; 1 = all of it, as before
+	float	wornWind = 1.0f;	// SJE r_meshClothWornWind: ... but of WIND (weather, pushers) worn outer cloth catches up to this part:
+							//   its cap rises from wornAir towards it with the wind's share of the air against the wearer; 0 = as wornAir
+	float	freeCut = 1.0f;	// SJE r_meshClothFreeCut: free cloth (r_meshClothFree) keeps the cut it has while its wearer stands -
+							//   1 = in wind, 2 = always; 0 = its lengths are the animated mesh's of the moment, as before
 	int		shown = 1;		// SJE r_meshClothShown: 1 = what the character's skin has switched off takes no part: the body
 							//   shapes are fitted to the switched-on surfaces only, and switched-off cloth surfaces hold no
 							//   drawn cloth through the layer rule; 0 = as before (the model's own flags, all cloth)
@@ -239,6 +243,7 @@ struct mcParams_t {
 	float	airPhys = 0.0f;	// SJE r_meshClothAirPhys: the air acts on each point by its own speed through it and by how the
 						//   cloth lies to it (drag across the cloth by the square of the speed, next to none along it); the travel wind,
 						//   the linear drag, the sink and landing rules, the lift limit and 'damp' fall away. 0 = off (those rules)
+	float	backstop = 1.0f;	// SJE r_meshClothBackstop: over 0 = a cloth line's 'backstop D' counts (worn cloth stays in front of its animated place)
 	float	freeCape = 0.0f;	// SJE r_meshClothFree: over 0 = a cloth line's 'free F' counts (with r_meshClothAirPhys): that cloth has no
 						//   lift limit, a storm's gusts and eddies reach it, air along it drags it, wind from behind counts in full
 	float	airFree = 1.0f;	// SJE r_meshClothAirFree: moving air (travel, a fall, wind) frees the cloth - its bend links and 'damp'

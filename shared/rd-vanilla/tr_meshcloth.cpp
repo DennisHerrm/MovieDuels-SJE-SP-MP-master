@@ -114,6 +114,7 @@ namespace {
 		float			ring = 0.0f;		// 'ring D': second tether level - every point further down is tied rigidly to the nearest point D units (along the cloth) below the attached edge
 		float			armGap = 0.0f;	// SJE 'armgap G': arms keep G units more off this cloth, push it out in bigger steps, every substep (a cloak over the arms)
 		float			freeC = 0.0f;	// SJE 'free F': over 0 = a free cape (r_meshClothFree; see MC_CAPE_UMAX)
+		float			backstop = -1.0f;	// SJE 'backstop D': 0 or more = a point does not go further than D units behind its animated place (r_meshClothBackstop)
 		float			bell = 0.0f;		// 'bell B': 0..1 the free cloth's animated spot is its bind shape carried by the hip bone alone (a rigid bell), blended in by B x freedom
 		float			spring = 0.0f, springFade = 0.0f;	// 'spring S A': pull per 16 ms toward the animated spot, S x exp(-A x metres along the cloth from the attached edge)
 		bool			wrap = false;		// 'wrap': cloth on a grid ('proxy N') is drawn from the grid's triangles (each drawn vertex bound to the nearest few)
@@ -353,6 +354,13 @@ namespace {
 		float				ripPhase = 0.0f;		// SJE: phase of the ripples the airflow sends down the cloth (r_meshClothDragQuad)
 		unsigned int		turbSeed = 0;			// SJE r_meshClothTurbulence: this cloth's own random sequence (MC_Prepare)
 		float				airFree = 0.0f;			// SJE r_meshClothAirFree: 0..1 how far moving air has freed the cloth (eased, Step)
+		bool				freeAir = false;		// SJE r_meshClothFree: this step there is wind over MC_CAPE_LAYER_U1 - a free cape is left out of the layer rule
+		float				capeCarry = 0.0f;		// SJE r_meshClothFree: the share of his level travel that carries a free cape's sheets (MC_CAPE_CARRY; set in Step)
+		std::vector<unsigned char>	capeCarryP;		// ... and the points it carried in this frame (empty: none)
+		std::vector<float>	capeRest;			// SJE r_meshClothFreeCut: per link, the length a free cape's own cut has (under 0: the animated mesh's)
+		std::vector<float>	capeLra, capeRing;	// ... per point, the two length limits that go with that cut (under 0: none)
+		bool				capeRestOn = false;	// ... and whether the solver takes them
+		vec3_t				capeCarryF = {};		// ... and the way his travel does NOT carry it: where its attached edge faces (level, unit; set in Step)
 		std::vector<float>	linkAlphaAir;			// ... this step's link compliances (the bend links give)
 		std::vector<float>	expoP;					// SJE r_meshClothAirFree: per point, how far the air's eddies reach it (see MC_TURB_WALL)
 		std::vector<float>	freeP;					// ... per point: how free in this step (0 where the air presses it onto its wearer)
@@ -1385,6 +1393,10 @@ namespace {
 		bool liftOpenAll = false;	// SJE r_meshClothAirPhys: the lift limit is open in every step (as liftAir 1), for cloth that hangs from the shoulders
 		const unsigned char* liftLow = nullptr;	// ... per point: 1 = it hangs from below the trunk (a hip skirt; MC_AIRPHYS_HIP): the limit stays closed
 		const unsigned char* liftFree = nullptr;	// SJE r_meshClothFree: per point, 1 = no lift limit
+		const float* backD = nullptr;	// SJE r_meshClothBackstop: per point, 0 or more = units it may go behind its animated place (under 0: no backstop)
+		const float* linkRest = nullptr;	// SJE r_meshClothFreeCut: per link, 0 or more = its rest length (under 0: the animated mesh's, as before)
+		const float* cutLra = nullptr, * cutRing = nullptr;	// ... per point, the kept length limits (a floor; under 0: none)
+		const float* backN = nullptr;	// ... and the animated surface's outward normal there, at the end of the substep
 		const float* freeP = nullptr;	// SJE r_meshClothAirFree: per point, how free in this step (nullptr = none is)
 		float	freeTether = 0.0f;		// ... 'tether' x (1 + this x freeP) for loose cloth
 		const unsigned char* wornWrap = nullptr, * wornUnder = nullptr;	// ... which points are worn cloth (g->wrap / g->under)
@@ -1637,7 +1649,7 @@ namespace {
 					float* pa = &in->p[a * 3], * pb = &in->p[b * 3];
 					vec3_t dT, d;
 					mcSub(&in->target[b * 3], &in->target[a * 3], dT);
-					const float rest = mcLen(dT);
+					const float rest = sv.linkRest && sv.linkRest[l] >= 0.0f ? sv.linkRest[l] : mcLen(dT);	// SJE r_meshClothFreeCut
 					mcSub(pb, pa, d);
 					const float len = mcLen(d);
 					if (len < 1e-5f) continue;
@@ -1660,7 +1672,7 @@ namespace {
 				float* pa = &in->p[a * 3], * pb = &in->p[b * 3];
 				vec3_t dT, d;
 				mcSub(&in->target[b * 3], &in->target[a * 3], dT);
-				const float rest = mcLen(dT);
+				const float rest = sv.linkRest && sv.linkRest[l] >= 0.0f ? sv.linkRest[l] : mcLen(dT);	// SJE r_meshClothFreeCut
 				mcSub(pb, pa, d);
 				const float len = mcLen(d);
 				if (len < 1e-5f) continue;
@@ -1702,6 +1714,7 @@ namespace {
 				float maxLen = g->lraLen[p] * in->linkScale;
 				const float animLen = mcLen(dt);
 				if (animLen > maxLen) maxLen = animLen;
+				if (sv.cutLra && sv.cutLra[p] > maxLen) maxLen = sv.cutLra[p];	// SJE r_meshClothFreeCut
 				maxLen *= 1.03f;
 				const float len = mcLen(d);
 				if (len > maxLen && len > 1e-5f) mcMA(&in->p[an * 3], maxLen / len, d, pp);
@@ -1717,6 +1730,7 @@ namespace {
 					float maxLen = g->ringLen[p] * in->linkScale * sv.ringGive;	// SJE r_meshClothTurnCalm: x ringGive
 					const float animLen = mcLen(dt);
 					if (animLen > maxLen) maxLen = animLen;
+					if (sv.cutRing && sv.cutRing[p] * sv.ringGive > maxLen) maxLen = sv.cutRing[p] * sv.ringGive;	// SJE r_meshClothFreeCut
 					const float len = mcLen(d);
 					if (len > maxLen && len > 1e-5f) mcMA(&in->p[rn * 3], maxLen / len, d, pp);
 				}
@@ -1850,6 +1864,17 @@ namespace {
 #ifdef MC_DEBUG
 				g_mcDbgTether++;
 #endif
+			}
+			// SJE 'backstop D' (r_meshClothBackstop): worn cloth - a skirt round the hips, a sleeve - stays in front of its own
+			// animated place: not further than D units behind the plane through its animated spot, across the animated
+			// surface's normal. The body is behind that surface by the model's own skinning, whatever the body shapes catch:
+			// a hip skirt pressed on the legs by a storm had a leg poke through a coarse triangle for a second or two.
+			if (sv.backD && sv.backD[p] >= 0.0f) {
+				const float* bn = &sv.backN[p * 3];
+				vec3_t bd;
+				mcSub(pp, t, bd);
+				const float behind = -mcDot(bd, bn) - sv.backD[p];
+				if (behind > 0.0f) mcMA(pp, behind, bn, pp);
 			}
 		}
 		if (sv.faceCol & 1) { if (sv.faceNow) FaceCollide(g, in, caps, ncaps, sv.overArms, sv.rest, sv.ease, sv.limbLie, sv.armGapOn); }	// SJE: triangles against the whole body (covers the edges too)
@@ -2251,10 +2276,14 @@ namespace {
 	// MC_CAPE_PEAK x the cap (a gust's peak, a whipped hem).
 	const float MC_CAPE_UMAX = 450.0f;
 	const float MC_CAPE_PEAK = 1.5f;
-	// Air that goes ALONG a sheet: a sheet that flutters in it (a flag) is dragged by a tenth to a fifth of what air square
-	// to it does - not by the 2 % of smooth skin friction (MC_AIRPHYS_SKIN). With that a cape edge-on to a storm hung in its
-	// animated bell and did not move (t1_rail, turning on the spot: 70 degrees of the turn).
-	const float MC_CAPE_SKIN = 0.1f;
+	// Air that goes ALONG a sheet: a sheet that flutters in it (a flag) is dragged by an eighth to three tenths of what air
+	// square to it does (measured flags: a mean drag of 0.15 - 0.35 of their area, more for taller and heavier cloth; a
+	// plate square to the flow about 1.2) - not by the 2 % of smooth skin friction (MC_AIRPHYS_SKIN). With that a cape
+	// edge-on to a storm hung in its animated bell and did not move (t1_rail, turning on the spot: 70 degrees of the
+	// turn). A quarter, not a tenth: side-on to the storm with both hands on a lit saber - no arm at his side under the
+	// cape to hold it out into the wind - the cape lay flat on its wearer's back and stayed there, 33 - 84 % of a minute;
+	// with a quarter 14 - 15 %, the hem 16 units downwind instead of 4 - 12.
+	const float MC_CAPE_SKIN = 0.25f;
 	const float MC_CAPE_TAIL = 1.0f;		// wind from behind: this share of its forward part (MC_WIND_TAIL: 0.4)
 	// Air from the SIDE gets under a cape's open side edge and lifts it off its wearer (the pocket, MC_AIRPHYS_POCKET, has
 	// that for air from the hem's side only). Without it wind from the side and a little behind pressed the cape flat on
@@ -2271,6 +2300,45 @@ namespace {
 	// turns it was made for, and it held the cape in its bell through every swing - with it off the cape flares and flips
 	// in a swing (hem 23 units from its animated place instead of 13, at 52 from his axis instead of 42).
 	const int MC_CAPE_RULES = 1;			// bit 1: no turn-calm rule, bit 2: no circling rule
+	// In wind a free cape rides on the air, not on the cloth layer under it. The layer rule (r_meshClothLayers) keeps a
+	// cape's points on the outer side of the triangles of worn cloth under it - a hip skirt. Side-on to a storm the
+	// cape's windward flank lies on that skirt, and the rule's push held the middle of the cape against the air's (0.54
+	// against 0.45 units a step): with both hands on a lit saber the cape hung at its wearer's back 15 - 20 % of a
+	// minute, 6 - 8 % without the rule. The body's own shapes still keep the cape out of the body. So the rule leaves
+	// a free cape's points alone while the wind - weather wind and pushers' air, not his own travel - is over
+	// MC_CAPE_LAYER_U1 units/s (and takes them in again under MC_CAPE_LAYER_U0). Calm air: as before.
+	const float MC_CAPE_LAYER_U0 = 250.0f, MC_CAPE_LAYER_U1 = 300.0f;
+	// A storm over the cap carries the free cape. Of a storm a free cape feels MC_CAPE_UMAX (450 of 3200 units/s). His
+	// own starts and stops still reached the cape in full: a side step WITH the storm - 190 units/s in a quarter of a
+	// second, 1150 units/s^2 at its peak, against capped air that gives the hem 1000 - left the hem behind: from 11
+	// units downwind of the attached edge to 20 units UPWIND of it within 0.3 s, on the wrong side of him for half of
+	// every such step. The air's push goes with the square of its speed: the storm itself would hold the cape
+	// (wind / cap)^2 times as hard, and his start would move it that much less. (A higher cap keeps the swing and
+	// folds the collar; 'maxaccel' shifts the cloth by one frame's excess and gives it no speed.) So that share of
+	// his travel over the ground - (1 - (cap / steady wind over the ground)^2) x MC_CAPE_CARRY - takes the cape's
+	// sheets (all cloth joined to a free cape's by links) along, as a line's 'inertia' does; and where the cloth's
+	// speed is measured - against the air, against the frame of 'damp' - it gets that part back. Wind up to the cap,
+	// calm air, jumps and falls: as before. And only his travel ACROSS where the cape's attached edge faces: forwards
+	// and backwards a cape trails behind its wearer by his own travel, wind or not - carried there too, a sprint with
+	// the storm in his back had the cape up over his shoulders twice as often (36 % of the sprint against 16 %).
+	const float MC_CAPE_CARRY = 1.0f;
+	// A free cape keeps its own cut (r_meshClothFreeCut). Every link's rest length is the distance its two points have
+	// in the animated mesh of the moment - the cloth is as the pose cuts it. A cape is skinned to several bones, the
+	// lower part to hips and legs: in a side step the game turns the hips up to 60 degrees towards the step under the
+	// shoulders, and the animated cape is twisted - of the 133 edges of its free part 46 grew by more than 5 % and 40
+	// shrank, 0.72 .. 1.43 x. The cloth took exactly those lengths, and a sheet of triangles with given edge lengths
+	// has no choice in its plane: its hem went where the animated hem went, 20 - 30 units to the side within a quarter
+	// of a second - in a storm as readily against the wind as with it. So the cut is taken while the wearer STANDS
+	// (under MC_CAPE_CUT_V units/s over the ground and MC_CAPE_CUT_W degrees/s of turn; eased towards the animated
+	// mesh's lengths over MC_CAPE_CUT_T seconds) and kept while he moves. The two length limits belong to the cut:
+	// 'never further from the attached edge than the cloth is long' and the 'ring' are the modelled length x the
+	// animated mesh's size of the frame, so in a side step they shrank with the animation - with the links alone
+	// kept, the cloth was squeezed between its links and these limits and buckled up over its wearer's shoulders (a
+	// third of the time in a storm). Both keep their stand values with the links, as a floor. With the setting 1
+	// this holds in wind only (as for the layer rule: MC_CAPE_LAYER_U1); without wind the lengths go back to the
+	// animated mesh's within MC_CAPE_CUT_BACK seconds. (The lengths of the modelled shape throughout made a tent of
+	// a cape that is modelled as a cone.)
+	const float MC_CAPE_CUT_T = 0.5f, MC_CAPE_CUT_BACK = 0.3f, MC_CAPE_CUT_V = 30.0f, MC_CAPE_CUT_W = 90.0f;
 	const float MC_CAPE_TWIST = 0.0f;		// degrees/s of the attached edge's turn beyond which the cloth is carried along rigidly (0 = r_meshClothTwistFree)
 	// r_meshClothFree 4. Simulated in the world alone, the hem of a cape stays behind when its wearer turns fast and is
 	// then dragged round by the cloth above it, whose pull points inwards: the cape winds round him at the radius it
@@ -2940,7 +3008,11 @@ namespace {
 		// together share points: a robed figure's visible tunic strips are the front of its hidden whole tunic), a
 		// triangle when all three corners are.
 		const unsigned offM = prm->shown && (int)g->partUse.size() == g->numParticles ? in->offMask : 0u;
+		// SJE r_meshClothFree: in wind a free cape's points are left alone (see MC_CAPE_LAYER_U1)
+		thread_local static std::vector<unsigned char> fcLay;
+		const bool fcSkip = in->freeAir && FreeCapePoints(g, prm, &fcLay);
 		for (const mcLayerPair_t& lp : g->layerPairs) {
+			if (fcSkip && fcLay[lp.p]) continue;
 			if (offM && (!(g->partUse[lp.p] & ~offM) || (!(g->partUse[lp.a] & ~offM) && !(g->partUse[lp.b] & ~offM) && !(g->partUse[lp.c] & ~offM)))) continue;
 			// Worn cloth (it wraps round the body: a robe, a skirt - ComputeWrap) is held by the body all round: it
 			// does not give way to another layer. So a pair whose point is worn is left alone - its mirror, the
@@ -4420,6 +4492,7 @@ namespace {
 		const bool anyFc = FreeCapePoints(g, prm, &fcP);
 		float fcUmax = MC_CAPE_UMAX, fcPeak = MC_CAPE_PEAK, fcSkin = MC_CAPE_SKIN, fcTail = MC_CAPE_TAIL, fcGain = MC_CAPE_GAIN, fcDamp = MC_CAPE_DAMP;
 		float fcBillow = MC_CAPE_BILLOW, fcSpring = MC_CAPE_SPRING, fcArm = MC_CAPE_ARM, fcArmAir = MC_CAPE_ARMAIR, fcPSide = MC_CAPE_PSIDE;
+		float fcCarry = MC_CAPE_CARRY;
 		int fcRules = MC_CAPE_RULES;
 		bool fcLiftOff = true;
 		// r_meshClothFree 2: the calm one - the turn-calm rule and the whole 'spring' stay (the wind's part and no lift limit
@@ -4447,6 +4520,13 @@ namespace {
 		solve.rest = prm->rest != 0;
 		solve.ease = prm->ease != 0;
 		solve.limbLie = prm->limbLie;
+		{	// SJE r_meshClothFree: in wind a free cape is left out of the layer rule (see MC_CAPE_LAYER_U1)
+			vec3_t aw;
+			mcAdd(prm->wind, prm->zoneWind, aw);
+			const float au = mcLen(aw);
+			bool windy = anyFc && (au > MC_CAPE_LAYER_U1 || (in->freeAir && au > MC_CAPE_LAYER_U0));
+			in->freeAir = windy;
+		}
 		// SJE: heavy-cape options ('damp', 'spring', 'bell', 'ring'; only groups with a line that asks for one).
 		solve.armGapOn = prm->armGap;	// SJE r_meshClothArmGap
 		// Per substep each point gets its animated spot (in->anchor): the animated pose, with the hip-carried shape
@@ -5030,6 +5110,8 @@ namespace {
 		vec3_t windFc = { 0.0f, 0.0f, 0.0f };	// SJE r_meshClothFree: this step's wind for free cloth (from behind: MC_CAPE_TAIL of it)
 		bool fcWind = false;
 		float fcK = 1.0f;	// ... and the scale of the air field for it (see MC_CAPE_UMAX)
+		float fcCarryNow = 0.0f;	// ... and the share of his level travel that carries it from here on (see MC_CAPE_CARRY)
+		vec3_t fcCarryFNow = { 0.0f, 0.0f, 0.0f };	// ... less his travel along this (where the attached edge faces)
 		{
 			const float t = prm->timeSec;
 			const float gs = 1.0f + prm->gust * (0.6f * sinf(t * 1.3f) + 0.4f * sinf(t * 3.7f + 1.1f));
@@ -5058,11 +5140,43 @@ namespace {
 				vec3_t st;
 				mcScale(windFc, gs > 0.05f ? 1.0f / gs : 1.0f, st);
 				if (gs > 0.05f && mcDot(prm->zoneWind, prm->zoneWind) > 0.0f) mcMA(st, 1.0f - 1.0f / gs, prm->zoneWind, st);	// (the pushers' air is not gusted)
+				if (fcCarry > 0.0f && fcUmax > 0.0f) {
+					vec3_t sl;
+					mcMA(st, -mcDot(st, in->up), in->up, sl);
+					const float us = mcLen(sl);
+					if (us > fcUmax) fcCarryNow = fcCarry * (1.0f - (fcUmax / us) * (fcUmax / us));
+					if (fcCarryNow > 1.0f) fcCarryNow = 1.0f;
+					if (fcCarryNow > 0.0f) {
+						// where the attached edge faces, as the tail-side rule has it (MC_TAIL_FWD_LINE): of the two normals of
+						// its line the one on the legs' side; an edge that is no line: the legs' facing
+						mcMA(in->fwd, -mcDot(in->fwd, in->up), in->up, fcCarryFNow);
+						if (in->sideLine > MC_TAIL_FWD_LINE) {
+							vec3_t fa;
+							mcCross(in->side, in->up, fa);
+							if (mcNorm(fa) > 1e-3f) {
+								if (mcDot(fa, fcCarryFNow) < 0.0f) mcScale(fa, -1.0f, fa);
+								mcCopy(fa, fcCarryFNow);
+							}
+						}
+						if (mcNorm(fcCarryFNow) < 1e-3f) fcCarryNow = 0.0f;
+					}
+				}
 				mcSub(st, in->originVel, st);
 				const float ul = mcLen(st);
 				if (ul > fcUmax && fcUmax > 0.0f) fcK = fcUmax / ul;
 			}
 		}
+		// SJE r_meshClothFree: the frame update carried the cape's sheets along with a share of his level travel
+		// (MC_CAPE_CARRY) - that much of their speed over the ground is not in the points' own
+		vec3_t fcCarryVel = { 0.0f, 0.0f, 0.0f };
+		const bool fcCarried = in->capeCarry > 0.0f && (int)in->capeCarryP.size() == g->numParticles;
+		if (fcCarried) {
+			mcMA(in->originVel, -mcDot(in->originVel, in->up), in->up, fcCarryVel);
+			mcMA(fcCarryVel, -mcDot(fcCarryVel, in->capeCarryF), in->capeCarryF, fcCarryVel);
+			mcScale(fcCarryVel, in->capeCarry, fcCarryVel);
+		}
+		in->capeCarry = fcCarryNow;
+		mcCopy(fcCarryFNow, in->capeCarryF);
 		// SJE r_meshClothLiftAir: how far the lift limit opens in this step (SolveConstraints): air from below - the
 		// character's fall against the air, or an updraft - from MC_LIFT_FALL0 to MC_LIFT_FALL1 units/s, or wind over the
 		// ground from MC_LIFT_WIND0 to MC_LIFT_WIND1 (not the character's travel: a run keeps its look). It opens at once
@@ -5440,6 +5554,57 @@ namespace {
 			animSum += mcLen(d);
 		}
 		in->linkScale = g->bindLinkSum > 1e-3f ? animSum / g->bindLinkSum : 1.0f;
+		{	// SJE r_meshClothFreeCut: a free cape keeps the cut it has while its wearer stands (see MC_CAPE_CUT_T)
+			solve.linkRest = nullptr; solve.cutLra = nullptr; solve.cutRing = nullptr;
+			const int cutMode = anyFc ? (int)prm->freeCut : 0;
+			if (cutMode <= 0) { in->capeRest.clear(); in->capeLra.clear(); in->capeRing.clear(); in->capeRestOn = false; }
+			else {
+				const size_t nl = g->linkA.size();
+				const int np = g->numParticles;
+				if (in->capeRest.size() != nl || (int)in->capeLra.size() != np) {
+					in->capeRest.assign(nl, -1.0f); in->capeLra.assign(np, -1.0f); in->capeRing.assign(np, -1.0f);
+					in->capeRestOn = false;
+				}
+				vec3_t lv;
+				mcMA(in->originVel, -mcDot(in->originVel, in->up), in->up, lv);
+				const bool cutAir = in->freeAir || cutMode >= 2;
+				float k;	// how far this step takes the cut towards the animated mesh's
+				if (!cutAir) k = in->capeRestOn ? 1.0f - expf(-MC_DT / MC_CAPE_CUT_BACK) : 1.0f;
+				else k = mcLen(lv) < MC_CAPE_CUT_V && in->turnRate < MC_CAPE_CUT_W ? 1.0f - expf(-MC_DT / MC_CAPE_CUT_T) : 0.0f;
+				float worst = 0.0f;
+				for (size_t l = 0; l < nl; l++) {
+					const int a = g->linkA[l], b = g->linkB[l];
+					float& r = in->capeRest[l];
+					if (!fcP[a] || !fcP[b] || g->freedom[a] < 0.99f || g->freedom[b] < 0.99f) { r = -1.0f; continue; }
+					vec3_t d;
+					mcSub(&tgtTo[b * 3], &tgtTo[a * 3], d);
+					const float len = mcLen(d);
+					if (r < 0.0f || k >= 1.0f) r = len;
+					else r += (len - r) * k;
+					const float dev = fabsf(r - len);
+					if (dev > worst) worst = dev;
+				}
+				const bool haveRing = (int)g->ringAnchor.size() == np && (int)g->ringLen.size() == np;
+				for (int p = 0; p < np; p++) {
+					if (!fcP[p]) { in->capeLra[p] = -1.0f; in->capeRing[p] = -1.0f; continue; }
+					for (int w = 0; w < 2; w++) {	// the limit from the attached edge, the limit from the ring
+						const int an = w == 0 ? g->lraAnchor[p] : haveRing ? g->ringAnchor[p] : -1;
+						float& r = w == 0 ? in->capeLra[p] : in->capeRing[p];
+						if (an < 0) { r = -1.0f; continue; }
+						vec3_t d;
+						mcSub(&tgtTo[p * 3], &tgtTo[an * 3], d);
+						float now = (w == 0 ? g->lraLen[p] : g->ringLen[p]) * in->linkScale;
+						const float al = mcLen(d);
+						if (al > now) now = al;
+						if (r < 0.0f || k >= 1.0f) r = now;
+						else r += (now - r) * k;
+					}
+				}
+				if (cutAir) in->capeRestOn = true;
+				else if (in->capeRestOn && worst < 0.02f) in->capeRestOn = false;
+				if (in->capeRestOn) { solve.linkRest = in->capeRest.data(); solve.cutLra = in->capeLra.data(); solve.cutRing = in->capeRing.data(); }
+			}
+		}
 
 		in->target.resize(tgtTo.size());
 		in->push.resize(tgtTo.size());
@@ -5514,6 +5679,21 @@ namespace {
 		float physSkin = MC_AIRPHYS_SKIN, physGain = MC_AIRPHYS_GAIN, physLiftK = MC_AIRPHYS_LIFT, physPocket = MC_AIRPHYS_POCKET, physUmax = MC_AIRPHYS_UMAX;
 		bool physBillow = true;	// (the billow push stays: the air that gets under a cape in a run - a point's own drag does not give that)
 		const bool wornCap = prm->wornAir < 1.0f && (int)g->wrap.size() == g->numParticles && (int)g->under.size() == g->numParticles;	// SJE r_meshClothWornAir
+		// SJE r_meshClothWornWind: the quarter was made for the TRAVEL wind of a run (a robe flew up and kinked at the hip);
+		// it took the weather wind as well, and a robe or a hip skirt hung like a column in a storm - a unit or two from
+		// its animated place. Worn OUTER cloth (it wraps its wearer and is no layer under other cloth) catches the wind
+		// by more: its cap rises from wornAir towards wornWind with the wind's share of the air against the wearer, over
+		// the ground - all wind in a stand, next to none in a run through still air. Layers under it stay in its lee.
+		float wornWindK = 0.0f;
+		const float wornWindV = Clamp01(prm->wornWind);
+		if (wornCap && wornWindV > prm->wornAir) {
+			vec3_t lw, lv;
+			mcAdd(prm->wind, prm->zoneWind, lw);
+			mcMA(lw, -mcDot(lw, in->up), in->up, lw);
+			mcMA(in->originVel, -mcDot(in->originVel, in->up), in->up, lv);
+			const float uw = mcLen(lw), uv = mcLen(lv);
+			if (uw > 1.0f) wornWindK = uw / (uw + uv);
+		}
 		bool sinkOn = prm->airFree > 0.0f;	// SJE r_meshClothAirFree: the air's drag on loose cloth's own way down (below)
 		float sinkV = MC_FREE_SINK;
 		// ... and the landing: how strongly, the speed allowed at weight 1, and the wearer's own speed up or down
@@ -5532,6 +5712,53 @@ namespace {
 			const float t1 = (float)(s + 1) / sub;
 			if (s > 0) in->targetSub.assign(in->target.begin(), in->target.end());
 			for (size_t i = 0; i < tgtTo.size(); i++) in->target[i] = tgtFrom[i] + (tgtTo[i] - tgtFrom[i]) * t1;
+			{	// SJE 'backstop D' (r_meshClothBackstop; see SolveConstraints)
+				thread_local static std::vector<float> bsD, bsN, bsSign;
+				if (s == 0) {
+					bsD.clear();
+					bool on = prm->backstop > 0.0f && (int)g->partSurf.size() == g->numParticles;
+					if (on) {
+						bool any = false;
+						for (const mcDef_t* d : g->defs) if (d && d->backstop >= 0.0f) { any = true; break; }
+						if (any) {
+							bsD.assign((size_t)g->numParticles, -1.0f);
+							for (int p = 0; p < g->numParticles; p++) {
+								const int si = g->partSurf[p];
+								if (g->freedom[p] > 0.0f && si >= 0 && si < (int)g->defs.size() && g->defs[si]) bsD[p] = g->defs[si]->backstop;
+							}
+						}
+					}
+				}
+				solve.backD = nullptr; solve.backN = nullptr;
+				if (!bsD.empty()) {
+					// the animated cloth's normals at the end of this substep (by area), for the triangles that have such a point
+					bsN.assign((size_t)g->numParticles * 3, 0.0f);
+					const int nt = (int)(g->tris.size() / 3);
+					for (int ti = 0; ti < nt; ti++) {
+						const int a = g->tris[ti * 3], b = g->tris[ti * 3 + 1], c = g->tris[ti * 3 + 2];
+						if (bsD[a] < 0.0f && bsD[b] < 0.0f && bsD[c] < 0.0f) continue;
+						vec3_t e1, e2, nn;
+						mcSub(&in->target[b * 3], &in->target[a * 3], e1);
+						mcSub(&in->target[c * 3], &in->target[a * 3], e2);
+						mcCross(e1, e2, nn);
+						mcAdd(&bsN[a * 3], nn, &bsN[a * 3]); mcAdd(&bsN[b * 3], nn, &bsN[b * 3]); mcAdd(&bsN[c * 3], nn, &bsN[c * 3]);
+					}
+					// 'outwards' = away from the wearer's upright axis, decided per surface (a mesh is wound one way)
+					bsSign.assign(g->defs.size(), 0.0f);
+					for (int p = 0; p < g->numParticles; p++) {
+						if (bsD[p] < 0.0f) continue;
+						if (mcNorm(&bsN[p * 3]) < 1e-6f) { bsD[p] = -1.0f; continue; }	// (no surface there: no backstop)
+						vec3_t ro;
+						mcSub(&in->target[p * 3], in->lastOrigin, ro);
+						mcMA(ro, -mcDot(ro, in->up), in->up, ro);
+						bsSign[g->partSurf[p]] += mcDot(&bsN[p * 3], ro);
+					}
+					for (int p = 0; p < g->numParticles; p++) {
+						if (bsD[p] >= 0.0f && bsSign[g->partSurf[p]] < 0.0f) mcScale(&bsN[p * 3], -1.0f, &bsN[p * 3]);
+					}
+					solve.backD = bsD.data(); solve.backN = bsN.data();
+				}
+			}
 			if (heavy) {
 				// SJE: each point's animated spot at the end of this substep ('bell' blended in)
 				for (int p = 0; p < g->numParticles; p++) {
@@ -5594,6 +5821,7 @@ namespace {
 					// by its own weight, as without 'damp'
 					mcMA(va, -mcDot(va, in->up), in->up, va);
 					mcSub(v, va, r);
+					if (fcCarried && in->capeCarryP[p]) mcMA(r, h, fcCarryVel, r);	// SJE r_meshClothFree: a carried sheet (see MC_CAPE_CARRY)
 					const float rv = mcDot(r, in->up);
 					mcMA(r, -rv, in->up, rh);
 					mcMA(v, -kDampH[p], rh, v);
@@ -5639,6 +5867,7 @@ namespace {
 						mcMA(rel, -fcK, aw, rel);
 						if (anyAirB) mcMA(rel, -h * ws, &airB[(size_t)p * 3], rel);
 					}
+					if (fcCarried && in->capeCarryP[p]) mcMA(rel, h, fcCarryVel, rel);	// SJE r_meshClothFree: a carried sheet (see MC_CAPE_CARRY)
 					const float* nn = &n[p * 3];
 					const float vn = mcDot(rel, nn);
 					float kn = prm->drag * h * invW;
@@ -5653,6 +5882,11 @@ namespace {
 						const float tkp = g->tether[p] * (1.0f / MC_AIR_TETHER);
 						float akp = tkp >= 1.0f ? 1.0f : tkp * tkp * tkp;
 						if (wornCap && (g->wrap[p] || g->under[p]) && akp > prm->wornAir) akp = prm->wornAir;
+						if (wornWindK > 0.0f && g->wrap[p] && (!g->under[p] || in->freeAir)) {	// SJE r_meshClothWornWind (under a free cape that is out in the wind there is no lee)
+							// (its tether's part of the air stays as it is: a collar on a short leash is worn cloth too, and crumpled with more)
+							const float full = (tkp >= 1.0f ? 1.0f : tkp * tkp * tkp) * wornWindV;
+							if (full > akp) akp += (full - akp) * wornWindK;
+						}
 						const float lt = mcLen(relT), lr = mcLen(rel), um = (fcPt && fcPeak > 0.0f ? fcUmax * fcPeak : physUmax) * h;	// SJE r_meshClothFree
 						const float uk = lr > um && um > 0.0f ? um / lr : 1.0f;	// (beyond MC_AIRPHYS_UMAX the push grows no further)
 						const float cq = prm->dragQuad * physGain * (fcPt ? fcGain : 1.0f) * invW * akp * uk * uk;
@@ -6406,6 +6640,23 @@ namespace {
 				// rest sooner in a crouch, but lay into the skirt under it more often and stretched more in falls).
 				thread_local static std::vector<float> sheetRoom;
 				thread_local static std::vector<int> sheetCnt;
+				// SJE r_meshClothFree: a storm over the cap carries the free cape (see MC_CAPE_CARRY)
+				vec3_t capeShift = { 0.0f, 0.0f, 0.0f };
+				bool capeCarried = false;
+				if (in->capeCarry > 0.0f && g->numSheets > 0 && (int)g->sheetOf.size() == g->numParticles) {
+					thread_local static std::vector<unsigned char> fcF, fcSheet;
+					if (FreeCapePoints(g, prm, &fcF)) {
+						fcSheet.assign((size_t)g->numSheets, 0);
+						for (int p = 0; p < g->numParticles; p++) if (fcF[p]) fcSheet[g->sheetOf[p]] = 1;
+						in->capeCarryP.resize((size_t)g->numParticles);
+						for (int p = 0; p < g->numParticles; p++) in->capeCarryP[p] = fcSheet[g->sheetOf[p]];
+						mcMA(dO, -mcDot(dO, in->up), in->up, capeShift);
+						mcMA(capeShift, -mcDot(capeShift, in->capeCarryF), in->capeCarryF, capeShift);	// (not along where its attached edge faces)
+						mcScale(capeShift, in->capeCarry, capeShift);
+						capeCarried = true;
+					}
+				}
+				if (!capeCarried) in->capeCarryP.clear();
 				const float carryDn = mcDot(bodyShift, prm->floorN);
 				const bool carryLim = prm->carryFloor && prm->floor && carryDn < 0.0f && g->numSheets > 0 && (int)g->sheetOf.size() == g->numParticles;
 				if (carryLim) {
@@ -6431,6 +6682,7 @@ namespace {
 					vec3_t shift;
 					const float carry = 1.0f - Clamp01(g->inertia[p] >= 0.0f ? g->inertia[p] : prm->inertia);
 					mcScale(dO, carry, shift);
+					if (capeCarried && in->capeCarryP[p]) mcMA(shift, 1.0f - carry, capeShift, shift);	// SJE r_meshClothFree (see MC_CAPE_CARRY)
 					const float amax = g->maxAccel[p] >= 0.0f ? g->maxAccel[p] : prm->maxAccel;
 					if (amax > 0.0f && aLen > amax) {
 						// the part of this frame's move that comes from acceleration over the limit
@@ -6998,6 +7250,7 @@ int MC_LoadConfig(const char* text) {
 			else if (!Q_stricmp(tok, "armgap")) { d.armGap = (float)atof(COM_ParseExt(&p, qfalse)); if (d.armGap < 0.0f) d.armGap = 0.0f; if (d.armGap > 4.0f) d.armGap = 4.0f; }	// SJE
 			else if (!Q_stricmp(tok, "wrap")) d.wrap = true;
 			else if (!Q_stricmp(tok, "free")) d.freeC = Clamp01((float)atof(COM_ParseExt(&p, qfalse)));	// SJE r_meshClothFree
+			else if (!Q_stricmp(tok, "backstop")) { d.backstop = (float)atof(COM_ParseExt(&p, qfalse)); if (d.backstop < 0.0f) d.backstop = 0.0f; if (d.backstop > 20.0f) d.backstop = 20.0f; }	// SJE r_meshClothBackstop
 			else if (!Q_stricmp(tok, "spring")) {
 				d.spring = (float)atof(COM_ParseExt(&p, qfalse)); d.springFade = (float)atof(COM_ParseExt(&p, qfalse));
 				d.spring = d.spring < 0.0f ? 0.0f : (d.spring > 0.9f ? 0.9f : d.spring);
