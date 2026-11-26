@@ -310,6 +310,39 @@ static qboolean NPC_WPRoute_Plan(const gentity_t* self, npcPath_t* p, const vec3
 	p->progressTime = level.time;
 	p->bestDist = Q3_INFINITE;
 
+	// (2026-11-26, after Warzone's NPC_CopyPathFromNearbyNPC) an NPC close by planned to (nearly) the same goal in the
+	// last 2 s: take his route instead of searching again (a crowd chasing one man searches once)
+	for (int i = MAX_CLIENTS; i < level.num_entities && start >= 0 && end >= 0; i++)
+	{
+		const npcPath_t* o = &s_npcPath[i];
+		const gentity_t* oe = &g_entities[i];
+		int count = 0;
+		qboolean bad = qfalse;
+
+		if (oe == self || !oe->inuse || !oe->NPC || o->numNodes - o->pos < 2 || o->planTime > level.time
+			|| level.time - o->planTime > 2000 || o->failTime
+			|| DistanceSquared(oe->r.currentOrigin, self->r.currentOrigin) > 128.0f * 128.0f
+			|| DistanceSquared(o->goal, goal) > NPCPATH_GOAL_MOVED * NPCPATH_GOAL_MOVED)
+		{
+			continue;
+		}
+		for (int k = o->pos; k < o->numNodes && count < NPCPATH_MAX_NODES; k++)
+		{
+			if (o->nodes[k] == p->avoidNode)
+			{
+				bad = qtrue;
+				break;
+			}
+			p->nodes[count++] = o->nodes[k];
+		}
+		if (bad || count < 1)
+		{
+			continue;
+		}
+		p->numNodes = count;
+		return qtrue;
+	}
+
 	if (start < 0 || end < 0)
 	{
 		p->failTime = level.time;
@@ -547,5 +580,173 @@ void NPC_WPPatrol_Think(gentity_t* self)
 		npc->goalTime = level.time;
 		s_patrolStart[n] = level.time;
 		return;
+	}
+}
+
+/*
+NPC_WPAfterBehavior (2026-11-26, after Warzone's NPC_GetOffPlayer and our bots' lift waiting, bot_lift_wait)
+
+Runs after the NPC's behaviour each think (MP):
+- standing on someone's head (a player or NPC): he steps off, away from him;
+- walking a bot route whose next waypoint is 80+ up or down over a lift (func_plat, or a func_door that moves up and
+  down) within 256: he waits until the lift is at his level and still, gets on, stands still while it moves.
+  A lift that doesn't come within 10 s (a button works it?) is let be for 10 s.
+*/
+static int s_liftEnt[MAX_GENTITIES];		// lift waited for / ridden (+1)
+static int s_liftSince[MAX_GENTITIES];
+static int s_liftSkipEnt[MAX_GENTITIES];
+static int s_liftSkipUntil[MAX_GENTITIES];
+
+static qboolean NPC_WPIsLift(const gentity_t* mover)
+{
+	if (!mover->inuse || !mover->r.linked || !mover->classname || mover->s.eType != ET_MOVER)
+	{
+		return qfalse;
+	}
+	if (!Q_stricmp(mover->classname, "func_plat"))
+	{
+		return qtrue;
+	}
+	if (!Q_stricmp(mover->classname, "func_door"))
+	{
+		const float dz = fabsf(mover->pos2[2] - mover->pos1[2]);
+		const float dxy = sqrtf((mover->pos2[0] - mover->pos1[0]) * (mover->pos2[0] - mover->pos1[0])
+			+ (mover->pos2[1] - mover->pos1[1]) * (mover->pos2[1] - mover->pos1[1]));
+		return dz >= 80.0f && dxy <= 32.0f ? qtrue : qfalse;
+	}
+	return qfalse;
+}
+
+static qboolean NPC_WPInFootprint(const gentity_t* mover, const vec3_t pt, const float margin)
+{
+	return pt[0] >= mover->r.absmin[0] - margin && pt[0] <= mover->r.absmax[0] + margin
+		&& pt[1] >= mover->r.absmin[1] - margin && pt[1] <= mover->r.absmax[1] + margin ? qtrue : qfalse;
+}
+
+static qboolean NPC_WPLiftWait(const gentity_t* self, const npcPath_t* p)
+{
+	const int n = self->s.number;
+	const int ge = self->client->ps.groundEntityNum;
+	gentity_t* lift = NULL;
+
+	if (s_liftSince[n] > level.time || s_liftSkipUntil[n] - level.time > 10000)
+	{
+		s_liftEnt[n] = s_liftSince[n] = s_liftSkipEnt[n] = s_liftSkipUntil[n] = 0; // a new map
+	}
+	// riding a lift that moves
+	if (ge > 0 && ge < ENTITYNUM_WORLD && NPC_WPIsLift(&g_entities[ge])
+		&& (g_entities[ge].moverState == MOVER_1TO2 || g_entities[ge].moverState == MOVER_2TO1))
+	{
+		s_liftEnt[n] = ge + 1;
+		s_liftSince[n] = level.time;
+		return qtrue;
+	}
+	// on our route now?
+	if (p->numNodes <= 0 || p->pos >= p->numNodes || p->planTime > level.time
+		|| level.time - p->planTime > NPCPATH_REPLAN_TIME + 500 || !NPC_WPRoute_Valid(p->nodes[p->pos]))
+	{
+		s_liftEnt[n] = 0;
+		return qfalse;
+	}
+	{
+		const wpobject_t* node = gWPArray[p->nodes[p->pos]];
+		if (fabsf(node->origin[2] - self->r.currentOrigin[2]) < 80.0f)
+		{
+			s_liftEnt[n] = 0;
+			return qfalse;
+		}
+		for (int i = MAX_CLIENTS; i < level.num_entities; i++)
+		{
+			gentity_t* m = &g_entities[i];
+			if (!NPC_WPIsLift(m))
+			{
+				continue;
+			}
+			const float margin = !Q_stricmp(m->classname, "func_door") ? 64.0f : 20.0f;
+			if (!NPC_WPInFootprint(m, node->origin, margin) || !NPC_WPInFootprint(m, self->r.currentOrigin, 256.0f))
+			{
+				continue;
+			}
+			if (s_liftSkipEnt[n] == i + 1 && s_liftSkipUntil[n] > level.time)
+			{
+				continue;
+			}
+			lift = m;
+			break;
+		}
+	}
+	if (!lift)
+	{
+		s_liftEnt[n] = 0;
+		return qfalse;
+	}
+	if (s_liftEnt[n] != lift->s.number + 1)
+	{
+		s_liftEnt[n] = lift->s.number + 1;
+		s_liftSince[n] = level.time;
+	}
+	else if (level.time - s_liftSince[n] > 10000)
+	{
+		s_liftSkipEnt[n] = lift->s.number + 1; // it doesn't come
+		s_liftSkipUntil[n] = level.time + 10000;
+		s_liftEnt[n] = 0;
+		return qfalse;
+	}
+	// at his level and still: get on
+	{
+		const float feet = self->r.currentOrigin[2] + self->r.mins[2];
+		if ((lift->moverState == MOVER_POS1 || lift->moverState == MOVER_POS2) && fabsf(lift->r.absmax[2] - feet) <= 24.0f)
+		{
+			return qfalse;
+		}
+	}
+	return qtrue;
+}
+
+void NPC_WPAfterBehavior(gentity_t* self, usercmd_t* cmd)
+{
+	const int n = self ? self->s.number : 0;
+	int ge = 0;
+
+	if (!self || !self->client || !self->NPC || n < MAX_CLIENTS || n >= MAX_GENTITIES || self->health <= 0
+		|| self->client->ps.m_iVehicleNum || self->client->NPC_class == CLASS_VEHICLE)
+	{
+		return;
+	}
+
+	// standing on someone's head: step off, away from him
+	ge = self->client->ps.groundEntityNum;
+	if (ge >= 0 && ge < ENTITYNUM_WORLD && g_entities[ge].inuse && g_entities[ge].client && g_entities[ge].health > 0)
+	{
+		vec3_t away = { 0 }, fwd = { 0 }, right = { 0 }, ang = { 0 };
+
+		VectorSubtract(self->r.currentOrigin, g_entities[ge].r.currentOrigin, away);
+		away[2] = 0.0f;
+		if (VectorNormalize(away) < 1.0f)
+		{
+			VectorSet(away, n & 1 ? 1.0f : -1.0f, 0.0f, 0.0f);
+		}
+		VectorSet(ang, 0.0f, self->client->ps.viewangles[YAW], 0.0f);
+		AngleVectors(ang, fwd, right, NULL);
+		cmd->forwardmove = (signed char)(DotProduct(away, fwd) * 127.0f);
+		cmd->rightmove = (signed char)(DotProduct(away, right) * 127.0f);
+		return;
+	}
+
+	if (!NPC_WPRoute_Enabled() || gWPNum <= 0)
+	{
+		return;
+	}
+	if (NPC_WPLiftWait(self, &s_npcPath[n]))
+	{
+		npcPath_t* p = &s_npcPath[n];
+		cmd->forwardmove = 0;
+		cmd->rightmove = 0;
+		if (cmd->upmove > 0)
+		{
+			cmd->upmove = 0;
+		}
+		p->progressTime = level.time; // waiting isn't being stuck
+		p->bestDist = Q3_INFINITE;
 	}
 }

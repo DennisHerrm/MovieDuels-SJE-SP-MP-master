@@ -25,6 +25,47 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "game/g_npcshared.h"
 
+// Burning NPCs roll the fire out (2026-11-26, after OpenJK-SWGL's active fire effect, where a roll ends the fire).
+// The burn code (wp_saber.cpp / w_saber.c G_BurnPutOut) already puts the fire out when a burning character rolls or
+// wades in; an NPC on fire that has a roll now does one: run + crouch + dash, held 400 ms, at most every 1.5 s.
+extern qboolean PM_InRoll(const playerState_t* ps);
+static int npc_burn_roll_until[MAX_GENTITIES];
+static int npc_burn_roll_next[MAX_GENTITIES];
+
+static void NPC_BurnRoll(gentity_t* self, usercmd_t* cmd)
+{
+	const int n = self ? self->s.number : 0;
+
+	if (!self || !self->client || n < 0 || n >= MAX_GENTITIES || self->health <= 0
+		|| !(self->client->ps.PlayerEffectFlags & 1 << PEF_BURNING))
+	{
+		return;
+	}
+	if (npc_burn_roll_next[n] - level.time > 1500 || npc_burn_roll_until[n] - level.time > 400)
+	{
+		npc_burn_roll_next[n] = npc_burn_roll_until[n] = 0; // a new map / loaded game
+	}
+	if (self->client->ps.groundEntityNum == ENTITYNUM_NONE || PM_InRoll(&self->client->ps) || self->waterlevel >= 2
+		|| !SHR_HasAnimation(self, BOTH_ROLL_F))
+	{
+		return;
+	}
+	if (npc_burn_roll_until[n] <= level.time)
+	{
+		if (npc_burn_roll_next[n] > level.time)
+		{
+			return;
+		}
+		npc_burn_roll_until[n] = level.time + 400;
+		npc_burn_roll_next[n] = level.time + 1500;
+	}
+	cmd->forwardmove = 127;
+	cmd->rightmove = 0;
+	cmd->upmove = -127;
+	cmd->buttons &= ~BUTTON_WALKING;
+	cmd->buttons |= BUTTON_DASH;
+}
+
 #ifdef SP_GAME
 
 //
@@ -4435,6 +4476,7 @@ static void NPC_ExecuteBState(const gentity_t* self) //, int msec )
 
 	//Pick the proper bstate for us and run it
 	NPC_RunBehavior(self->client->playerTeam, b_state);
+	NPC_BurnRoll(NPCS.NPC, &NPCS.ucmd); // on fire: roll it out
 
 	if (NPC->enemy)
 	{
@@ -5090,6 +5132,7 @@ qboolean NPC_IsOversized(const gentity_t* self)
 #else // MP game
 
 extern void NPC_WPPatrol_Think(gentity_t* self); // codemp/game/NPC_AI_Path.c
+extern void NPC_WPAfterBehavior(gentity_t* self, usercmd_t* cmd); // codemp/game/NPC_AI_Path.c
 
 static void NPC_ExecuteBState(const gentity_t* self) //, int msec )
 {
@@ -5123,6 +5166,8 @@ static void NPC_ExecuteBState(const gentity_t* self) //, int msec )
 
 	//Pick the proper bstate for us and run it
 	NPC_RunBehavior(self->client->playerTeam, b_state);
+	NPC_BurnRoll(NPCS.NPC, &NPCS.ucmd); // on fire: roll it out
+	NPC_WPAfterBehavior(NPCS.NPC, &NPCS.ucmd); // MP: waits for / rides lifts on his route, steps off a head
 
 	if (NPCS.NPC->enemy)
 	{

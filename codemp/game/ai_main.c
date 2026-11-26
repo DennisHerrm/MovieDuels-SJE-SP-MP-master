@@ -155,7 +155,7 @@ vmCvar_t bot_forcepowers;
 vmCvar_t bot_forgimmick;
 vmCvar_t bot_honorableduelacceptance;
 vmCvar_t bot_obstaclejumps;	// 1: bots jump only to clear obstacles (no hopping about), 0: they jump as they like
-vmCvar_t bot_sjeai;			// bitmask of SJE bot AI additions (default 255 = all):
+vmCvar_t bot_sjeai;			// bitmask of SJE bot AI additions (default 1023 = all):
 #define BOT_SJEAI_EXPLORE	1	// getting about with no waypoints (bot_explore_navigation)
 #define BOT_SJEAI_READMOVE	2	// where his enemy will be: SHR_ReadMove (strafers, chargers, ones in the air)
 #define BOT_SJEAI_STEPOUT	4	// steps out of an enemy swing he can't block well (bot_swing_stepout)
@@ -164,6 +164,8 @@ vmCvar_t bot_sjeai;			// bitmask of SJE bot AI additions (default 255 = all):
 #define BOT_SJEAI_FORCE		32	// force fighting: break a grip, grip + kick / push, lightning on one who is down, throw timing
 #define BOT_SJEAI_SPREAD	64	// no bunching up: a bot with no enemy steps away from a teammate he stands on (bot_spread_out)
 #define BOT_SJEAI_TARGETS	128	// share out the enemies: fewer bots on one man, none on one who just spawned (bot_target_spread)
+#define BOT_SJEAI_STALL		256	// stalled on his route: takes another waypoint round it (bot_route_stall_check)
+#define BOT_SJEAI_COVER		512	// bot styles: careful gunners take cover when hurt and peek out, aggressive ones finish off (bot_combat_cover)
 #define BOT_READMOVE_RETREAT	4	// = SHR_MOVE_RETREAT (shared/game/g_npcshared.h)
 // fight reading shared with the NPC Jedi (shared/game/AI_Utils.c)
 extern int SHR_ReadMove(const gentity_t* watcher, const gentity_t* target, float lookahead, vec3_t predicted);
@@ -13793,6 +13795,48 @@ static qboolean bot_aim_on_target(const bot_state_t* bs)
 	return miss <= allowed ? qtrue : qfalse;
 }
 
+// Thermals (2026-11-26, after the Open Battlefront Project's BotHandleThermal; own code): a bot takes out and
+// throws a thermal only with his enemy 256 - 800 away (not inside the blast with him), nothing solid within 96 on
+// the way (it would bounce back at his feet) and, in team games, no teammate within 192 of the enemy.
+static qboolean bot_thermal_ok(const bot_state_t* bs)
+{
+	vec3_t eorg = { 0 }, dir = { 0 }, end = { 0 }, start = { 0 };
+	trace_t tr = { 0 };
+
+	if (!bs->currentEnemy || bs->frame_Enemy_Len < 256.0f || bs->frame_Enemy_Len > 800.0f)
+	{
+		return qfalse;
+	}
+	VectorCopy(bs->currentEnemy->client ? bs->currentEnemy->client->ps.origin : bs->currentEnemy->r.currentOrigin, eorg);
+	VectorCopy(bs->eye, start);
+	VectorSubtract(eorg, start, dir);
+	if (VectorNormalize(dir) < 1.0f)
+	{
+		return qfalse;
+	}
+	VectorMA(start, 96.0f, dir, end);
+	trap->Trace(&tr, start, NULL, NULL, end, bs->client, MASK_SOLID, qfalse, 0, 0);
+	if (tr.fraction < 1.0f || tr.startsolid)
+	{
+		return qfalse;
+	}
+	if (is_teamplay())
+	{
+		for (int i = 0; i < level.maxclients; i++)
+		{
+			const gentity_t* mate = &g_entities[i];
+
+			if (i != bs->client && mate->inuse && mate->client && mate->health > 0
+				&& OnSameTeam(&g_entities[bs->client], (gentity_t*)mate)
+				&& DistanceSquared(mate->r.currentOrigin, eorg) < 192.0f * 192.0f)
+			{
+				return qfalse;
+			}
+		}
+	}
+	return qtrue;
+}
+
 static int combat_bot_ai(bot_state_t* bs)
 {
 	vec3_t eorg = { 0 };
@@ -13891,7 +13935,11 @@ static int combat_bot_ai(bot_state_t* bs)
 					if (bs->cur_ps.weaponstate != WEAPON_CHARGING &&
 						bs->cur_ps.weaponstate != WEAPON_CHARGING_ALT)
 					{
-						if (bs->frame_Enemy_Len > 512.0f &&
+						if (!bot_thermal_ok(bs))
+						{
+							// too close, a wall in the way or a teammate by him: no throw
+						}
+						else if (bs->frame_Enemy_Len > 512.0f &&
 							bs->frame_Enemy_Len < 800.0f)
 						{
 							bs->doAltAttack = 1;
@@ -14748,7 +14796,7 @@ static int bot_select_ideal_weapon(bot_state_t* bs)
 			if (i == WP_THERMAL)
 			{
 				//special case..
-				if (bs->currentEnemy && bs->frame_Enemy_Len < 700)
+				if (bot_thermal_ok(bs))
 				{
 					bestweight = bs->botWeaponWeights[i];
 					bestweapon = i;
@@ -16860,6 +16908,313 @@ extern saberInfo_t* BG_MySaber(int clientNum, int saberNum);
 void bot_check_speak(gentity_t* self, const qboolean moving);
 void bot_social_think(bot_state_t* bs);
 extern void AngleClamp(vec3_t ang);
+
+/*
+bot_sjeai 256: stalled on his route (2026-11-26, after the Open Battlefront Project's BotWaypointProgressStalled /
+TrySwitchWPBranch; own code). A bot that has got no 16 units closer to his next waypoint for 2 s - and isn't
+waiting for a lift or a func on purpose, riding a mover, in the air or fighting someone he can see - takes another
+waypoint next to it instead: one he can see, that leads on to where he is going (shortest walk + trail), not the
+one he just came from. With none, he drops the waypoint and finds the nearest one again. Before this he pushed
+into the same spot until the 10 s travel time ran out.
+*/
+#define BOT_STALL_TIME		2000
+#define BOT_STALL_PROGRESS	16.0f
+static int bot_stall_wp[MAX_CLIENTS];		// waypoint watched (+1, 0 = none)
+static int bot_stall_prev_wp[MAX_CLIENTS];	// the one before it (+1): not taken as the way round
+static int bot_stall_since[MAX_CLIENTS];	// last time he got closer
+static float bot_stall_best[MAX_CLIENTS];	// closest he got
+
+static void bot_route_stall_check(bot_state_t* bs)
+{
+	const int c = bs->client;
+	gentity_t* self = &g_entities[c];
+	const playerState_t* ps = &self->client->ps;
+	int best = -1;
+	float best_score = 999999.0f;
+
+	if (!(bot_sjeai.integer & BOT_SJEAI_STALL) || !bs->wpCurrent)
+	{
+		return;
+	}
+	if (bot_stall_wp[c] != bs->wpCurrent->index + 1 || bot_stall_since[c] > level.time)
+	{
+		// a new waypoint (or a new map)
+		bot_stall_prev_wp[c] = bot_stall_wp[c];
+		bot_stall_wp[c] = bs->wpCurrent->index + 1;
+		bot_stall_since[c] = level.time;
+		bot_stall_best[c] = bs->frame_Waypoint_Len;
+		return;
+	}
+	if (bs->beStill > level.time || (bs->currentEnemy && bs->frame_Enemy_Vis) || ps->groundEntityNum == ENTITYNUM_NONE
+		|| (ps->groundEntityNum < ENTITYNUM_WORLD && g_entities[ps->groundEntityNum].s.eType == ET_MOVER))
+	{
+		bot_stall_since[c] = level.time; // waiting, riding, jumping or fighting: not stalled
+		bot_stall_best[c] = bs->frame_Waypoint_Len;
+		return;
+	}
+	if (bs->frame_Waypoint_Len < bot_stall_best[c] - BOT_STALL_PROGRESS)
+	{
+		bot_stall_best[c] = bs->frame_Waypoint_Len;
+		bot_stall_since[c] = level.time;
+		return;
+	}
+	if (level.time - bot_stall_since[c] < BOT_STALL_TIME)
+	{
+		return;
+	}
+
+	{
+		const int dest = bs->wpDestination ? bs->wpDestination->index : -1;
+
+		for (int i = 0; i < bs->wpCurrent->neighbornum; i++)
+		{
+			const int n = bs->wpCurrent->neighbors[i].num;
+			vec3_t org = { 0 };
+
+			if (n < 0 || n >= gWPNum || !gWPArray[n] || !gWPArray[n]->inuse || n + 1 == bot_stall_prev_wp[c]
+				|| n == bs->wpCurrent->index || !pass_way_check(bs, n))
+			{
+				continue;
+			}
+			VectorCopy(gWPArray[n]->origin, org);
+			if (wp_org_visible(self, bs->origin, org, c) != 1)
+			{
+				continue;
+			}
+			float score = Distance(bs->origin, org);
+			if (dest >= 0)
+			{
+				const float trail = total_trail_distance(n, dest);
+				if (trail < 0)
+				{
+					continue; // doesn't lead on
+				}
+				score += trail * 0.35f;
+			}
+			if (score < best_score)
+			{
+				best_score = score;
+				best = n;
+			}
+		}
+	}
+
+	if (best >= 0)
+	{
+		bs->wpCurrent = gWPArray[best];
+		bs->wpTravelTime = level.time + 10000;
+		bs->wpSeenTime = level.time + 1500;
+	}
+	else
+	{
+		bs->wpCurrent = NULL; // no way round: find the nearest waypoint again
+	}
+	bot_stall_since[c] = level.time;
+}
+
+/*
+bot_sjeai 512: bot styles and cover (2026-11-26, after the Open Battlefront Project's BotStyle_* personalities and
+BotFindNearbyCoverWaypoint cover / peek; own code).
+Every bot gets a style from his name (so the same bot always fights the same way): steady, careful or aggressive.
+A gunner (not saber or fists) in a fight at 300 - 1400 who is hurt - careful below 60 health or with more enemies
+than friends round him, steady below 35, aggressive never - looks for cover: a waypoint within 900 he can walk
+straight to, 220+ from his enemy, from which the enemy can't be seen (camp / snipe points preferred). He stays
+there 2.5 s (careful 4 s), hiding and stepping out to shoot in turns, then fights as normal for 4 s at least.
+An aggressive gunner instead goes in on an enemy below 35 health. Not while carrying a flag.
+*/
+#define BOT_STYLE_STEADY		0
+#define BOT_STYLE_CAREFUL		1
+#define BOT_STYLE_AGGRESSIVE	2
+static int bot_cover_wp[MAX_CLIENTS];		// cover waypoint (+1, 0 = none)
+static int bot_cover_until[MAX_CLIENTS];	// in cover until
+static int bot_cover_next[MAX_CLIENTS];		// next search / cover not before
+static int bot_cover_peek[MAX_CLIENTS];		// switch hide / peek at
+static qboolean bot_cover_peeking[MAX_CLIENTS];
+
+static int bot_style(const bot_state_t* bs)
+{
+	const char* name = g_entities[bs->client].client ? g_entities[bs->client].client->pers.netname : "";
+	unsigned int h = 5381;
+
+	for (; *name; name++)
+	{
+		h = h * 33u + (unsigned char)*name;
+	}
+	return (int)(h % 3u);
+}
+
+static int bot_find_cover_wp(const bot_state_t* bs, const vec3_t eye_enemy)
+{
+	int best = -1;
+	float best_score = -999999.0f;
+
+	for (int i = 0; i < gWPNum; i++)
+	{
+		const wpobject_t* wp = gWPArray[i];
+		vec3_t org = { 0 }, from = { 0 };
+		trace_t tr = { 0 };
+
+		if (!wp || !wp->inuse || fabsf(wp->origin[2] - bs->origin[2]) > 96.0f)
+		{
+			continue;
+		}
+		const float d_me = Distance(wp->origin, bs->origin);
+		const float d_enemy = Distance(wp->origin, eye_enemy);
+		if (d_me > 900.0f || d_me < 48.0f || d_enemy < 220.0f)
+		{
+			continue;
+		}
+		// the enemy can't see it
+		VectorCopy(wp->origin, from);
+		from[2] += 32.0f;
+		trap->Trace(&tr, from, NULL, NULL, eye_enemy, bs->client, MASK_SOLID, qfalse, 0, 0);
+		if (tr.fraction >= 0.9f)
+		{
+			continue;
+		}
+		// and he can walk straight to it
+		VectorCopy(wp->origin, org);
+		VectorCopy(bs->eye, from);
+		if (!org_visible(from, org, bs->client))
+		{
+			continue;
+		}
+		float score = 900.0f - d_me + (d_enemy > 400.0f ? 50.0f : 0.0f);
+		if (wp->flags & (WPFLAG_SNIPEORCAMP | WPFLAG_SNIPEORCAMPSTAND))
+		{
+			score += 100.0f;
+		}
+		if (score > best_score)
+		{
+			best_score = score;
+			best = i;
+		}
+	}
+	return best;
+}
+
+static void bot_combat_cover(bot_state_t* bs)
+{
+	const int c = bs->client;
+	const gentity_t* self = &g_entities[c];
+	vec3_t eorg = { 0 }, to_enemy = { 0 };
+
+	if (!(bot_sjeai.integer & BOT_SJEAI_COVER) || !self->client)
+	{
+		return;
+	}
+	if (bot_cover_next[c] - level.time > 60000 || bot_cover_until[c] - level.time > 60000)
+	{
+		bot_cover_next[c] = bot_cover_until[c] = 0; // a new map
+		bot_cover_wp[c] = 0;
+	}
+	if (!bs->currentEnemy || bs->currentEnemy->health <= 0 || bs->cur_ps.weapon == WP_SABER
+		|| bs->cur_ps.weapon == WP_MELEE || bs->cur_ps.weapon == WP_STUN_BATON
+		|| bs->cur_ps.powerups[PW_REDFLAG] || bs->cur_ps.powerups[PW_BLUEFLAG] || bs->wpCamping)
+	{
+		bot_cover_wp[c] = 0;
+		return;
+	}
+	VectorCopy(bs->currentEnemy->client ? bs->currentEnemy->client->ps.origin : bs->currentEnemy->r.currentOrigin, eorg);
+	if (bs->currentEnemy->client)
+	{
+		eorg[2] += bs->currentEnemy->client->ps.viewheight;
+	}
+	VectorSubtract(eorg, bs->origin, to_enemy);
+	to_enemy[2] = 0.0f;
+	const float dist = VectorNormalize(to_enemy);
+	const int style = bot_style(bs);
+
+	// in cover: hide, step out, hide ...
+	if (bot_cover_wp[c] && bot_cover_until[c] > level.time)
+	{
+		const wpobject_t* wp = gWPArray[bot_cover_wp[c] - 1];
+
+		if (!wp || !wp->inuse)
+		{
+			bot_cover_wp[c] = 0;
+			return;
+		}
+		if (bot_cover_peek[c] <= level.time)
+		{
+			bot_cover_peeking[c] = (qboolean)!bot_cover_peeking[c];
+			bot_cover_peek[c] = level.time + (bot_cover_peeking[c] ? Q_irand(350, 500) : Q_irand(600, 900));
+		}
+		VectorCopy(wp->origin, bs->goalPosition);
+		if (bot_cover_peeking[c])
+		{
+			VectorMA(bs->goalPosition, 96.0f, to_enemy, bs->goalPosition);
+		}
+		return;
+	}
+	if (bot_cover_wp[c])
+	{
+		bot_cover_wp[c] = 0; // time up: fight as normal for a while
+		bot_cover_next[c] = level.time + 4000;
+	}
+
+	if (!bs->frame_Enemy_Vis || dist < 300.0f || dist > 1400.0f)
+	{
+		return;
+	}
+	if (style == BOT_STYLE_AGGRESSIVE)
+	{
+		if (bs->currentEnemy->health < 35)
+		{
+			VectorCopy(bs->currentEnemy->r.currentOrigin, bs->goalPosition); // go in and finish him
+		}
+		return;
+	}
+	if (bot_cover_next[c] > level.time)
+	{
+		return;
+	}
+
+	qboolean want = qfalse;
+	if (self->health < (style == BOT_STYLE_CAREFUL ? 60 : 35))
+	{
+		want = qtrue;
+	}
+	else if (style == BOT_STYLE_CAREFUL && is_teamplay())
+	{
+		int friends = 0, enemies = 0;
+		for (int i = 0; i < level.maxclients; i++)
+		{
+			const gentity_t* e = &g_entities[i];
+			if (i == c || !e->inuse || !e->client || e->health <= 0 || e->client->sess.sessionTeam == TEAM_SPECTATOR
+				|| DistanceSquared(e->r.currentOrigin, bs->origin) > 700.0f * 700.0f)
+			{
+				continue;
+			}
+			if (OnSameTeam((gentity_t*)self, (gentity_t*)e))
+			{
+				friends++;
+			}
+			else
+			{
+				enemies++;
+			}
+		}
+		want = enemies > friends + 1 ? qtrue : qfalse;
+	}
+	if (!want)
+	{
+		return;
+	}
+
+	bot_cover_next[c] = level.time + 1500; // search at most this often
+	const int wp = bot_find_cover_wp(bs, eorg);
+	if (wp < 0)
+	{
+		return;
+	}
+	bot_cover_wp[c] = wp + 1;
+	bot_cover_until[c] = level.time + (style == BOT_STYLE_CAREFUL ? 4000 : 2500);
+	bot_cover_peeking[c] = qfalse;
+	bot_cover_peek[c] = level.time + Q_irand(600, 900);
+	VectorCopy(gWPArray[wp]->origin, bs->goalPosition);
+}
+
 //the main AI loop.
 //please don't be too frightened.
 /*
@@ -18291,6 +18646,11 @@ void standard_bot_ai(bot_state_t* bs)
 		{
 			bs->beStill = level.time + 100; // bot_movers: waiting for a lift, or riding it
 		}
+		bot_route_stall_check(bs); // bot_sjeai 256: no closer to this waypoint for a while: take another way
+		if (!bs->wpCurrent)
+		{
+			return;
+		}
 
 		if (bs->frame_Waypoint_Vis || bs->wpCurrent->flags & WPFLAG_NOVIS)
 		{
@@ -19053,6 +19413,7 @@ void standard_bot_ai(bot_state_t* bs)
 
 	// go for a holocron it can see, in any game mode (DH 2026-10-24)
 	bot_holocron_goal(bs);
+	bot_combat_cover(bs); // bot_sjeai 512: styles - cover when hurt, finishing off
 
 	if (bs->beStill < level.time && !waiting_for_now(bs, bs->goalPosition) && !fj_halt)
 	{
@@ -20555,6 +20916,11 @@ void Enhanced_bot_ai(bot_state_t* bs)
 		{
 			bs->beStill = level.time + 100; // bot_movers: waiting for a lift, or riding it
 		}
+		bot_route_stall_check(bs); // bot_sjeai 256: no closer to this waypoint for a while: take another way
+		if (!bs->wpCurrent)
+		{
+			return;
+		}
 
 		if (bs->frame_Waypoint_Vis || bs->wpCurrent->flags & WPFLAG_NOVIS)
 		{
@@ -21303,6 +21669,7 @@ void Enhanced_bot_ai(bot_state_t* bs)
 
 	// go for a holocron it can see, in any game mode (DH 2026-10-24)
 	bot_holocron_goal(bs);
+	bot_combat_cover(bs); // bot_sjeai 512: styles - cover when hurt, finishing off
 
 	if (bs->beStill < level.time &&
 		!waiting_for_now(bs, bs->goalPosition) &&
@@ -23264,6 +23631,18 @@ static void bot_calm_movement(bot_state_t* bs, usercmd_t* ucmd)
 		bot_stuck_since[client] = 0;
 	}
 
+	// burning (2026-11-26): roll the fire out - running + crouch + dash makes a roll, and a roll puts it out
+	// (G_BurnPutOut in w_saber.c)
+	if (ps->PlayerEffectFlags & 1 << PEF_BURNING && on_ground && !PM_InRoll(ps) && self->waterlevel < 2
+		&& self->health > 0)
+	{
+		ucmd->forwardmove = 127;
+		ucmd->upmove = -127;
+		ucmd->buttons &= ~BUTTON_WALKING;
+		ucmd->buttons |= BUTTON_DASH;
+		return;
+	}
+
 	if (bot_sjeai.integer & BOT_SJEAI_SPREAD && on_ground && !bs->currentEnemy && VectorLength(hvel) < 120.0f
 		&& !(ps->pm_flags & PMF_STUCK_TO_WALL))
 	{
@@ -23864,7 +24243,7 @@ int bot_ai_setup(const int restart)
 	trap->Cvar_Register(&bot_movers, "bot_movers", "1", CVAR_ARCHIVE);	// bots wait for lifts and ride them, and let jump pads fly them
 	trap->Cvar_Register(&bot_aimBallistic, "bot_aimBallistic", "1", CVAR_ARCHIVE);	// bots lead by their shot's flight time
 	trap->Cvar_Register(&bot_aimHold, "bot_aimHold", "1", CVAR_ARCHIVE);	// bots fire only when their gun points at the target
-	trap->Cvar_Register(&bot_sjeai, "bot_sjeai", "255", CVAR_ARCHIVE);	// bitmask, see BOT_SJEAI_* (255 = all)
+	trap->Cvar_Register(&bot_sjeai, "bot_sjeai", "1023", CVAR_ARCHIVE);	// bitmask, see BOT_SJEAI_* (1023 = all)
 	trap->Cvar_Register(&bot_idlewalk, "bot_idlewalk", "1", CVAR_ARCHIVE);
 	trap->Cvar_Register(&bot_vehicles, "bot_vehicles", "1", CVAR_ARCHIVE);
 	trap->Cvar_Register(&bot_pvstype, "bot_pvstype", "1", CVAR_CHEAT);
