@@ -5869,6 +5869,10 @@ PM_CrashLand
 Check for hard landings that generate sound events
 =================
 */
+// Landing within this many units under a jump's start height is landing at the same height (PM_CrashLand)
+constexpr float MD_JUMP_SAME_HEIGHT = 1.0f;
+qboolean PM_LandingAnim(int anim);
+
 static void PM_CrashLand()
 {
 	float delta = 0;
@@ -5958,7 +5962,9 @@ static void PM_CrashLand()
 			MAX_CLIENTS || PM_ControlledByPlayer())))
 		{
 			//we were force-jumping
-			if (pm->ps->origin[2] >= pm->ps->jumpZStart)
+			// (back on the ground the jump began on, origin[2] comes out a hair under or over the start height by float
+			// chance: with a bare >= the landing animation after such a jump was a coin toss - MD_JUMP_SAME_HEIGHT)
+			if (pm->ps->origin[2] >= pm->ps->jumpZStart - MD_JUMP_SAME_HEIGHT)
 			{
 				//we landed at same height or higher than we landed
 				if (pm->ps->forceJumpZStart)
@@ -5994,6 +6000,19 @@ static void PM_CrashLand()
 		if (!delta)
 		{
 			delta = PM_CrashLandDelta(pml.previous_velocity);
+		}
+	}
+
+	// A force jump that comes down while its jump clip is still held lands in its landing animation, whatever the
+	// drop: the clip is held for its whole length (a style's own can be 1.75 s), and without a landing nothing ended
+	// it - the character stood (or slid on, running) in the jump's pose until the timer ran out.
+	if (!force_landing && pm->ps->forceJumpZStart && pm->ps->legsAnimTimer > 0
+		&& PM_ForceJumpingAnim(pm->ps->legsAnim) && !PM_LandingAnim(pm->ps->legsAnim))
+	{
+		force_landing = qtrue;
+		if (delta < 1)
+		{
+			delta = 1;
 		}
 	}
 
