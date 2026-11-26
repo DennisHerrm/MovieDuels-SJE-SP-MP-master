@@ -1801,7 +1801,24 @@ static void DegenEpilogue(STSpace psTspace[], STriInfo pTriInfos[], int piTriLis
 {
 	int t = 0, i = 0;
 	// deal with degenerate triangles
-	// punishment for degenerate triangles is O(N^2)
+	// A table of each welded index's first place among the good triangles stands in for the search through all
+	// good triangles per degenerate corner (O(N^2): a map with many degenerate triangles spent over a minute of
+	// its load here). The table holds the very place that search finds, so the tangents come out the same.
+	int* piFirstGood = NULL;
+	if (iTotTris > iNrTrianglesIn)
+	{
+		int k = 0, iNrIndexes = 0;
+		for (k = 0; k < 3 * iTotTris; k++)
+		{
+			if (piTriListIn[k] >= iNrIndexes) iNrIndexes = piTriListIn[k] + 1;
+		}
+		piFirstGood = (int*)malloc(sizeof(int) * (iNrIndexes > 0 ? iNrIndexes : 1));
+		if (piFirstGood != NULL)
+		{
+			for (k = 0; k < iNrIndexes; k++) piFirstGood[k] = -1;
+			for (k = 3 * iNrTrianglesIn - 1; k >= 0; k--) piFirstGood[piTriListIn[k]] = k;
+		}
+	}
 	for (t = iNrTrianglesIn; t < iTotTris; t++)
 	{
 		// degenerate triangles on a quad with one good triangle are skipped
@@ -1813,14 +1830,23 @@ static void DegenEpilogue(STSpace psTspace[], STriInfo pTriInfos[], int piTriLis
 			for (i = 0; i < 3; i++)
 			{
 				const int index1 = piTriListIn[t * 3 + i];
-				// search through the good triangles
+				// the first good triangle corner with this index
 				tbool bNotFound = TTRUE;
 				int j = 0;
-				while (bNotFound && j < (3 * iNrTrianglesIn))
+				if (piFirstGood != NULL)
 				{
-					const int index2 = piTriListIn[j];
-					if (index1 == index2) bNotFound = TFALSE;
-					else ++j;
+					j = piFirstGood[index1];
+					if (j >= 0) bNotFound = TFALSE;
+				}
+				else
+				{
+					// no memory for the table: search through the good triangles
+					while (bNotFound && j < (3 * iNrTrianglesIn))
+					{
+						const int index2 = piTriListIn[j];
+						if (index1 == index2) bNotFound = TFALSE;
+						else ++j;
+					}
 				}
 
 				if (!bNotFound)
@@ -1838,6 +1864,7 @@ static void DegenEpilogue(STSpace psTspace[], STriInfo pTriInfos[], int piTriLis
 			}
 		}
 	}
+	free(piFirstGood);
 
 	// deal with degenerate quads with one good triangle
 	for (t = 0; t < iNrTrianglesIn; t++)
