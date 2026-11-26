@@ -5663,6 +5663,8 @@ static void ClientThink_real(gentity_t* ent)
 	{
 		if (manual_running_and_saberblocking(ent))
 		{
+			// not holding attack here (2026-11-26): the block + attack stance ends
+			client->ps.ManualBlockingFlags &= ~(1 << MBF_HOLDINGBLOCKANDATTACK);
 			if (!((client->ps.ManualBlockingFlags & (1 << MBF_HOLDINGBLOCK)) != 0))
 			{
 				client->ps.ManualBlockingFlags |= 1 << MBF_HOLDINGBLOCK;

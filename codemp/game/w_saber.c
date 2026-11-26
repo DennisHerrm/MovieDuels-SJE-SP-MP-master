@@ -13817,6 +13817,14 @@ float manual_running_and_saberblocking(const gentity_t* defender)
 		return qfalse;
 	}
 
+	// 2026-11-26 (as SP): only while running. Without this, standing still with block held counted as "running and
+	// blocking" too, and that branch (g_active.c) never clears MBF_HOLDINGBLOCKANDATTACK: after block + attack, letting
+	// go of attack left the player in the block + attack (defensive) stance until block was let go as well.
+	if (!PM_RunningAnim(defender->client->ps.legsAnim))
+	{
+		return qfalse;
+	}
+
 	if (defender->client->buttons & BUTTON_ATTACK)
 	{
 		return qfalse;

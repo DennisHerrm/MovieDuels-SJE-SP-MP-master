@@ -254,9 +254,9 @@ XCVAR_DEF(g_droidBodyVanish, "1", NULL, CVAR_ARCHIVE, qtrue)
 XCVAR_DEF(g_muzzleFromWeapon, "1", NULL, CVAR_ARCHIVE, qtrue) // shots come from the gun's "*flash" tag, not the eyes (0 = old)
 XCVAR_DEF(g_monsterGrab, "1", NULL, CVAR_ARCHIVE, qtrue) // wampa / rancor players and bots grab, hold and eat like SP (0 = off)
 XCVAR_DEF(g_rancorPit, "1", NULL, CVAR_ARCHIVE, qtrue) // a rancor always lives on g_rancorPitMap and respawns after it dies (0 = off)
-XCVAR_DEF(g_rancorPitMap, "mp/duel7", NULL, CVAR_ARCHIVE, qfalse)
+XCVAR_DEF(g_rancorPitMap, "mp/duel7", NULL, CVAR_ARCHIVE, qfalse) // only when ext_data/sje_ambient.dat is missing (2026-11-26)
 XCVAR_DEF(g_rancorPitRespawn, "30", NULL, CVAR_ARCHIVE, qfalse) // seconds after the rancor dies
-XCVAR_DEF(g_wampaPitMaps, "mp/ctf2 mp/duel9", NULL, CVAR_ARCHIVE, qfalse) // the snow maps: a wampa lives there the same way (list split by spaces)
+XCVAR_DEF(g_wampaPitMaps, "mp/ctf2 mp/duel9", NULL, CVAR_ARCHIVE, qfalse) // the snow maps: a wampa lives there the same way (list split by spaces); only when ext_data/sje_ambient.dat is missing
 
 XCVAR_DEF(g_Enhanced_SaberDamage, "0", NULL, CVAR_NONE, qtrue)
 XCVAR_DEF(g_Enhanced_saberTweaks, "0", NULL, CVAR_NONE, qtrue)

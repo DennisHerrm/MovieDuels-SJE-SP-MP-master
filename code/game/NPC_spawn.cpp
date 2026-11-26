@@ -6022,20 +6022,43 @@ void Svcmd_NPC_f()
 // g_rancorPitMap = the map (default mp/duel7). Called every frame from G_RunFrame.
 // 2026-11-26: the snow maps get a wampa the same way: g_wampaPitMaps = the maps (default "mp/ctf2 mp/duel9",
 // a list split by spaces; g_rancorPitMap may be a list too). g_rancorPit and g_rancorPitRespawn cover both.
+// 2026-11-26: more animals, a few of each, at spawn points round the map (not one in the middle): howlers
+// (g_howlerMaps "mp/duel6 mp/ctf3"), mine monsters (g_mineMonsterMaps "mp/ctf_bonus1 mp/ctf4 mp/ffa_bonus
+// mp/ffa_bonus4 mp/ffa3") and mouse droids (g_mouseMaps "mp/ctf1 mp/ctf5 mp/ffa1 mp/ffa4"), g_howlerCount /
+// g_mineMonsterCount / g_mouseCount of them (3, at most 8). Each kind is looked after on its own (pitCreatures).
 static cvar_t* g_rancorPit = nullptr;
 static cvar_t* g_rancorPitMap = nullptr;
 static cvar_t* g_rancorPitRespawn = nullptr;
-static cvar_t* g_wampaPitMaps = nullptr;
 static int rancorPitNextCheck = 0;
-static int rancorPitRespawnTime = 0;
-static int rancorPitLastTime = 0;
-static qboolean rancorPitSpawnedOnce = qfalse;
-static int rancorPitPrecached = 0; // the creature precached for this map
-static char rancorPitMapName[MAX_QPATH];
-static int rancorPitCreature = 0; // RANCORPIT_NONE / RANCORPIT_RANCOR / RANCORPIT_WAMPA for this map
-#define RANCORPIT_NONE 0
-#define RANCORPIT_RANCOR 1
-#define RANCORPIT_WAMPA 2
+
+// the animals (rancor and wampa: one, in the middle of the spawn points; the others: a few, round the map)
+typedef struct
+{
+	const char* npcType;
+	int npcClass;
+	const char* mapsCvar;		// maps it lives on (a list)
+	const char* mapsDefault;
+	const char* countCvar;		// how many (NULL = one)
+	float halfWidth;			// room it needs to spawn
+	float height;
+	qboolean middle;			// in the middle of the spawn points (else at one of them)
+} pitCreature_t;
+
+static const pitCreature_t pitCreatures[] = {
+	{ "rancor", CLASS_RANCOR, "g_rancorPitMap", "mp/duel7", nullptr, 72.0f, 150.0f, qtrue },
+	{ "wampa", CLASS_WAMPA, "g_wampaPitMaps", "mp/ctf2 mp/duel9", nullptr, 40.0f, 110.0f, qtrue },
+	{ "howler", CLASS_HOWLER, "g_howlerMaps", "mp/duel6 mp/ctf3", "g_howlerCount", 24.0f, 56.0f, qfalse },
+	{ "minemonster", CLASS_MINEMONSTER, "g_mineMonsterMaps", "mp/ctf_bonus1 mp/ctf4 mp/ffa_bonus mp/ffa_bonus4 mp/ffa3",
+		"g_mineMonsterCount", 24.0f, 48.0f, qfalse },
+	{ "mouse", CLASS_MOUSE, "g_mouseMaps", "mp/ctf1 mp/ctf5 mp/ffa1 mp/ffa4", "g_mouseCount", 16.0f, 32.0f, qfalse },
+};
+#define NUM_PIT_CREATURES ((int)(sizeof pitCreatures / sizeof pitCreatures[0]))
+static cvar_t* pitMapsCvar[NUM_PIT_CREATURES];
+static cvar_t* pitCountCvar[NUM_PIT_CREATURES];
+static cvar_t* g_ambientMax = nullptr;
+static cvar_t* g_ambientLife = nullptr;
+#define PIT_MAPS_STRING(t) (pitMapsCvar[t] ? pitMapsCvar[t]->string : "")
+#define PIT_COUNT_INT(t) (pitCountCvar[t] ? pitCountCvar[t]->integer : 3)
 
 // is the map in list ("mp/duel7" or "mp/ctf2 mp/duel9"; maps/ and .bsp are optional both sides)
 static qboolean G_RancorPitMapListed(const char* list)
@@ -6089,36 +6112,533 @@ static qboolean G_RancorPitMapListed(const char* list)
 	return qfalse;
 }
 
-// which creature lives on this map (the rancor list wins if a map is in both)
-static int G_RancorPitPickCreature()
+// 2026-11-26: map life from a data file. ext_data/sje_ambient.dat says what lives on each map: a block per map (or
+// "mapA mapB" in quotes for several) with "npc" lines ("<NPC type> <how many> [middle] [calm] [respawn <s>]") and
+// "civilians" / "civilianTypes" for the wandering civilians. Only when the file is missing do the cvar lists above
+// (g_rancorPitMap, g_wampaPitMaps, g_howlerMaps ...) still decide. Everything spawned here is named sje_ambient:
+// killing it scores nothing (MP), and "calm" ones have no side and no gun and wander, like the civilians.
+// g_ambientMax caps how many of them are about at once (24).
+#define AMBIENT_FILE		"ext_data/sje_ambient.dat"
+#define AMBIENT_NAME		"sje_ambient"
+#define MAX_AMBIENT_SLOTS	16
+
+typedef struct
 {
-	if (G_RancorPitMapListed(g_rancorPitMap->string))
+	char npcType[64];
+	int count;				// how many (0-8)
+	float halfWidth;		// room it needs to spawn
+	float height;
+	qboolean middle;		// one spot in the middle of the spawn points (else round one of them)
+	qboolean calm;			// no side, no weapon, wanders
+	int respawn;			// seconds before a dead one comes back (0 = g_rancorPitRespawn)
+	int fails;				// spawns that came back with no NPC (a bad type: given up after 5)
+	qboolean neutral;		// keeps its weapon, leaves everyone alone until hurt (or called by an alarm)
+	qboolean spectate;		// stands round the middle and watches the fight
+	qboolean scavenge;		// picks up dropped weapons and items (calm as well)
+	qboolean alarm;			// when it has an enemy, calls the "neutral" ones near it
+} ambientSlot_t;
+
+static ambientSlot_t ambientSlots[MAX_AMBIENT_SLOTS];
+static int numAmbientSlots = 0;
+static int ambientCivilians = -1;			// civilians the map wants (-1 = it says nothing: g_civilians)
+static char ambientCivilianTypes[512];	// "" = g_civilianTypes
+static char ambientMapName[MAX_QPATH];
+static int ambientLastTime = 0;
+static int pitRespawnTime[MAX_AMBIENT_SLOTS];	// when the next missing one spawns (0 = not set)
+static qboolean pitSpawnedAll[MAX_AMBIENT_SLOTS];	// all of them have been there once (respawns wait)
+static qboolean pitPrecached[MAX_AMBIENT_SLOTS];
+static int rancorPitCreature = 0; // the slot being looked after (index into ambientSlots)
+static void G_CivilianCalm(gentity_t* civ);
+static void G_AmbientRegisterCvars(void);
+static qboolean G_AmbientReadFile(void);
+
+// the room an NPC type needs (the big ones by name, else a person, or a big unknown creature in the middle)
+static void G_AmbientSize(ambientSlot_t* slot)
+{
+	static const struct { const char* type; float half, height; } sizes[] = {
+		{ "rancor", 72.0f, 150.0f }, { "mutant_rancor", 72.0f, 150.0f }, { "wampa", 40.0f, 110.0f },
+		{ "howler", 24.0f, 56.0f }, { "minemonster", 24.0f, 48.0f }, { "mouse", 16.0f, 32.0f },
+		{ "gonk", 16.0f, 40.0f }, { "r2d2", 16.0f, 48.0f }, { "r5d2", 16.0f, 48.0f },
+		{ "probe", 24.0f, 48.0f }, { "interrogator", 16.0f, 32.0f }, { "sentry", 24.0f, 48.0f },
+	};
+	int i = 0;
+
+	for (i = 0; i < (int)(sizeof sizes / sizeof sizes[0]); i++)
 	{
-		return RANCORPIT_RANCOR;
+		if (!Q_stricmp(slot->npcType, sizes[i].type))
+		{
+			slot->halfWidth = sizes[i].half;
+			slot->height = sizes[i].height;
+			return;
+		}
 	}
-	if (G_RancorPitMapListed(g_wampaPitMaps->string))
+	slot->halfWidth = slot->middle && !slot->spectate ? 40.0f : 20.0f;
+	slot->height = slot->middle && !slot->spectate ? 110.0f : 64.0f;
+}
+
+// an "npc" line: "<NPC type> <how many> [middle] [calm] [respawn <seconds>]"
+static void G_AmbientAddSlot(const char* line)
+{
+	char buf[256] = { 0 };
+	char* words[12] = { 0 };
+	char* s = NULL;
+	int n = 0, i = 0;
+	ambientSlot_t* slot = NULL;
+
+	if (numAmbientSlots >= MAX_AMBIENT_SLOTS)
 	{
-		return RANCORPIT_WAMPA;
+		Com_Printf(S_COLOR_YELLOW "%s: more than %d npc lines for %s, the rest are left out\n", AMBIENT_FILE, MAX_AMBIENT_SLOTS, level.mapname);
+		return;
 	}
-	return RANCORPIT_NONE;
+	Q_strncpyz(buf, line, sizeof buf);
+	for (s = strtok(buf, " \t,"); s && n < 12; s = strtok(NULL, " \t,"))
+	{
+		words[n++] = s;
+	}
+	if (!n)
+	{
+		return;
+	}
+	slot = &ambientSlots[numAmbientSlots];
+	memset(slot, 0, sizeof *slot);
+	Q_strncpyz(slot->npcType, words[0], sizeof slot->npcType);
+	slot->count = 1;
+	for (i = 1; i < n; i++)
+	{
+		if (words[i][0] >= '0' && words[i][0] <= '9')
+		{
+			slot->count = atoi(words[i]);
+		}
+		else if (!Q_stricmp(words[i], "middle"))
+		{
+			slot->middle = qtrue;
+		}
+		else if (!Q_stricmp(words[i], "calm"))
+		{
+			slot->calm = qtrue;
+		}
+		else if (!Q_stricmp(words[i], "neutral"))
+		{
+			slot->neutral = qtrue;
+		}
+		else if (!Q_stricmp(words[i], "spectate"))
+		{
+			slot->spectate = qtrue;
+			slot->middle = qtrue; // round the middle of the map
+		}
+		else if (!Q_stricmp(words[i], "scavenge"))
+		{
+			slot->scavenge = qtrue;
+			slot->calm = qtrue;
+		}
+		else if (!Q_stricmp(words[i], "alarm"))
+		{
+			slot->alarm = qtrue;
+		}
+		else if (!Q_stricmp(words[i], "respawn") && i + 1 < n)
+		{
+			slot->respawn = atoi(words[++i]);
+		}
+		else
+		{
+			Com_Printf(S_COLOR_YELLOW "%s: \"%s\" in npc \"%s\" is not known (count, middle, calm, neutral, spectate, scavenge, alarm, respawn <s>)\n", AMBIENT_FILE, words[i], line);
+		}
+	}
+	slot->count = slot->count < 0 ? 0 : slot->count > 8 ? 8 : slot->count;
+	G_AmbientSize(slot);
+	numAmbientSlots++;
+}
+
+// "sound" and "effect" lines (see G_AmbientExtrasThink)
+#define MAX_AMBIENT_SOUNDS			8
+#define MAX_AMBIENT_EFFECTS			8
+#define MAX_AMBIENT_EFFECT_SPOTS	8
+typedef struct
+{
+	int index;
+	int minMs, maxMs;
+	int next;
+} ambientSound_t;
+typedef struct
+{
+	int index;
+	int count;
+	int minMs, maxMs;
+	int numSpots;
+	vec3_t spots[MAX_AMBIENT_EFFECT_SPOTS];
+	int next[MAX_AMBIENT_EFFECT_SPOTS];
+} ambientEffect_t;
+static ambientSound_t ambientSounds[MAX_AMBIENT_SOUNDS];
+static int numAmbientSounds = 0;
+static ambientEffect_t ambientEffects[MAX_AMBIENT_EFFECTS];
+static int numAmbientEffects = 0;
+static void G_AmbientResetLife(void);
+static void G_AmbientTag(const gentity_t* ent, int slot);
+
+// splits a value into words (at most max), returns how many
+static int G_AmbientWords(const char* line, char* buf, const int bufSize, char** words, const int max)
+{
+	char* s = NULL;
+	int n = 0;
+
+	Q_strncpyz(buf, line, bufSize);
+	for (s = strtok(buf, " \t,"); s && n < max; s = strtok(NULL, " \t,"))
+	{
+		words[n++] = s;
+	}
+	return n;
+}
+
+// a "sound" line: "<sound file> [<min seconds> <max seconds>]" (30 - 90 when left out)
+static void G_AmbientAddSound(const char* line)
+{
+	char buf[256] = { 0 };
+	char* words[4] = { 0 };
+	const int n = G_AmbientWords(line, buf, sizeof buf, words, 4);
+	ambientSound_t* snd = NULL;
+
+	if (!n)
+	{
+		return;
+	}
+	if (numAmbientSounds >= MAX_AMBIENT_SOUNDS)
+	{
+		Com_Printf(S_COLOR_YELLOW "%s: more than %d sound lines for %s, the rest are left out\n", AMBIENT_FILE, MAX_AMBIENT_SOUNDS, level.mapname);
+		return;
+	}
+	snd = &ambientSounds[numAmbientSounds];
+	memset(snd, 0, sizeof *snd);
+	snd->minMs = (n > 1 ? atoi(words[1]) : 30) * 1000;
+	snd->maxMs = (n > 2 ? atoi(words[2]) : 90) * 1000;
+	snd->minMs = snd->minMs < 2000 ? 2000 : snd->minMs;
+	snd->maxMs = snd->maxMs < snd->minMs ? snd->minMs : snd->maxMs;
+	snd->index = G_SoundIndex(words[0]);
+	numAmbientSounds++;
+}
+
+// an "effect" line: "<effect file> [<how many spots> [<min seconds> <max seconds>]]" (3 spots, 4 - 10 s when left out)
+static void G_AmbientAddEffect(const char* line)
+{
+	char buf[256] = { 0 };
+	char* words[5] = { 0 };
+	const int n = G_AmbientWords(line, buf, sizeof buf, words, 5);
+	ambientEffect_t* fx = NULL;
+
+	if (!n)
+	{
+		return;
+	}
+	if (numAmbientEffects >= MAX_AMBIENT_EFFECTS)
+	{
+		Com_Printf(S_COLOR_YELLOW "%s: more than %d effect lines for %s, the rest are left out\n", AMBIENT_FILE, MAX_AMBIENT_EFFECTS, level.mapname);
+		return;
+	}
+	fx = &ambientEffects[numAmbientEffects];
+	memset(fx, 0, sizeof *fx);
+	fx->count = n > 1 ? atoi(words[1]) : 3;
+	fx->count = fx->count < 1 ? 1 : fx->count > MAX_AMBIENT_EFFECT_SPOTS ? MAX_AMBIENT_EFFECT_SPOTS : fx->count;
+	fx->minMs = (n > 2 ? atoi(words[2]) : 4) * 1000;
+	fx->maxMs = (n > 3 ? atoi(words[3]) : 10) * 1000;
+	fx->minMs = fx->minMs < 500 ? 500 : fx->minMs;
+	fx->maxMs = fx->maxMs < fx->minMs ? fx->minMs : fx->maxMs;
+	fx->index = G_EffectIndex(words[0]);
+	numAmbientEffects++;
+}
+
+#define AMB_MODEL_INDEX(m)	G_ModelIndex(m)
+// "flyby" lines: a ship model crossing the sky now and then (see G_AmbientFlybyThink)
+#define MAX_AMBIENT_FLYBYS		6
+#define MAX_ACTIVE_FLYBYS		4
+typedef struct
+{
+	int model;
+	int loopSound;			// engine loop on the ship
+	int passSound;			// played as it goes over
+	float speed;
+	int minMs, maxMs;
+	int next;
+} ambientFlyby_t;
+typedef struct
+{
+	int ent;				// entity number + 1
+	int passTime;			// when it is over the middle (the pass sound)
+	int endTime;
+} ambientFlyer_t;
+static ambientFlyby_t ambientFlybys[MAX_AMBIENT_FLYBYS];
+static int numAmbientFlybys = 0;
+static ambientFlyer_t ambientFlyers[MAX_ACTIVE_FLYBYS];
+static int ambientSkyChecked = 0;	// 0 = not yet, 1 = the map has open sky, -1 = none (indoors)
+static vec3_t ambientSkyCenter;
+static float ambientSkyHeight;
+static void G_AmbientFlybyThink(void);
+static void G_AmbientFreeStrayFlyers(void);
+static char ambientFlybyClass[] = "sje_ambient_flyby";
+
+// a "flyby" line: "<ship> [<min seconds> <max seconds>]" (60 - 150 when left out). Ships: tie, xwing, falcon,
+// shuttle; or your own: "<model.md3> <sound folder (with loop.wav and flyby.mp3)> [<min> <max>]"
+static void G_AmbientAddFlyby(const char* line)
+{
+	static const struct { const char* name; const char* model; const char* sounds; float speed; } ships[] = {
+		{ "tie", "models/map_objects/ships/tie_vader.md3", "sound/vehicles/tie-advanced", 2200.0f },
+		{ "xwing", "models/map_objects/ships/x_wing.md3", "sound/vehicles/a-wing", 2000.0f },
+		{ "falcon", "models/map_objects/ships/falcon.md3", "sound/vehicles/yt-1300", 1500.0f },
+		{ "shuttle", "models/map_objects/cinematics/shuttle.md3", "sound/vehicles/Y-wing", 900.0f },
+	};
+	char buf[256] = { 0 };
+	char* words[5] = { 0 };
+	const int n = G_AmbientWords(line, buf, sizeof buf, words, 5);
+	const char* model = NULL;
+	const char* sounds = NULL;
+	float speed = 1800.0f;
+	int timeWord = 1, k = 0;
+	ambientFlyby_t* fb = NULL;
+
+	if (!n)
+	{
+		return;
+	}
+	if (numAmbientFlybys >= MAX_AMBIENT_FLYBYS)
+	{
+		Com_Printf(S_COLOR_YELLOW "%s: more than %d flyby lines for %s, the rest are left out\n", AMBIENT_FILE, MAX_AMBIENT_FLYBYS, level.mapname);
+		return;
+	}
+	for (k = 0; k < (int)(sizeof ships / sizeof ships[0]); k++)
+	{
+		if (!Q_stricmp(words[0], ships[k].name))
+		{
+			model = ships[k].model;
+			sounds = ships[k].sounds;
+			speed = ships[k].speed;
+		}
+	}
+	if (!model)
+	{
+		if (!strchr(words[0], '/') || n < 2)
+		{
+			Com_Printf(S_COLOR_YELLOW "%s: flyby \"%s\": ships are tie, xwing, falcon, shuttle, or \"<model.md3> <sound folder>\"\n", AMBIENT_FILE, line);
+			return;
+		}
+		model = words[0];
+		sounds = words[1];
+		timeWord = 2;
+	}
+	fb = &ambientFlybys[numAmbientFlybys];
+	memset(fb, 0, sizeof *fb);
+	fb->model = AMB_MODEL_INDEX(model);
+	fb->loopSound = G_SoundIndex(va("%s/loop.wav", sounds));
+	fb->passSound = G_SoundIndex(va("%s/flyby.mp3", sounds));
+	fb->speed = speed;
+	fb->minMs = (n > timeWord ? atoi(words[timeWord]) : 60) * 1000;
+	fb->maxMs = (n > timeWord + 1 ? atoi(words[timeWord + 1]) : 150) * 1000;
+	fb->minMs = fb->minMs < 5000 ? 5000 : fb->minMs;
+	fb->maxMs = fb->maxMs < fb->minMs ? fb->minMs : fb->maxMs;
+	numAmbientFlybys++;
+}
+
+// reads the blocks for this map out of the file (qfalse = no file)
+static qboolean G_AmbientParse(const char* buf)
+{
+	const char* p = buf;
+
+	COM_BeginParseSession(AMBIENT_FILE);
+	while (p)
+	{
+		char maps[256] = { 0 };
+		qboolean ours = qfalse;
+		const char* token = COM_ParseExt(&p, qtrue);
+
+		if (!token[0])
+		{
+			break;
+		}
+		Q_strncpyz(maps, token, sizeof maps);
+		token = COM_ParseExt(&p, qtrue);
+		if (Q_stricmp(token, "{"))
+		{
+			Com_Printf(S_COLOR_YELLOW "%s: no { after %s\n", AMBIENT_FILE, maps);
+			break;
+		}
+		ours = G_RancorPitMapListed(maps);
+		while (1)
+		{
+			char key[32] = { 0 };
+
+			token = COM_ParseExt(&p, qtrue);
+			if (!token[0] || !Q_stricmp(token, "}"))
+			{
+				break;
+			}
+			Q_strncpyz(key, token, sizeof key);
+			token = COM_ParseExt(&p, qfalse);
+			if (!Q_stricmp(key, "npc"))
+			{
+				if (ours)
+				{
+					G_AmbientAddSlot(token);
+				}
+			}
+			else if (!Q_stricmp(key, "sound"))
+			{
+				if (ours)
+				{
+					G_AmbientAddSound(token);
+				}
+			}
+			else if (!Q_stricmp(key, "flyby"))
+			{
+				if (ours)
+				{
+					G_AmbientAddFlyby(token);
+				}
+			}
+			else if (!Q_stricmp(key, "effect"))
+			{
+				if (ours)
+				{
+					G_AmbientAddEffect(token);
+				}
+			}
+			else if (!Q_stricmp(key, "civilians"))
+			{
+				if (ours)
+				{
+					ambientCivilians = atoi(token);
+				}
+			}
+			else if (!Q_stricmp(key, "civilianTypes"))
+			{
+				if (ours)
+				{
+					Q_strncpyz(ambientCivilianTypes, token, sizeof ambientCivilianTypes);
+				}
+			}
+			else
+			{
+				Com_Printf(S_COLOR_YELLOW "%s: unknown key \"%s\" in %s (npc, sound, effect, flyby, civilians, civilianTypes)\n", AMBIENT_FILE, key, maps);
+			}
+		}
+	}
+	return qtrue;
+}
+
+// no file: the old cvar lists (rancor, wampa, howlers, mine monsters, mice)
+static void G_AmbientFromCvars(void)
+{
+	int t = 0;
+
+	for (t = 0; t < NUM_PIT_CREATURES && numAmbientSlots < MAX_AMBIENT_SLOTS; t++)
+	{
+		ambientSlot_t* slot = &ambientSlots[numAmbientSlots];
+
+		if (!G_RancorPitMapListed(PIT_MAPS_STRING(t)))
+		{
+			continue;
+		}
+		memset(slot, 0, sizeof *slot);
+		Q_strncpyz(slot->npcType, pitCreatures[t].npcType, sizeof slot->npcType);
+		slot->count = 1;
+		if (pitCreatures[t].countCvar)
+		{
+			const int c = PIT_COUNT_INT(t);
+			slot->count = c < 0 ? 0 : c > 8 ? 8 : c;
+		}
+		slot->halfWidth = pitCreatures[t].halfWidth;
+		slot->height = pitCreatures[t].height;
+		slot->middle = pitCreatures[t].middle;
+		numAmbientSlots++;
+	}
+}
+
+// a new map (or map_restart / loaded game): read what lives here
+static void G_AmbientMapCheck(void)
+{
+	if (level.time >= ambientLastTime && !Q_stricmp(level.mapname, ambientMapName))
+	{
+		ambientLastTime = level.time;
+		return;
+	}
+	ambientLastTime = level.time;
+	Q_strncpyz(ambientMapName, level.mapname, sizeof ambientMapName);
+	numAmbientSlots = 0;
+	ambientCivilians = -1;
+	ambientCivilianTypes[0] = 0;
+	memset(ambientSlots, 0, sizeof ambientSlots);
+	numAmbientSounds = 0;
+	numAmbientEffects = 0;
+	numAmbientFlybys = 0;
+	G_AmbientFreeStrayFlyers(); // map_restart / loaded game: ships nobody looks after
+	ambientSkyChecked = 0;
+	G_AmbientResetLife();
+	memset(pitRespawnTime, 0, sizeof pitRespawnTime);
+	memset(pitSpawnedAll, 0, sizeof pitSpawnedAll);
+	memset(pitPrecached, 0, sizeof pitPrecached);
+	rancorPitNextCheck = 0;
+	G_AmbientRegisterCvars();
+	if (!G_AmbientReadFile())
+	{
+		G_AmbientFromCvars();
+	}
+}
+
+// MP: killing these scores nothing (g_combat.c)
+qboolean G_IsAmbientNPC(const gentity_t* ent)
+{
+	return ent && ent->s.number >= MAX_CLIENTS && ent->NPC && ent->targetname
+		&& (!Q_stricmp(ent->targetname, AMBIENT_NAME) || !Q_stricmp(ent->targetname, "sje_civilian")) ? qtrue : qfalse;
+}
+
+static void G_AmbientRegisterCvars(void)
+{
+	if (g_rancorPit)
+	{
+		return;
+	}
+	g_rancorPit = gi.cvar("g_rancorPit", "1", CVAR_ARCHIVE);
+	g_rancorPitRespawn = gi.cvar("g_rancorPitRespawn", "30", CVAR_ARCHIVE);
+	g_ambientMax = gi.cvar("g_ambientMax", "24", CVAR_ARCHIVE);
+	g_ambientLife = gi.cvar("g_ambientLife", "1", CVAR_ARCHIVE); // the setup menu's "Ambient Life"
+	for (int t = 0; t < NUM_PIT_CREATURES; t++)
+	{
+		pitMapsCvar[t] = gi.cvar(pitCreatures[t].mapsCvar, pitCreatures[t].mapsDefault, CVAR_ARCHIVE);
+		pitCountCvar[t] = pitCreatures[t].countCvar ? gi.cvar(pitCreatures[t].countCvar, "3", CVAR_ARCHIVE) : nullptr;
+	}
+	g_rancorPitMap = pitMapsCvar[0];
+}
+
+static qboolean G_AmbientReadFile(void)
+{
+	char* file = nullptr;
+	qboolean ok = qfalse;
+
+	if (gi.FS_ReadFile(AMBIENT_FILE, reinterpret_cast<void**>(&file)) <= 0 || !file)
+	{
+		return qfalse;
+	}
+	ok = G_AmbientParse(file);
+	gi.FS_FreeFile(file);
+	return ok;
 }
 
 static const char* G_RancorPitNPCType()
 {
-	return rancorPitCreature == RANCORPIT_WAMPA ? "wampa" : "rancor";
+	return ambientSlots[rancorPitCreature].npcType;
 }
 
-static qboolean G_RancorPitAlive()
+static int G_RancorPitAlive()
 {
+	int alive = 0;
+
 	for (int i = 1; i < globals.num_entities; i++)
 	{
-		const gentity_t* ent = &g_entities[i];
-		if (ent->inuse && ent->NPC && ent->client && ent->client->NPC_class == (rancorPitCreature == RANCORPIT_WAMPA ? CLASS_WAMPA : CLASS_RANCOR) && ent->health > 0)
+		gentity_t* ent = &g_entities[i];
+		if (ent->inuse && ent->NPC && ent->client && ent->health > 0 && ent->targetname && !Q_stricmp(ent->targetname, AMBIENT_NAME)
+			&& ent->NPC_type && !Q_stricmp(ent->NPC_type, ambientSlots[rancorPitCreature].npcType))
 		{
-			return qtrue;
+			alive++;
+			G_AmbientTag(ent, rancorPitCreature);
 		}
 	}
-	return qfalse;
+	return alive;
 }
 
 // Rancor-sized room (2026-10-26 fix: the first version checked a box smaller than the rancor,
@@ -6126,8 +6646,6 @@ static qboolean G_RancorPitAlive()
 #define RANCORPIT_MASK (MASK_SOLID | CONTENTS_MONSTERCLIP)
 #define RANCORPIT_HALFWIDTH 72.0f
 #define RANCORPIT_HEIGHT 150.0f
-#define WAMPAPIT_HALFWIDTH 40.0f // the wampa is smaller
-#define WAMPAPIT_HEIGHT 110.0f
 
 // drops spot onto the floor below it; qfalse when there is no floor within 512 units
 static qboolean G_RancorPitFloor(vec3_t spot)
@@ -6151,8 +6669,8 @@ static qboolean G_RancorPitFloor(vec3_t spot)
 // pos = a floor point: room for the whole rancor standing there
 static qboolean G_RancorPitRoom(const vec3_t pos)
 {
-	const float half = rancorPitCreature == RANCORPIT_WAMPA ? WAMPAPIT_HALFWIDTH : RANCORPIT_HALFWIDTH;
-	const float height = rancorPitCreature == RANCORPIT_WAMPA ? WAMPAPIT_HEIGHT : RANCORPIT_HEIGHT;
+	const float half = ambientSlots[rancorPitCreature].halfWidth;
+	const float height = ambientSlots[rancorPitCreature].height;
 	vec3_t mins = { 0 }, maxs = { 0 };
 	vec3_t start = {};
 	trace_t tr;
@@ -6199,6 +6717,1371 @@ static qboolean G_RancorPitClearLine(const vec3_t a, const vec3_t b)
 	return (qboolean)(tr.fraction >= 1.0f && !tr.startsolid && !tr.allsolid);
 }
 
+// SP / MP differences for the map life code below (the MP copy has its own)
+#define AMB_ORG(e)			((e)->currentOrigin)
+#define AMB_MINS(e)			((e)->mins)
+#define AMB_MAXS(e)			((e)->maxs)
+#define AMB_NUM_ENTS		(globals.num_entities)
+#define AMB_FIRST_NPC		1
+#define AMB_TRACE(tr, s, mn, mx, en, pass, mask) gi.trace((tr), (s), (mn), (mx), (en), (pass), (mask), static_cast<EG2_Collision>(0), 0)
+#define AMB_NEUTRAL			TEAM_NEUTRAL
+#define AMB_SABER_ON(e)		((e)->client->ps.weapon == WP_SABER && (e)->client->ps.SaberActive())
+#define AMB_HAS_ANIM(e, a)	PM_HasAnimation((e), (a))
+#define AMB_IS_PLAYER(e)	((e)->s.number == 0 && (e)->client)
+#define AMB_LIFE_ON			(g_ambientLife && g_ambientLife->integer)
+#define AMB_SOUND_AT(org, idx) G_SoundAtSpot((org), (idx), qfalse)
+#define AMB_EFFECT_AT(fx, org) do { const vec3_t amb_up = { 0, 0, 1 }; G_PlayEffect((fx), (org), amb_up); } while (0)
+#define AMB_LAUNCH(item, org, vel) LaunchItem((item), (org), (vel), nullptr)
+#define AMB_LAST_ATTACKER(e)	((e)->client->ps.persistant[PERS_ATTACKER])
+#define AMB_SVFLAGS(e)		((e)->svFlags)
+#define AMB_LINK(e)			gi.linkentity(e)
+#define AMB_SOUND_ON(e, idx)	G_Sound((e), (idx))
+#define AMB_EVAL_TRAJ(tr, t, out)	EvaluateTrajectory((tr), (t), (out))
+extern void G_SoundAtSpot(vec3_t org, int sound_index, qboolean broadcast);
+extern void G_PlayEffect(int fx_id, const vec3_t origin, const vec3_t fwd);
+extern gentity_t* LaunchItem(gitem_t* item, const vec3_t origin, const vec3_t velocity, const char* target);
+extern qboolean PM_HasAnimation(const gentity_t* ent, int animation);
+
+//---------------------------------------------------------------------------------------------------------------------
+// Map life that does things (2026-11-26). Flags on an "npc" line in ext_data/sje_ambient.dat:
+//   calm      no side, no weapon, wanders
+//   neutral   keeps its weapon and walks about, leaves everyone alone until somebody hurts it (or an alarm calls it),
+//             then fights back for a while
+//   spectate  stands round the middle of the map and watches the fight (duel maps), now and then a gesture
+//   scavenge  (calm as well) walks to dropped weapons and items and picks them up; killing it drops them again
+//   alarm     when it has an enemy, every "neutral" one within 1500 joins in (a probe droid calling the troopers)
+// And for all of them: the calm ones, spectators, scavengers, wandering civilians and mice run from a lit saber,
+// gunfire, a big creature or an explosion (people with nowhere to run cower), rancors and wampas hunt the smaller
+// animals, and "sound" / "effect" lines give the map random sounds and effects.
+// g_ambientLife 0 turns all of it off and takes away what is there (the setup menu has it as "Ambient Life").
+//---------------------------------------------------------------------------------------------------------------------
+#define AMBIENT_FLEE_SABER		220.0f	// a lit saber this close
+#define AMBIENT_FLEE_FIRE		400.0f	// somebody shooting this close
+#define AMBIENT_FLEE_BEAST		420.0f	// a rancor, wampa, howler ... this close
+#define AMBIENT_FLEE_DIST		400.0f	// how far they try to run
+#define AMBIENT_HUNT_RANGE		700.0f
+#define AMBIENT_ALARM_RANGE		1500.0f
+#define AMBIENT_SCAVENGE_RANGE	900.0f
+#define AMBIENT_MAX_CARRY		3
+#define AMBIENT_ANGRY_TIME		20000	// ms a hurt "neutral" one stays angry
+
+static int ambientSlotOf[MAX_GENTITIES];			// slot + 1 of an NPC spawned here (0 = not ours)
+static const char* ambientTag[MAX_GENTITIES];		// its NPC_type pointer then (a reused entity has another)
+static int ambientFleeUntil[MAX_GENTITIES];		// no new flee check before this
+static int ambientAngryUntil[MAX_GENTITIES];
+static int ambientLastHealth[MAX_GENTITIES];
+static int ambientAlarmNext[MAX_GENTITIES];
+static gitem_t* ambientCarry[MAX_GENTITIES][AMBIENT_MAX_CARRY];
+static int ambientCarryNum[MAX_GENTITIES];
+static int ambientFleeNext = 0;
+static int ambientExtrasNext = 0;
+static qboolean ambientEffectsPlaced = qfalse;
+static qboolean ambientLifeWas = qtrue;
+static vec3_t ambientSpawnPts[64];
+static int numAmbientSpawnPts = -1;			// -1 = not looked up yet
+static int ambientStrollNext[MAX_GENTITIES];
+static int ambientStillSince[MAX_GENTITIES];
+static vec3_t ambientLastPos[MAX_GENTITIES];
+static int ambientTalkNext[MAX_GENTITIES];
+static qboolean ambientStroll[MAX_GENTITIES];	// stands still in BS_WANDER (no nav): strolls to spots
+
+static void G_AmbientResetLife(void)
+{
+	memset(ambientSlotOf, 0, sizeof ambientSlotOf);
+	memset((void*)ambientTag, 0, sizeof ambientTag);
+	memset(ambientFleeUntil, 0, sizeof ambientFleeUntil);
+	memset(ambientAngryUntil, 0, sizeof ambientAngryUntil);
+	memset(ambientLastHealth, 0, sizeof ambientLastHealth);
+	memset(ambientAlarmNext, 0, sizeof ambientAlarmNext);
+	memset(ambientCarry, 0, sizeof ambientCarry);
+	memset(ambientCarryNum, 0, sizeof ambientCarryNum);
+	ambientFleeNext = 0;
+	ambientExtrasNext = 0;
+	ambientEffectsPlaced = qfalse;
+	numAmbientSpawnPts = -1;
+	memset(ambientStrollNext, 0, sizeof ambientStrollNext);
+	memset(ambientStillSince, 0, sizeof ambientStillSince);
+	memset(ambientLastPos, 0, sizeof ambientLastPos);
+	memset(ambientStroll, 0, sizeof ambientStroll);
+	memset(ambientTalkNext, 0, sizeof ambientTalkNext);
+}
+
+static ambientSlot_t* G_AmbientSlotOf(const gentity_t* ent)
+{
+	const int n = ent->s.number;
+
+	if (n < 0 || n >= MAX_GENTITIES || !ambientSlotOf[n] || ambientTag[n] != ent->NPC_type || ambientSlotOf[n] > numAmbientSlots)
+	{
+		return NULL;
+	}
+	return &ambientSlots[ambientSlotOf[n] - 1];
+}
+
+static void G_AmbientTag(const gentity_t* ent, const int slot)
+{
+	const int n = ent->s.number;
+
+	if (n >= 0 && n < MAX_GENTITIES && (ambientSlotOf[n] != slot + 1 || ambientTag[n] != ent->NPC_type))
+	{
+		ambientSlotOf[n] = slot + 1;
+		ambientTag[n] = ent->NPC_type;
+		ambientAngryUntil[n] = 0;
+		ambientLastHealth[n] = ent->health;
+		ambientCarryNum[n] = 0;
+	}
+}
+
+static qboolean G_AmbientIsBeast(const gentity_t* ent)
+{
+	switch (ent->client->NPC_class)
+	{
+	case CLASS_RANCOR:
+	case CLASS_WAMPA:
+	case CLASS_HOWLER:
+	case CLASS_MINEMONSTER:
+	case CLASS_SAND_CREATURE:
+		return qtrue;
+	default:
+		return qfalse;
+	}
+}
+
+static qboolean G_AmbientIsDroid(const gentity_t* ent)
+{
+	switch (ent->client->NPC_class)
+	{
+	case CLASS_MOUSE:
+	case CLASS_GONK:
+	case CLASS_R2D2:
+	case CLASS_R5D2:
+	case CLASS_PROTOCOL:
+		return qtrue;
+	default:
+		return qfalse;
+	}
+}
+
+// does this one run from danger (the calm ones, spectators, scavengers, civilians, little droids)
+static qboolean G_AmbientFlees(const gentity_t* ent)
+{
+	const ambientSlot_t* slot = NULL;
+
+	if (!G_IsAmbientNPC(ent))
+	{
+		return qfalse;
+	}
+	if (ent->targetname && !Q_stricmp(ent->targetname, "sje_civilian"))
+	{
+		return qtrue;
+	}
+	slot = G_AmbientSlotOf(ent);
+	if (slot && slot->neutral)
+	{
+		return qfalse; // armed, fights back
+	}
+	if (slot && (slot->calm || slot->spectate || slot->scavenge))
+	{
+		return qtrue;
+	}
+	return G_AmbientIsDroid(ent);
+}
+
+// any danger near self? danger = where it is
+static qboolean G_AmbientDanger(const gentity_t* self, vec3_t danger)
+{
+	const float* org = AMB_ORG(self);
+	int i = 0;
+
+	for (i = 0; i < AMB_NUM_ENTS; i++)
+	{
+		const gentity_t* ent = &g_entities[i];
+		float range = 0.0f;
+
+		if (ent == self || !ent->inuse || !ent->client || ent->health <= 0)
+		{
+			continue;
+		}
+		if (!ent->NPC && !AMB_IS_PLAYER(ent))
+		{
+			continue;
+		}
+		if (ent->NPC && G_AmbientFlees(ent))
+		{
+			continue; // another frightened one is no danger
+		}
+		if (G_AmbientIsBeast(ent) && ent->client->NPC_class != self->client->NPC_class)
+		{
+			range = AMBIENT_FLEE_BEAST;
+		}
+		if (AMB_SABER_ON(ent) && range < AMBIENT_FLEE_SABER)
+		{
+			range = AMBIENT_FLEE_SABER;
+		}
+		if (ent->client->ps.weaponstate == WEAPON_FIRING && ent->client->ps.weapon != WP_SABER
+			&& ent->client->ps.weapon != WP_NONE && ent->client->ps.weapon != WP_MELEE && range < AMBIENT_FLEE_FIRE)
+		{
+			range = AMBIENT_FLEE_FIRE;
+		}
+		if (range <= 0.0f || fabs(AMB_ORG(ent)[2] - org[2]) > 192.0f)
+		{
+			continue;
+		}
+		if (DistanceSquared(AMB_ORG(ent), org) < range * range)
+		{
+			VectorCopy(AMB_ORG(ent), danger);
+			return qtrue;
+		}
+	}
+	// shots, explosions, things breaking (the NPC alert events)
+	for (i = 0; i < level.numAlertEvents; i++)
+	{
+		const float r = level.alertEvents[i].radius < 600.0f ? level.alertEvents[i].radius : 600.0f;
+
+		if (level.alertEvents[i].level < AEL_DANGER || level.time - level.alertEvents[i].timestamp > 600
+			|| level.alertEvents[i].owner == self)
+		{
+			continue;
+		}
+		if (DistanceSquared(level.alertEvents[i].position, org) < r * r)
+		{
+			VectorCopy(level.alertEvents[i].position, danger);
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+// an open spot on the floor away from the danger (straight away first, then up to 90 degrees off it)
+static qboolean G_AmbientFleeSpot(const gentity_t* self, const vec3_t danger, vec3_t out)
+{
+	static const float offs[7] = { 0.0f, 30.0f, -30.0f, 60.0f, -60.0f, 90.0f, -90.0f };
+	vec3_t away = { 0 }, start = { 0 }, end = { 0 }, mins = { 0 }, maxs = { 0 };
+	float best = 0.0f, baseYaw = 0.0f;
+	int k = 0;
+
+	VectorSubtract(AMB_ORG(self), danger, away);
+	away[2] = 0;
+	if (VectorNormalize(away) < 1.0f)
+	{
+		away[0] = Q_flrand(-1.0f, 1.0f);
+		away[1] = Q_flrand(-1.0f, 1.0f);
+	}
+	baseYaw = atan2f(away[1], away[0]);
+	VectorCopy(AMB_MINS(self), mins);
+	VectorCopy(AMB_MAXS(self), maxs);
+	mins[2] += 18.0f; // steps
+	if (mins[2] > maxs[2] - 1.0f)
+	{
+		mins[2] = maxs[2] - 1.0f;
+	}
+	VectorCopy(AMB_ORG(self), start);
+	for (k = 0; k < 7; k++)
+	{
+		const float yaw = baseYaw + offs[k] * ((float)M_PI / 180.0f);
+		trace_t tr;
+		trace_t down;
+		vec3_t spot = { 0 }, below = { 0 };
+		float dist = 0.0f, score = 0.0f;
+
+		VectorCopy(start, end);
+		end[0] += cosf(yaw) * AMBIENT_FLEE_DIST;
+		end[1] += sinf(yaw) * AMBIENT_FLEE_DIST;
+		AMB_TRACE(&tr, start, mins, maxs, end, self->s.number, MASK_NPCSOLID);
+		if (tr.allsolid)
+		{
+			continue;
+		}
+		dist = tr.fraction * AMBIENT_FLEE_DIST - 16.0f;
+		if (dist < 96.0f)
+		{
+			continue;
+		}
+		VectorCopy(start, spot);
+		spot[0] += cosf(yaw) * dist;
+		spot[1] += sinf(yaw) * dist;
+		VectorCopy(spot, below);
+		below[2] -= 96.0f;
+		AMB_TRACE(&down, spot, NULL, NULL, below, self->s.number, MASK_NPCSOLID);
+		if (down.fraction >= 1.0f || down.allsolid)
+		{
+			continue; // a ledge
+		}
+		score = dist - k * 12.0f;
+		if (score > best)
+		{
+			best = score;
+			VectorCopy(spot, out);
+		}
+	}
+	return best > 0.0f ? qtrue : qfalse;
+}
+
+static void G_AmbientStartFlee(gentity_t* self, const vec3_t danger)
+{
+	vec3_t spot = { 0 };
+	const int n = self->s.number;
+
+	if (G_AmbientFleeSpot(self, danger, spot))
+	{
+		NPC_SetMoveGoal(self, spot, 24, qfalse, -1, NULL);
+		self->NPC->tempBehavior = BS_FLEE;
+		self->NPC->scriptFlags &= ~SCF_WALKING;
+		TIMER_Set(self, "flee", Q_irand(3000, 5000));
+		TIMER_Set(self, "panic", 6000);
+		ambientFleeUntil[n] = level.time + 1500;
+		return;
+	}
+	// nowhere to run: people cower, droids just stay put
+	if (!G_AmbientIsDroid(self) && AMB_HAS_ANIM(self, BOTH_COWER1))
+	{
+		NPC_SetAnim(self, SETANIM_BOTH, BOTH_COWER1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+	}
+	ambientFleeUntil[n] = level.time + 3000;
+}
+
+// four times a second: everything that runs from danger looks about
+static void G_AmbientFleeThink(void)
+{
+	int i = 0;
+
+	if (level.time < ambientFleeNext)
+	{
+		return;
+	}
+	ambientFleeNext = level.time + 250;
+	for (i = AMB_FIRST_NPC; i < AMB_NUM_ENTS && i < MAX_GENTITIES; i++)
+	{
+		gentity_t* ent = &g_entities[i];
+		vec3_t danger = { 0 };
+
+		if (!ent->inuse || !ent->client || !ent->NPC || ent->health <= 0 || level.time < ambientFleeUntil[i])
+		{
+			continue;
+		}
+		if (!G_AmbientFlees(ent))
+		{
+			continue;
+		}
+		if (G_AmbientDanger(ent, danger))
+		{
+			G_AmbientStartFlee(ent, danger);
+		}
+	}
+}
+
+// a random player (or bot) to put a sound near; NULL = none
+static const gentity_t* G_AmbientRandomPlayer(void)
+{
+	const gentity_t* pick = NULL;
+	int i = 0, seen = 0;
+
+	for (i = 0; i < MAX_CLIENTS && i < AMB_NUM_ENTS; i++)
+	{
+		const gentity_t* ent = &g_entities[i];
+		if (ent->inuse && ent->client && ent->health > 0 && AMB_IS_PLAYER(ent) && Q_irand(0, seen++) == 0)
+		{
+			pick = ent;
+		}
+	}
+	return pick;
+}
+
+// the map's spawn points (deathmatch, single player, team), at most max
+static int G_AmbientSpawnPoints(vec3_t* spots, const int max)
+{
+	static const char* names[] = { "info_player_deathmatch", "info_player_start", "team_CTF_redplayer",
+		"team_CTF_blueplayer", "team_CTF_redspawn", "team_CTF_bluespawn" };
+	int num = 0, k = 0;
+
+	for (k = 0; k < (int)(sizeof names / sizeof names[0]) && num < max; k++)
+	{
+		gentity_t* found = NULL;
+		while ((found = G_Find(found, FOFS(classname), names[k])) != NULL && num < max)
+		{
+			VectorCopy(found->s.origin, spots[num]);
+			num++;
+		}
+	}
+	return num;
+}
+
+// the "effect" lines get their spots once: round the spawn points, on the floor, in the same room
+static void G_AmbientPlaceEffects(void)
+{
+	vec3_t spawns[64];
+	const int numSpawns = G_AmbientSpawnPoints(spawns, 64);
+	int e = 0;
+
+	ambientEffectsPlaced = qtrue;
+	if (!numSpawns)
+	{
+		return;
+	}
+	for (e = 0; e < numAmbientEffects; e++)
+	{
+		ambientEffect_t* fx = &ambientEffects[e];
+		int k = 0, tries = 0;
+
+		fx->numSpots = 0;
+		for (k = 0; k < fx->count && fx->numSpots < MAX_AMBIENT_EFFECT_SPOTS; k++)
+		{
+			for (tries = 0; tries < 8; tries++)
+			{
+				vec3_t from = { 0 }, spot = { 0 };
+				const float yaw = Q_flrand(0.0f, 2.0f * (float)M_PI), dist = Q_flrand(64.0f, 384.0f);
+
+				VectorCopy(spawns[Q_irand(0, numSpawns - 1)], from);
+				if (!G_RancorPitFloor(from))
+				{
+					continue;
+				}
+				VectorCopy(from, spot);
+				spot[0] += cosf(yaw) * dist;
+				spot[1] += sinf(yaw) * dist;
+				spot[2] += 48.0f;
+				if (!G_RancorPitFloor(spot) || !G_RancorPitClearLine(from, spot))
+				{
+					continue;
+				}
+				spot[2] += 4.0f;
+				VectorCopy(spot, fx->spots[fx->numSpots]);
+				fx->next[fx->numSpots] = level.time + Q_irand(500, fx->maxMs);
+				fx->numSpots++;
+				break;
+			}
+		}
+	}
+}
+
+// sounds and effects (every frame, cheap)
+static void G_AmbientExtrasThink(void)
+{
+	int i = 0, k = 0;
+
+	if (level.time < ambientExtrasNext)
+	{
+		return;
+	}
+	ambientExtrasNext = level.time + 200;
+	G_AmbientFlybyThink();
+	if (!ambientEffectsPlaced)
+	{
+		G_AmbientPlaceEffects();
+	}
+	for (i = 0; i < numAmbientSounds; i++)
+	{
+		ambientSound_t* snd = &ambientSounds[i];
+
+		if (!snd->next)
+		{
+			snd->next = level.time + Q_irand(snd->minMs / 2, snd->maxMs / 2 + 1);
+			continue;
+		}
+		if (level.time < snd->next)
+		{
+			continue;
+		}
+		snd->next = level.time + Q_irand(snd->minMs, snd->maxMs);
+		{
+			const gentity_t* near_ent = G_AmbientRandomPlayer();
+			vec3_t spot = { 0 };
+			const float yaw = Q_flrand(0.0f, 2.0f * (float)M_PI), dist = Q_flrand(300.0f, 700.0f);
+
+			if (!near_ent)
+			{
+				continue;
+			}
+			VectorCopy(AMB_ORG(near_ent), spot);
+			spot[0] += cosf(yaw) * dist;
+			spot[1] += sinf(yaw) * dist;
+			spot[2] += 64.0f;
+			AMB_SOUND_AT(spot, snd->index);
+		}
+	}
+	for (i = 0; i < numAmbientEffects; i++)
+	{
+		ambientEffect_t* fx = &ambientEffects[i];
+
+		for (k = 0; k < fx->numSpots; k++)
+		{
+			if (level.time >= fx->next[k])
+			{
+				fx->next[k] = level.time + Q_irand(fx->minMs, fx->maxMs);
+				AMB_EFFECT_AT(fx->index, fx->spots[k]);
+			}
+		}
+	}
+}
+
+// "neutral": peaceful until hurt (or called), then it fights whoever it has for a while
+static void G_AmbientNeutral(gentity_t* ent, const int n)
+{
+	if (ent->health < ambientLastHealth[n])
+	{
+		ambientAngryUntil[n] = level.time + AMBIENT_ANGRY_TIME; // hurt
+	}
+	ambientLastHealth[n] = ent->health;
+	if (level.time < ambientAngryUntil[n] && (!ent->enemy || !ent->enemy->inuse || ent->enemy->health <= 0))
+	{
+		// go for whoever hurt it last (its side was neutral, so the NPC AI may have dropped him as an enemy)
+		const int att = AMB_LAST_ATTACKER(ent);
+		gentity_t* who = att >= 0 && att < ENTITYNUM_WORLD ? &g_entities[att] : NULL;
+
+		if (who && who != ent && who->inuse && who->client && who->health > 0)
+		{
+			ent->client->enemyTeam = who->client->playerTeam;
+			G_SetEnemy(ent, who);
+		}
+	}
+	if (level.time < ambientAngryUntil[n] && ent->enemy && ent->enemy->inuse && ent->enemy->client && ent->enemy->health > 0)
+	{
+		// fighting back: the enemy's side is its enemy now, and the default AI does the fighting
+		ent->client->enemyTeam = ent->enemy->client->playerTeam;
+		ent->NPC->defaultBehavior = BS_DEFAULT;
+		if (ent->NPC->behaviorState == BS_WANDER || ent->NPC->behaviorState == BS_CINEMATIC)
+		{
+			ent->NPC->behaviorState = BS_DEFAULT;
+		}
+		ent->NPC->scriptFlags &= ~SCF_WALKING;
+		return;
+	}
+	ambientAngryUntil[n] = 0;
+	ent->client->playerTeam = AMB_NEUTRAL;
+	ent->client->enemyTeam = AMB_NEUTRAL;
+	ent->enemy = NULL;
+	ent->NPC->defaultBehavior = BS_WANDER;
+	if (ent->NPC->behaviorState == BS_DEFAULT)
+	{
+		ent->NPC->behaviorState = BS_WANDER;
+	}
+}
+
+// "alarm": has an enemy, so the neutral ones near it join in
+static void G_AmbientAlarm(const gentity_t* ent, const int n)
+{
+	int i = 0;
+
+	if (!ent->enemy || !ent->enemy->inuse || !ent->enemy->client || ent->enemy->health <= 0 || level.time < ambientAlarmNext[n])
+	{
+		return;
+	}
+	ambientAlarmNext[n] = level.time + 3000;
+	for (i = AMB_FIRST_NPC; i < AMB_NUM_ENTS && i < MAX_GENTITIES; i++)
+	{
+		gentity_t* other = &g_entities[i];
+		const ambientSlot_t* slot = NULL;
+
+		if (other == ent || !other->inuse || !other->client || !other->NPC || other->health <= 0)
+		{
+			continue;
+		}
+		slot = G_AmbientSlotOf(other);
+		if (!slot || !slot->neutral || other->enemy || DistanceSquared(AMB_ORG(other), AMB_ORG(ent)) > AMBIENT_ALARM_RANGE * AMBIENT_ALARM_RANGE)
+		{
+			continue;
+		}
+		other->client->enemyTeam = ent->enemy->client->playerTeam;
+		G_SetEnemy(other, ent->enemy);
+		ambientAngryUntil[i] = level.time + AMBIENT_ANGRY_TIME;
+	}
+}
+
+// "spectate": stand and watch the nearest fight, the odd gesture
+static void G_AmbientSpectate(gentity_t* ent)
+{
+	const gentity_t* watch = NULL;
+	float best = 2000.0f * 2000.0f;
+	int i = 0;
+
+	ent->NPC->defaultBehavior = BS_DEFAULT;
+	if (ent->NPC->behaviorState == BS_WANDER)
+	{
+		ent->NPC->behaviorState = BS_DEFAULT;
+	}
+	if (ent->NPC->tempBehavior == BS_FLEE)
+	{
+		return; // running off
+	}
+	for (i = 0; i < AMB_NUM_ENTS && i < MAX_GENTITIES; i++)
+	{
+		const gentity_t* other = &g_entities[i];
+		float d = 0.0f;
+
+		if (other == ent || !other->inuse || !other->client || other->health <= 0 || (!AMB_IS_PLAYER(other) && !other->NPC))
+		{
+			continue;
+		}
+		if (other->NPC && G_IsAmbientNPC(other))
+		{
+			continue;
+		}
+		d = DistanceSquared(AMB_ORG(other), AMB_ORG(ent));
+		if (d < best && G_RancorPitClearLine(AMB_ORG(ent), AMB_ORG(other)))
+		{
+			best = d;
+			watch = other;
+		}
+	}
+	if (watch)
+	{
+		vec3_t dir = { 0 };
+		VectorSubtract(AMB_ORG(watch), AMB_ORG(ent), dir);
+		ent->NPC->desiredYaw = vectoyaw(dir);
+		if (!Q_irand(0, 7))
+		{
+			const int anim = Q_irand(0, 1) ? BOTH_TALKGESTURE1 : BOTH_GESTURE1;
+			if (AMB_HAS_ANIM(ent, anim))
+			{
+				NPC_SetAnim(ent, SETANIM_TORSO, anim, SETANIM_FLAG_NORMAL);
+			}
+		}
+	}
+}
+
+// "scavenge": go to the nearest dropped weapon / item and pick it up
+static void G_AmbientScavenge(gentity_t* ent, const int n)
+{
+	gentity_t* best = NULL;
+	float bestDist = AMBIENT_SCAVENGE_RANGE * AMBIENT_SCAVENGE_RANGE;
+	int i = 0;
+
+	if (ambientCarryNum[n] >= AMBIENT_MAX_CARRY || level.time < ambientFleeUntil[n])
+	{
+		// full, or just ran from danger
+		return;
+	}
+	for (i = MAX_CLIENTS; i < AMB_NUM_ENTS && i < MAX_GENTITIES; i++)
+	{
+		gentity_t* it = &g_entities[i];
+		float d = 0.0f;
+
+		if (!it->inuse || it->s.eType != ET_ITEM || !it->item || !(it->flags & FL_DROPPED_ITEM))
+		{
+			continue;
+		}
+		if (it->item->giType != IT_WEAPON && it->item->giType != IT_AMMO && it->item->giType != IT_HEALTH
+			&& it->item->giType != IT_ARMOR && it->item->giType != IT_HOLDABLE)
+		{
+			continue; // not flags, holocrons ...
+		}
+		if (fabs(AMB_ORG(it)[2] - AMB_ORG(ent)[2]) > 128.0f)
+		{
+			continue;
+		}
+		d = DistanceSquared(AMB_ORG(it), AMB_ORG(ent));
+		if (d < bestDist && G_RancorPitClearLine(AMB_ORG(ent), AMB_ORG(it)))
+		{
+			bestDist = d;
+			best = it;
+		}
+	}
+	if (!best)
+	{
+		return;
+	}
+	if (bestDist < 48.0f * 48.0f)
+	{
+		ambientCarry[n][ambientCarryNum[n]++] = best->item;
+		G_FreeEntity(best);
+		return;
+	}
+	// walk (scurry) over to it
+	NPC_SetMoveGoal(ent, AMB_ORG(best), 16, qfalse, -1, NULL);
+	ent->NPC->tempBehavior = BS_FLEE;
+	TIMER_Set(ent, "flee", 2500);
+	TIMER_Set(ent, "panic", 3000);
+}
+
+// a scavenger that died drops what it picked up
+static void G_AmbientDropCarried(void)
+{
+	int n = 0, k = 0;
+
+	for (n = 0; n < MAX_GENTITIES; n++)
+	{
+		gentity_t* ent = &g_entities[n];
+
+		if (!ambientCarryNum[n])
+		{
+			continue;
+		}
+		if (n >= AMB_NUM_ENTS || !ent->inuse || ambientTag[n] != ent->NPC_type)
+		{
+			ambientCarryNum[n] = 0; // gone without dying (taken away)
+			continue;
+		}
+		if (ent->health > 0)
+		{
+			continue;
+		}
+		for (k = 0; k < ambientCarryNum[n] && k < AMBIENT_MAX_CARRY; k++)
+		{
+			vec3_t org = { 0 }, vel = { 0 };
+
+			VectorCopy(AMB_ORG(ent), org);
+			org[2] += 16.0f;
+			vel[0] = Q_flrand(-80.0f, 80.0f);
+			vel[1] = Q_flrand(-80.0f, 80.0f);
+			vel[2] = Q_flrand(120.0f, 200.0f);
+			if (ambientCarry[n][k])
+			{
+				AMB_LAUNCH(ambientCarry[n][k], org, vel);
+			}
+			ambientCarry[n][k] = NULL;
+		}
+		ambientCarryNum[n] = 0;
+	}
+}
+
+// rancors and wampas go after the smaller animals near them, howlers and mine monsters after mice
+static void G_AmbientHunt(gentity_t* ent)
+{
+	const int cls = ent->client->NPC_class;
+	gentity_t* prey = NULL;
+	float best = AMBIENT_HUNT_RANGE * AMBIENT_HUNT_RANGE;
+	int i = 0;
+
+	if (cls != CLASS_RANCOR && cls != CLASS_WAMPA && cls != CLASS_HOWLER && cls != CLASS_MINEMONSTER)
+	{
+		return;
+	}
+	if (ent->enemy && ent->enemy->inuse && ent->enemy->health > 0)
+	{
+		return; // busy
+	}
+	for (i = AMB_FIRST_NPC; i < AMB_NUM_ENTS && i < MAX_GENTITIES; i++)
+	{
+		gentity_t* other = &g_entities[i];
+		int ocls = 0;
+		float d = 0.0f;
+
+		if (other == ent || !other->inuse || !other->client || !other->NPC || other->health <= 0 || !G_IsAmbientNPC(other))
+		{
+			continue;
+		}
+		ocls = other->client->NPC_class;
+		if (cls == CLASS_RANCOR || cls == CLASS_WAMPA)
+		{
+			if (ocls != CLASS_HOWLER && ocls != CLASS_MINEMONSTER && ocls != CLASS_MOUSE)
+			{
+				continue;
+			}
+		}
+		else if (ocls != CLASS_MOUSE)
+		{
+			continue;
+		}
+		d = DistanceSquared(AMB_ORG(other), AMB_ORG(ent));
+		if (d < best && G_RancorPitClearLine(AMB_ORG(ent), AMB_ORG(other)))
+		{
+			best = d;
+			prey = other;
+		}
+	}
+	if (prey)
+	{
+		G_SetEnemy(ent, prey);
+	}
+}
+
+// the map's spawn points, once a map (players must never spawn into one of ours)
+static qboolean G_AmbientNearSpawn(const vec3_t spot)
+{
+	int i = 0;
+
+	if (numAmbientSpawnPts < 0)
+	{
+		numAmbientSpawnPts = G_AmbientSpawnPoints(ambientSpawnPts, 64);
+	}
+	for (i = 0; i < numAmbientSpawnPts; i++)
+	{
+		const float dx = ambientSpawnPts[i][0] - spot[0];
+		const float dy = ambientSpawnPts[i][1] - spot[1];
+		if (dx * dx + dy * dy < 112.0f * 112.0f && fabs(ambientSpawnPts[i][2] - spot[2]) < 128.0f)
+		{
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+// Ships over the map (2026-11-26): every so often a ship from a "flyby" line crosses the sky in a straight line,
+// from wall to wall at a good height under the sky, engine loop on it and its flyby sound as it goes over. Just
+// a model moving on its own (TR_LINEAR, sent to everyone): nothing hits it, nothing thinks for it. A map with no
+// open sky over its middle / spawn points gets none.
+static qboolean G_AmbientFindSky(void)
+{
+	vec3_t spots[64];
+	const int numSpots = G_AmbientSpawnPoints(spots, 64);
+	int i = 0;
+
+	ambientSkyChecked = -1;
+	for (i = 0; i < numSpots && i < 16; i++)
+	{
+		trace_t tr;
+		vec3_t start = { 0 }, end = { 0 };
+
+		VectorCopy(spots[(i * 7) % numSpots], start);
+		start[2] += 64.0f;
+		VectorCopy(start, end);
+		end[2] += 8192.0f;
+		AMB_TRACE(&tr, start, NULL, NULL, end, ENTITYNUM_NONE, MASK_SOLID);
+		if (tr.fraction < 1.0f && tr.surfaceFlags & SURF_SKY && tr.endpos[2] - start[2] > 384.0f)
+		{
+			VectorCopy(start, ambientSkyCenter);
+			// high enough to be in the sky, under the sky brush
+			ambientSkyHeight = tr.endpos[2] - 160.0f;
+			if (ambientSkyHeight > start[2] + 2400.0f)
+			{
+				ambientSkyHeight = start[2] + 2400.0f;
+			}
+			ambientSkyChecked = 1;
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+static void G_AmbientLaunchFlyby(const ambientFlyby_t* fb)
+{
+	vec3_t mid = { 0 }, dir = { 0 }, start = { 0 }, end = { 0 }, angles = { 0 };
+	trace_t tr;
+	float back = 0.0f, ahead = 0.0f;
+	const float yaw = Q_flrand(0.0f, 2.0f * (float)M_PI);
+	int slot = -1, i = 0;
+	gentity_t* ship = NULL;
+
+	for (i = 0; i < MAX_ACTIVE_FLYBYS; i++)
+	{
+		if (!ambientFlyers[i].ent)
+		{
+			slot = i;
+			break;
+		}
+	}
+	if (slot < 0)
+	{
+		return;
+	}
+	VectorCopy(ambientSkyCenter, mid);
+	mid[0] += Q_flrand(-512.0f, 512.0f);
+	mid[1] += Q_flrand(-512.0f, 512.0f);
+	mid[2] = ambientSkyHeight - Q_flrand(0.0f, 256.0f);
+	dir[0] = cosf(yaw);
+	dir[1] = sinf(yaw);
+	// from wall to wall (or 6000 each way in open sky)
+	VectorMA(mid, -6000.0f, dir, end);
+	AMB_TRACE(&tr, mid, NULL, NULL, end, ENTITYNUM_NONE, MASK_SOLID);
+	if (tr.startsolid || tr.allsolid)
+	{
+		return;
+	}
+	back = tr.fraction * 6000.0f;
+	VectorMA(mid, 6000.0f, dir, end);
+	AMB_TRACE(&tr, mid, NULL, NULL, end, ENTITYNUM_NONE, MASK_SOLID);
+	ahead = tr.fraction * 6000.0f;
+	if (back + ahead < 1500.0f)
+	{
+		return; // too small a sky
+	}
+	VectorMA(mid, -(back - 64.0f), dir, start);
+	VectorMA(mid, ahead - 64.0f, dir, end);
+
+	ship = G_Spawn();
+	if (!ship)
+	{
+		return;
+	}
+	ship->classname = ambientFlybyClass;
+	ship->s.eType = ET_GENERAL;
+	ship->s.modelindex = fb->model;
+	ship->s.loopSound = fb->loopSound;
+	vectoangles(dir, angles);
+	VectorCopy(angles, ship->s.angles);
+	VectorCopy(angles, ship->s.apos.trBase);
+	ship->s.apos.trType = TR_STATIONARY;
+	ship->s.pos.trType = TR_LINEAR;
+	ship->s.pos.trTime = level.time;
+	VectorCopy(start, ship->s.pos.trBase);
+	VectorScale(dir, fb->speed, ship->s.pos.trDelta);
+	VectorCopy(start, AMB_ORG(ship));
+	VectorCopy(start, ship->s.origin);
+	AMB_SVFLAGS(ship) |= SVF_BROADCAST; // seen and heard from everywhere, whatever its origin says
+	AMB_LINK(ship);
+	ambientFlyers[slot].ent = ship->s.number + 1;
+	ambientFlyers[slot].passTime = level.time + (int)(back / fb->speed * 1000.0f);
+	ambientFlyers[slot].endTime = level.time + (int)((back + ahead) / fb->speed * 1000.0f);
+	ambientFlyers[slot].passTime = -ambientFlyers[slot].passTime; // negative = pass sound still to play
+}
+
+static void G_AmbientFreeFlyers(void)
+{
+	int i = 0;
+
+	for (i = 0; i < MAX_ACTIVE_FLYBYS; i++)
+	{
+		if (ambientFlyers[i].ent)
+		{
+			gentity_t* ship = &g_entities[ambientFlyers[i].ent - 1];
+			if (ship->inuse && ship->classname && !Q_stricmp(ship->classname, "sje_ambient_flyby"))
+			{
+				G_FreeEntity(ship);
+			}
+		}
+	}
+	memset(ambientFlyers, 0, sizeof ambientFlyers);
+}
+
+// ships left from before (a loaded game, map_restart) that nothing looks after any more
+static void G_AmbientFreeStrayFlyers(void)
+{
+	int i = 0;
+
+	for (i = 0; i < AMB_NUM_ENTS && i < MAX_GENTITIES; i++)
+	{
+		gentity_t* ship = &g_entities[i];
+		if (ship->inuse && ship->classname && !Q_stricmp(ship->classname, "sje_ambient_flyby"))
+		{
+			G_FreeEntity(ship);
+		}
+	}
+	memset(ambientFlyers, 0, sizeof ambientFlyers);
+}
+
+static void G_AmbientFlybyThink(void)
+{
+	int i = 0;
+
+	if (!numAmbientFlybys)
+	{
+		return;
+	}
+	if (!ambientSkyChecked && !G_AmbientFindSky())
+	{
+		return;
+	}
+	if (ambientSkyChecked < 0)
+	{
+		return; // no sky here
+	}
+	// the ones in the air
+	for (i = 0; i < MAX_ACTIVE_FLYBYS; i++)
+	{
+		ambientFlyer_t* fl = &ambientFlyers[i];
+		gentity_t* ship = NULL;
+
+		if (!fl->ent)
+		{
+			continue;
+		}
+		ship = &g_entities[fl->ent - 1];
+		if (!ship->inuse || !ship->classname || Q_stricmp(ship->classname, "sje_ambient_flyby"))
+		{
+			fl->ent = 0;
+			continue;
+		}
+		if (fl->passTime < 0 && level.time >= -fl->passTime)
+		{
+			int k = 0;
+			fl->passTime = -fl->passTime;
+			for (k = 0; k < numAmbientFlybys; k++)
+			{
+				if (ambientFlybys[k].model == ship->s.modelindex)
+				{
+					AMB_SOUND_ON(ship, ambientFlybys[k].passSound);
+					break;
+				}
+			}
+		}
+		if (level.time >= fl->endTime)
+		{
+			G_FreeEntity(ship);
+			fl->ent = 0;
+		}
+		else
+		{
+			AMB_EVAL_TRAJ(&ship->s.pos, level.time, AMB_ORG(ship));
+			AMB_LINK(ship);
+		}
+	}
+	// time for the next one of each kind
+	for (i = 0; i < numAmbientFlybys; i++)
+	{
+		ambientFlyby_t* fb = &ambientFlybys[i];
+
+		if (!fb->next)
+		{
+			fb->next = level.time + Q_irand(fb->minMs / 4, fb->minMs);
+			continue;
+		}
+		if (level.time >= fb->next)
+		{
+			fb->next = level.time + Q_irand(fb->minMs, fb->maxMs);
+			G_AmbientLaunchFlyby(fb);
+		}
+	}
+}
+
+// droids say something now and then as they go (the sounds their patrol AI plays)
+static void G_AmbientDroidTalk(gentity_t* ent, const int n)
+{
+	const char* snd = NULL;
+
+	if (level.time < ambientTalkNext[n])
+	{
+		return;
+	}
+	ambientTalkNext[n] = level.time + Q_irand(3000, 9000);
+	switch (ent->client->NPC_class)
+	{
+	case CLASS_MOUSE:
+		snd = va("sound/chars/mouse/misc/mousego%d.wav", Q_irand(1, 3));
+		break;
+	case CLASS_R2D2:
+		snd = va("sound/chars/r2d2/misc/r2d2talk0%d.wav", Q_irand(1, 3));
+		break;
+	case CLASS_R5D2:
+		snd = va("sound/chars/r5d2/misc/r5talk%d.wav", Q_irand(1, 4));
+		break;
+	case CLASS_GONK:
+		snd = va("sound/chars/gonk/misc/gonktalk%d.wav", Q_irand(1, 2));
+		break;
+	default:
+		return; // protocol droids talk in the NPC chatter
+	}
+	AMB_SOUND_ON(ent, G_SoundIndex(snd));
+}
+
+// gonks are power droids: half the time they go to a charger on the wall (or a floor unit) near them
+static qboolean G_AmbientGonkCharger(const gentity_t* ent, vec3_t spot)
+{
+	static const char* chargers[] = { "misc_model_shield_power_converter", "misc_model_ammo_power_converter",
+		"misc_model_health_power_converter", "misc_shield_floor_unit", "misc_ammo_floor_unit" };
+	float best = 1500.0f * 1500.0f;
+	qboolean found = qfalse;
+	int k = 0;
+
+	for (k = 0; k < (int)(sizeof chargers / sizeof chargers[0]); k++)
+	{
+		gentity_t* ch = NULL;
+		while ((ch = G_Find(ch, FOFS(classname), chargers[k])) != NULL)
+		{
+			const float d = DistanceSquared(AMB_ORG(ch), AMB_ORG(ent));
+			if (d > 96.0f * 96.0f && d < best && fabs(AMB_ORG(ch)[2] - AMB_ORG(ent)[2]) < 128.0f
+				&& G_RancorPitClearLine(AMB_ORG(ent), AMB_ORG(ch)))
+			{
+				best = d;
+				VectorCopy(AMB_ORG(ch), spot);
+				found = qtrue;
+			}
+		}
+	}
+	return found;
+}
+
+// Ours walk about (2026-11-26): droids and creatures only move to a goal, and on a map with no NPC nav (an MP map
+// in SP) people stand still in BS_WANDER. So every few seconds each one of ours that is not busy (fighting, running,
+// spectating) gets an open spot nearby to go to: droids in their own AI (BS_DEFAULT), creatures in their patrol
+// (looking for enemies as they go), people (once they have stood still 5 s) walking in BS_CINEMATIC.
+static void G_AmbientStroll(gentity_t* ent, const ambientSlot_t* slot, const int n)
+{
+	const qboolean droid = G_AmbientIsDroid(ent);
+	const qboolean beast = G_AmbientIsBeast(ent);
+	vec3_t dir = { 0 }, from = { 0 }, spot = { 0 };
+
+	if (slot->spectate || (ent->enemy && ent->enemy->inuse && ent->enemy->health > 0) || ent->NPC->tempBehavior == BS_FLEE
+		|| (slot->neutral && level.time < ambientAngryUntil[n]))
+	{
+		ambientStillSince[n] = 0;
+		return;
+	}
+	if (DistanceSquared(AMB_ORG(ent), ambientLastPos[n]) > 16.0f * 16.0f)
+	{
+		VectorCopy(AMB_ORG(ent), ambientLastPos[n]);
+		ambientStillSince[n] = level.time;
+	}
+	else if (!ambientStillSince[n])
+	{
+		ambientStillSince[n] = level.time;
+	}
+	if (droid)
+	{
+		G_AmbientDroidTalk(ent, n);
+		// the droid AI (Droid_Run) goes to its goal in BS_DEFAULT; BS_WANDER would leave it standing
+		ent->NPC->defaultBehavior = BS_DEFAULT;
+		if (ent->NPC->behaviorState == BS_WANDER)
+		{
+			ent->NPC->behaviorState = BS_DEFAULT;
+		}
+	}
+	else if (beast)
+	{
+		ent->NPC->scriptFlags |= SCF_LOOK_FOR_ENEMIES; // its patrol: walks to the goal, looking for prey
+	}
+	else if (!slot->calm && !slot->neutral)
+	{
+		return; // a fighter with no flags: left to its own AI
+	}
+	else
+	{
+		if (!ambientStroll[n])
+		{
+			if (level.time - ambientStillSince[n] < 5000)
+			{
+				return; // its own wandering works here
+			}
+			ambientStroll[n] = qtrue;
+		}
+		ent->NPC->defaultBehavior = BS_CINEMATIC; // stands, and walks to its goal when it has one
+		ent->NPC->behaviorState = BS_CINEMATIC;
+		ent->NPC->scriptFlags |= SCF_WALKING;
+	}
+	// a new spot every few seconds, sooner when it got there (stood still 2 s)
+	if (level.time < ambientStrollNext[n] && level.time - ambientStillSince[n] < 2000)
+	{
+		return;
+	}
+	ambientStrollNext[n] = level.time + (droid ? Q_irand(2500, 6000) : Q_irand(4000, 9000));
+	if (!Q_irand(0, droid ? 6 : 4))
+	{
+		return; // stand a while
+	}
+	if (ent->client->NPC_class == CLASS_GONK && Q_irand(0, 1) && G_AmbientGonkCharger(ent, spot))
+	{
+		NPC_SetMoveGoal(ent, spot, 56, qfalse, -1, NULL); // off to a charger
+		ambientStillSince[n] = level.time;
+		ambientStrollNext[n] = level.time + Q_irand(8000, 14000); // and stays a while
+		return;
+	}
+	dir[0] = Q_flrand(-1.0f, 1.0f);
+	dir[1] = Q_flrand(-1.0f, 1.0f);
+	VectorNormalize(dir);
+	VectorMA(AMB_ORG(ent), -64.0f, dir, from); // "away from" a point behind it
+	if (G_AmbientFleeSpot(ent, from, spot))
+	{
+		NPC_SetMoveGoal(ent, spot, 24, qfalse, -1, NULL);
+		ambientStillSince[n] = level.time;
+	}
+}
+
+// once a second: what each one of ours does
+static void G_AmbientBehaveAll(void)
+{
+	int i = 0;
+
+	for (i = AMB_FIRST_NPC; i < AMB_NUM_ENTS && i < MAX_GENTITIES; i++)
+	{
+		gentity_t* ent = &g_entities[i];
+		const ambientSlot_t* slot = NULL;
+
+		if (!ent->inuse || !ent->client || !ent->NPC || ent->health <= 0)
+		{
+			continue;
+		}
+		slot = G_AmbientSlotOf(ent);
+		if (!slot)
+		{
+			continue;
+		}
+		if (slot->neutral)
+		{
+			G_AmbientNeutral(ent, i);
+		}
+		else if (slot->calm || slot->spectate)
+		{
+			G_CivilianCalm(ent);
+			if (slot->spectate)
+			{
+				G_AmbientSpectate(ent);
+			}
+		}
+		if (slot->scavenge)
+		{
+			G_AmbientScavenge(ent, i);
+		}
+		if (slot->alarm)
+		{
+			G_AmbientAlarm(ent, i);
+		}
+		G_AmbientHunt(ent);
+		G_AmbientStroll(ent, slot, i);
+	}
+	G_AmbientDropCarried();
+}
+
+// a new one of ours: tag it and set it up at once, before its first think
+static void G_AmbientSpawned(gentity_t* npc)
+{
+	const ambientSlot_t* slot = &ambientSlots[rancorPitCreature];
+
+	G_AmbientTag(npc, rancorPitCreature);
+	if (slot->neutral)
+	{
+		G_AmbientNeutral(npc, npc->s.number);
+	}
+	else if (slot->calm || slot->spectate)
+	{
+		G_CivilianCalm(npc);
+		if (slot->spectate)
+		{
+			npc->NPC->defaultBehavior = BS_DEFAULT;
+			npc->NPC->behaviorState = BS_DEFAULT;
+		}
+	}
+}
+
+// g_ambientLife 0: take away everything this file spawned (once), and do nothing more
+static qboolean G_AmbientLifeCheck(void)
+{
+	int i = 0;
+
+	if (AMB_LIFE_ON)
+	{
+		ambientLifeWas = qtrue;
+		return qtrue;
+	}
+	if (ambientLifeWas)
+	{
+		ambientLifeWas = qfalse;
+		for (i = AMB_FIRST_NPC; i < AMB_NUM_ENTS && i < MAX_GENTITIES; i++)
+		{
+			gentity_t* ent = &g_entities[i];
+			if (ent->inuse && ent->NPC && ent->targetname && !Q_stricmp(ent->targetname, AMBIENT_NAME))
+			{
+				G_FreeEntity(ent);
+			}
+		}
+		G_AmbientFreeFlyers();
+		G_AmbientResetLife();
+		memset(pitRespawnTime, 0, sizeof pitRespawnTime);
+		memset(pitSpawnedAll, 0, sizeof pitSpawnedAll);
+	}
+	return qfalse;
+}
+
+// SP: no bot waypoints
+#define AMB_MORE_ANCHORS(cand, num, max) do { } while (0)
+
+// Where the next small one goes (2026-11-26): spread over the map and random looking, never all in one place.
+// CTF: first the red flag, the blue flag and the middle between them (one each, in random order); after that,
+// of the spawn points, the flags, the middle and (MP) some random bot waypoints, the spot farthest from all of
+// ours already there - most of the time the farthest, now and then the second or third, so it is not laid out.
+#define AMBIENT_MAX_ANCHORS		128
+#define AMBIENT_ZONE_TAKEN		600.0f	// one of ours this close = that flag / middle has its one
+
+static float G_AmbientNearestOurs(const vec3_t spot, vec3_t* ours, const int numOurs)
+{
+	float best = 999999.0f * 999999.0f;
+	int i = 0;
+
+	for (i = 0; i < numOurs; i++)
+	{
+		const float d = DistanceSquared(spot, ours[i]);
+		if (d < best)
+		{
+			best = d;
+		}
+	}
+	return best;
+}
+
+static void G_AmbientPickAnchor(vec3_t* spots, const int numSpots, vec3_t out)
+{
+	static vec3_t cand[AMBIENT_MAX_ANCHORS];
+	static vec3_t ours[MAX_GENTITIES / 4];
+	vec3_t flags[3] = { { 0 } };
+	int numCand = 0, numOurs = 0, numFlags = 0, i = 0, best[3] = { -1, -1, -1 };
+	float bestScore[3] = { -1.0f, -1.0f, -1.0f };
+	gentity_t* red = G_Find(NULL, FOFS(classname), "team_CTF_redflag");
+	gentity_t* blue = G_Find(NULL, FOFS(classname), "team_CTF_blueflag");
+
+	// where ours are now (any kind)
+	for (i = AMB_FIRST_NPC; i < AMB_NUM_ENTS && i < MAX_GENTITIES && numOurs < MAX_GENTITIES / 4; i++)
+	{
+		const gentity_t* ent = &g_entities[i];
+		if (ent->inuse && ent->NPC && ent->health > 0 && ent->targetname && !Q_stricmp(ent->targetname, AMBIENT_NAME))
+		{
+			VectorCopy(AMB_ORG(ent), ours[numOurs]);
+			numOurs++;
+		}
+	}
+
+	// CTF: one at each flag and one in the middle first
+	if (red && blue)
+	{
+		VectorCopy(red->s.origin, flags[0]);
+		VectorCopy(blue->s.origin, flags[1]);
+		VectorAdd(flags[0], flags[1], flags[2]);
+		VectorScale(flags[2], 0.5f, flags[2]);
+		numFlags = 3;
+		{
+			const int first = Q_irand(0, 2);
+			for (i = 0; i < 3; i++)
+			{
+				const int k = (first + i) % 3;
+				if (G_AmbientNearestOurs(flags[k], ours, numOurs) > AMBIENT_ZONE_TAKEN * AMBIENT_ZONE_TAKEN)
+				{
+					VectorCopy(flags[k], out);
+					return;
+				}
+			}
+		}
+	}
+
+	// the candidates
+	for (i = 0; i < numFlags && numCand < AMBIENT_MAX_ANCHORS; i++)
+	{
+		VectorCopy(flags[i], cand[numCand]);
+		numCand++;
+	}
+	for (i = 0; i < numSpots && numCand < AMBIENT_MAX_ANCHORS; i++)
+	{
+		VectorCopy(spots[i], cand[numCand]);
+		numCand++;
+	}
+	AMB_MORE_ANCHORS(cand, numCand, AMBIENT_MAX_ANCHORS);
+	if (!numCand)
+	{
+		VectorCopy(spots[Q_irand(0, numSpots - 1)], out);
+		return;
+	}
+	if (!numOurs)
+	{
+		VectorCopy(cand[Q_irand(0, numCand - 1)], out); // the first one: anywhere
+		return;
+	}
+
+	// the three farthest from ours (a little random in the scores too)
+	for (i = 0; i < numCand; i++)
+	{
+		const float score = G_AmbientNearestOurs(cand[i], ours, numOurs) * Q_flrand(0.8f, 1.2f);
+		if (score > bestScore[0])
+		{
+			bestScore[2] = bestScore[1]; best[2] = best[1];
+			bestScore[1] = bestScore[0]; best[1] = best[0];
+			bestScore[0] = score; best[0] = i;
+		}
+		else if (score > bestScore[1])
+		{
+			bestScore[2] = bestScore[1]; best[2] = best[1];
+			bestScore[1] = score; best[1] = i;
+		}
+		else if (score > bestScore[2])
+		{
+			bestScore[2] = score; best[2] = i;
+		}
+	}
+	{
+		const int roll = Q_irand(0, 99);
+		int pick = roll < 60 ? 0 : roll < 85 ? 1 : 2;
+		while (pick > 0 && best[pick] < 0)
+		{
+			pick--;
+		}
+		VectorCopy(cand[best[pick]], out);
+	}
+}
+
 static qboolean G_RancorPitSpawn()
 {
 	vec3_t spots[64] = {}, center = {}, spot = {}, face = {};
@@ -6241,11 +8124,19 @@ static qboolean G_RancorPitSpawn()
 	}
 
 	VectorClear(center);
-	for (i = 0; i < numSpots; i++)
+	if (!ambientSlots[rancorPitCreature].middle)
 	{
-		VectorAdd(center, spots[i], center);
+		// the smaller ones: spread over the map (flags / middle / spawn points / waypoints), random looking
+		G_AmbientPickAnchor(spots, numSpots, center);
 	}
-	VectorScale(center, 1.0f / numSpots, center);
+	else
+	{
+		for (i = 0; i < numSpots; i++)
+		{
+			VectorAdd(center, spots[i], center);
+		}
+		VectorScale(center, 1.0f / numSpots, center);
+	}
 	if (!G_RancorPitFloor(center))
 	{
 		// no floor under the middle: start from the spawn point nearest to it
@@ -6269,7 +8160,7 @@ static qboolean G_RancorPitSpawn()
 
 	// open floor nearest the middle: the middle itself, then rings further out (16 directions each),
 	// with room for the whole creature, nobody close by and a clear line back to the middle
-	for (ring = 0; ring <= 10 && !ok; ring++)
+	for (ring = ambientSlots[rancorPitCreature].spectate ? 6 : ambientSlots[rancorPitCreature].middle ? 0 : 3; ring <= (ambientSlots[rancorPitCreature].spectate ? 16 : 10) && !ok; ring++)
 	{
 		const float radius = ring * 40.0f;
 		const int dirs = ring ? 16 : 1;
@@ -6285,7 +8176,8 @@ static qboolean G_RancorPitSpawn()
 			{
 				continue;
 			}
-			if (G_RancorPitRoom(spot) && G_RancorPitNobodyNear(spot) && (!ring || G_RancorPitClearLine(center, spot)))
+			if (G_RancorPitRoom(spot) && G_RancorPitNobodyNear(spot) && !G_AmbientNearSpawn(spot)
+				&& (!ring || G_RancorPitClearLine(center, spot)))
 			{
 				ok = qtrue;
 				break;
@@ -6293,20 +8185,8 @@ static qboolean G_RancorPitSpawn()
 		}
 	}
 
-	if (!ok)
-	{
-		// a cramped map: any spawn point with room
-		const int first = Q_irand(0, numSpots - 1);
-		for (i = 0; i < numSpots; i++)
-		{
-			VectorCopy(spots[(first + i) % numSpots], spot);
-			if (G_RancorPitFloor(spot) && G_RancorPitRoom(spot) && G_RancorPitNobodyNear(spot))
-			{
-				ok = qtrue;
-				break;
-			}
-		}
-	}
+	// (2026-11-26: no longer falls back to a spawn point itself - a player spawning there landed inside the
+	// animal and was thrown up; it tries again next second round another spawn point)
 	if (!ok)
 	{
 		return qfalse; // try again next second
@@ -6330,66 +8210,89 @@ static qboolean G_RancorPitSpawn()
 	VectorCopy(spot, spawner->s.origin); // SP NPC_Spawn_Do reads s.origin, which G_SetOrigin only sets for clients (rancor spawned at the map origin)
 	spawner->s.angles[YAW] = vectoyaw(face);
 	spawner->NPC_type = G_NewString(G_RancorPitNPCType());
+	spawner->NPC_targetname = G_NewString(AMBIENT_NAME);
 	spawner->count = 1; // NPC_Spawn_Do frees the spawner
 	spawner->delay = 0;
 
-	return static_cast<qboolean>(NPC_Spawn_Do(spawner, qfalse) != nullptr);
+	gentity_t* npc = NPC_Spawn_Do(spawner, qfalse);
+	if (!npc)
+	{
+		ambientSlot_t* slot = &ambientSlots[rancorPitCreature];
+		if (++slot->fails == 5)
+		{
+			Com_Printf(S_COLOR_YELLOW "%s: NPC \"%s\" on %s would not spawn, left out\n", AMBIENT_FILE, slot->npcType, level.mapname);
+		}
+		return qfalse;
+	}
+	G_AmbientSpawned(npc);
+	return qtrue;
 }
 
 void G_RancorPitThink()
 {
-	if (!g_rancorPit)
-	{
-		g_rancorPit = gi.cvar("g_rancorPit", "1", CVAR_ARCHIVE);
-		g_rancorPitMap = gi.cvar("g_rancorPitMap", "mp/duel7", CVAR_ARCHIVE);
-		g_rancorPitRespawn = gi.cvar("g_rancorPitRespawn", "30", CVAR_ARCHIVE);
-		g_wampaPitMaps = gi.cvar("g_wampaPitMaps", "mp/ctf2 mp/duel9", CVAR_ARCHIVE);
-	}
+	int total = 0;
 
-	if (level.time < rancorPitLastTime || Q_stricmp(level.mapname, rancorPitMapName))
+	G_AmbientMapCheck();
+	if (!G_AmbientLifeCheck())
 	{
-		// new map / loaded game
-		rancorPitNextCheck = rancorPitRespawnTime = 0;
-		rancorPitSpawnedOnce = qfalse;
-		rancorPitPrecached = rancorPitCreature = RANCORPIT_NONE;
-		Q_strncpyz(rancorPitMapName, level.mapname, sizeof rancorPitMapName);
+		return; // g_ambientLife 0
 	}
-	rancorPitLastTime = level.time;
-
-	if (!g_rancorPit->integer || level.time < rancorPitNextCheck)
+	G_AmbientFleeThink();
+	G_AmbientExtrasThink();
+	if (level.time < rancorPitNextCheck)
 	{
 		return;
 	}
 	rancorPitNextCheck = level.time + 1000;
-
-	rancorPitCreature = G_RancorPitPickCreature();
-	if (rancorPitCreature == RANCORPIT_NONE)
+	G_AmbientBehaveAll();
+	if (!g_rancorPit->integer)
 	{
 		return;
 	}
 
-	if (rancorPitPrecached != rancorPitCreature)
+	for (int t = 0; t < numAmbientSlots; t++)
 	{
-		NPC_PrecacheByClassName(G_RancorPitNPCType());
-		rancorPitPrecached = rancorPitCreature;
+		rancorPitCreature = t;
+		total += G_RancorPitAlive();
 	}
+	for (int t = 0; t < numAmbientSlots; t++)
+	{
+		ambientSlot_t* slot = &ambientSlots[t];
+		const int want = slot->fails >= 5 ? 0 : slot->count;
 
-	if (G_RancorPitAlive())
-	{
-		rancorPitRespawnTime = 0;
-		return;
+		rancorPitCreature = t;
+		if (!want)
+		{
+			continue;
+		}
+		if (!pitPrecached[t])
+		{
+			NPC_PrecacheByClassName(G_RancorPitNPCType());
+			pitPrecached[t] = qtrue;
+		}
+		if (G_RancorPitAlive() >= want)
+		{
+			pitSpawnedAll[t] = qtrue;
+			pitRespawnTime[t] = 0;
+			continue;
+		}
+		if (total >= g_ambientMax->integer)
+		{
+			continue; // g_ambientMax about already
+		}
+		if (!pitRespawnTime[t])
+		{
+			pitRespawnTime[t] = level.time + (pitSpawnedAll[t] ? (slot->respawn > 0 ? slot->respawn : g_rancorPitRespawn->integer) * 1000 : 2000);
+		}
+		if (level.time >= pitRespawnTime[t] && G_RancorPitSpawn())
+		{
+			pitRespawnTime[t] = 0; // the next missing one gets its own time
+			total++;
+		}
 	}
+}
 
-	if (!rancorPitRespawnTime)
-	{
-		rancorPitRespawnTime = level.time + (rancorPitSpawnedOnce ? g_rancorPitRespawn->integer * 1000 : 2000);
-	}
-	if (level.time >= rancorPitRespawnTime && G_RancorPitSpawn())
-	{
-		rancorPitSpawnedOnce = qtrue;
-		rancorPitRespawnTime = 0;
-	}
-}extern cvar_t* g_civilians;
+extern cvar_t* g_civilians;
 extern bool in_camera;
 extern cvar_t* g_civilianTypes;
 
@@ -6548,7 +8451,7 @@ static void G_CivilianSpawn(void)
 	gentity_t* civ = nullptr;
 	vec3_t pos = {};
 
-	Q_strncpyz(list, (g_civilianTypes ? g_civilianTypes->string : ""), sizeof list);
+	Q_strncpyz(list, ambientCivilianTypes[0] ? ambientCivilianTypes : g_civilianTypes ? g_civilianTypes->string : "", sizeof list);
 	for (s = strtok(list, " ,;"); s && num_types < 32; s = strtok(nullptr, " ,;"))
 	{
 		types[num_types++] = s;
@@ -6604,8 +8507,11 @@ static void G_CivilianSpawn(void)
 // every server frame: keep g_civilians civilians about, make them peaceful wanderers, take far ones away
 void G_CivilianThink(void)
 {
-	const int want = (g_civilians ? g_civilians->integer : 0) > MAX_CIVILIANS ? MAX_CIVILIANS : (g_civilians ? g_civilians->integer : 0);
-	int i = 0, have = 0;
+	int want = 0, i = 0, have = 0;
+
+	G_AmbientMapCheck(); // the map may say how many (ext_data/sje_ambient.dat)
+	want = ambientCivilians >= 0 && AMB_LIFE_ON ? ambientCivilians : g_civilians ? g_civilians->integer : 0;
+	want = want < 0 ? 0 : want > MAX_CIVILIANS ? MAX_CIVILIANS : want;
 
 	if (level.time < civilianNextSpawn || in_camera)
 	{
@@ -6623,8 +8529,8 @@ void G_CivilianThink(void)
 			continue;
 		}
 		civ = &g_entities[civilianEnts[i] - 1];
-		if (!civ->inuse || !civ->client || !civ->NPC || civ->health <= 0 || !civ->NPC_targetname
-			|| Q_stricmp(civ->NPC_targetname, "sje_civilian"))
+		if (!civ->inuse || !civ->client || !civ->NPC || civ->health <= 0 || !civ->targetname
+			|| Q_stricmp(civ->targetname, "sje_civilian"))
 		{
 			civilianEnts[i] = 0; // gone (killed, removed)
 			continue;

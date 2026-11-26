@@ -423,6 +423,8 @@ Prevents score from dropping below 0.
 */
 extern qboolean g_dontPenalizeTeam; // g_cmds.c
 
+extern qboolean G_IsAmbientNPC(const gentity_t* ent); // NPC_spawn.c
+
 void AddScore(const gentity_t* ent, const int score)
 {
 	// ----------------------------------------------------------------------
@@ -3832,6 +3834,11 @@ void player_die(gentity_t* self, const gentity_t* inflictor, gentity_t* attacker
 		else if (means_of_death == MOD_COLLISION || means_of_death == MOD_VEH_EXPLOSION)
 		{
 			//no credit for veh-veh collisions?
+		}
+		else if (G_IsAmbientNPC(self))
+		{
+			// map life (2026-11-26, NPC_spawn.c: animals, droids, civilians from sje_ambient.dat): no score, so it does
+			// not count towards the frag limit and nobody farms the mice
 		}
 		else if (attacker == self || OnSameTeam(self, attacker))
 		{
