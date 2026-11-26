@@ -11611,6 +11611,21 @@ qboolean PM_SaberDrawPutawayAnim(const int anim)
 }
 
 constexpr auto SLOPE_RECALC_INT = 100;
+// (MD team) At a ledge the slope stance flickered every frame: the stand has one foot on the ground and one over the
+// drop, so a slope stance is taken; that pose draws the other foot in - over the drop as well, or back on to level
+// ground -, the difference reads 0 and the stand comes back; and so on, 66 changes in 75 frames (Vader, saber lit, on
+// t1_rail's roof edge: the whole body trembled). The pose changes what is measured, so at such a spot the two answers
+// chase each other. When a slope stance is ended by a level reading twice within SLOPE_FLIP_TIME at the same place,
+// the plain stance is kept until he moves or turns. (Not saved: after a load it simply starts afresh.)
+constexpr auto SLOPE_FLIP_TIME = 1000;
+struct slopeGuard_t
+{
+	vec3_t org;
+	float yaw;
+	int leaves, first_leave;
+	qboolean locked;
+};
+static slopeGuard_t slope_guard[MAX_GENTITIES];
 extern qboolean g_standard_humanoid(gentity_t* self);
 
 static qboolean PM_AdjustStandAnimForSlope()
@@ -11634,6 +11649,20 @@ static qboolean PM_AdjustStandAnimForSlope()
 	if (pm->gent->footLBolt == -1 || pm->gent->footRBolt == -1)
 	{
 		//need these bolts!
+		return qfalse;
+	}
+	// (MD team) the flip guard: the plain stance while it is locked at this place (see SLOPE_FLIP_TIME)
+	slopeGuard_t& guard = slope_guard[pm->gent->s.number & (MAX_GENTITIES - 1)];
+	const float guard_yaw = pm->gent->client->renderInfo.legsYaw;
+	const bool guard_here = guard.leaves > 0 && DistanceSquared(pm->gent->currentOrigin, guard.org) < 4.0f
+		&& fabsf(AngleSubtract(guard_yaw, guard.yaw)) < 5.0f;
+	if (!guard_here)
+	{
+		guard.leaves = 0;
+		guard.locked = qfalse;
+	}
+	else if (guard.locked)
+	{
 		return qfalse;
 	}
 	//step 1: find the 2 foot tags
@@ -11685,6 +11714,24 @@ static qboolean PM_AdjustStandAnimForSlope()
 	}
 	else
 	{
+		if (PM_InSlopeAnim(pm->ps->legsAnim))
+		{
+			// (MD team) a slope stance ends on a level reading: the second time in a row at this place locks the plain stance
+			if (guard_here && level.time - guard.first_leave >= 0 && level.time - guard.first_leave < SLOPE_FLIP_TIME)
+			{
+				if (++guard.leaves >= 2)
+				{
+					guard.locked = qtrue;
+				}
+			}
+			else
+			{
+				VectorCopy(pm->gent->currentOrigin, guard.org);
+				guard.yaw = guard_yaw;
+				guard.leaves = 1;
+				guard.first_leave = level.time;
+			}
+		}
 		return qfalse;
 	}
 
