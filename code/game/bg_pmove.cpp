@@ -5869,6 +5869,10 @@ PM_CrashLand
 Check for hard landings that generate sound events
 =================
 */
+// Landing within this many units under a jump's start height is landing at the same height (PM_CrashLand)
+constexpr float MD_JUMP_SAME_HEIGHT = 1.0f;
+qboolean PM_LandingAnim(int anim);
+
 static void PM_CrashLand()
 {
 	float delta = 0;
@@ -5958,7 +5962,9 @@ static void PM_CrashLand()
 			MAX_CLIENTS || PM_ControlledByPlayer())))
 		{
 			//we were force-jumping
-			if (pm->ps->origin[2] >= pm->ps->jumpZStart)
+			// (back on the ground the jump began on, origin[2] comes out a hair under or over the start height by float
+			// chance: with a bare >= the landing animation after such a jump was a coin toss - MD_JUMP_SAME_HEIGHT)
+			if (pm->ps->origin[2] >= pm->ps->jumpZStart - MD_JUMP_SAME_HEIGHT)
 			{
 				//we landed at same height or higher than we landed
 				if (pm->ps->forceJumpZStart)
@@ -5994,6 +6000,19 @@ static void PM_CrashLand()
 		if (!delta)
 		{
 			delta = PM_CrashLandDelta(pml.previous_velocity);
+		}
+	}
+
+	// A force jump that comes down while its jump clip is still held lands in its landing animation, whatever the
+	// drop: the clip is held for its whole length (a style's own can be 1.75 s), and without a landing nothing ended
+	// it - the character stood (or slid on, running) in the jump's pose until the timer ran out.
+	if (!force_landing && pm->ps->forceJumpZStart && pm->ps->legsAnimTimer > 0
+		&& PM_ForceJumpingAnim(pm->ps->legsAnim) && !PM_LandingAnim(pm->ps->legsAnim))
+	{
+		force_landing = qtrue;
+		if (delta < 1)
+		{
+			delta = 1;
 		}
 	}
 
@@ -11611,6 +11630,21 @@ qboolean PM_SaberDrawPutawayAnim(const int anim)
 }
 
 constexpr auto SLOPE_RECALC_INT = 100;
+// (MD team) At a ledge the slope stance flickered every frame: the stand has one foot on the ground and one over the
+// drop, so a slope stance is taken; that pose draws the other foot in - over the drop as well, or back on to level
+// ground -, the difference reads 0 and the stand comes back; and so on, 66 changes in 75 frames (Vader, saber lit, on
+// t1_rail's roof edge: the whole body trembled). The pose changes what is measured, so at such a spot the two answers
+// chase each other. When a slope stance is ended by a level reading twice within SLOPE_FLIP_TIME at the same place,
+// the plain stance is kept until he moves or turns. (Not saved: after a load it simply starts afresh.)
+constexpr auto SLOPE_FLIP_TIME = 1000;
+struct slopeGuard_t
+{
+	vec3_t org;
+	float yaw;
+	int leaves, first_leave;
+	qboolean locked;
+};
+static slopeGuard_t slope_guard[MAX_GENTITIES];
 extern qboolean g_standard_humanoid(gentity_t* self);
 
 static qboolean PM_AdjustStandAnimForSlope()
@@ -11634,6 +11668,20 @@ static qboolean PM_AdjustStandAnimForSlope()
 	if (pm->gent->footLBolt == -1 || pm->gent->footRBolt == -1)
 	{
 		//need these bolts!
+		return qfalse;
+	}
+	// (MD team) the flip guard: the plain stance while it is locked at this place (see SLOPE_FLIP_TIME)
+	slopeGuard_t& guard = slope_guard[pm->gent->s.number & (MAX_GENTITIES - 1)];
+	const float guard_yaw = pm->gent->client->renderInfo.legsYaw;
+	const bool guard_here = guard.leaves > 0 && DistanceSquared(pm->gent->currentOrigin, guard.org) < 4.0f
+		&& fabsf(AngleSubtract(guard_yaw, guard.yaw)) < 5.0f;
+	if (!guard_here)
+	{
+		guard.leaves = 0;
+		guard.locked = qfalse;
+	}
+	else if (guard.locked)
+	{
 		return qfalse;
 	}
 	//step 1: find the 2 foot tags
@@ -11685,6 +11733,24 @@ static qboolean PM_AdjustStandAnimForSlope()
 	}
 	else
 	{
+		if (PM_InSlopeAnim(pm->ps->legsAnim))
+		{
+			// (MD team) a slope stance ends on a level reading: the second time in a row at this place locks the plain stance
+			if (guard_here && level.time - guard.first_leave >= 0 && level.time - guard.first_leave < SLOPE_FLIP_TIME)
+			{
+				if (++guard.leaves >= 2)
+				{
+					guard.locked = qtrue;
+				}
+			}
+			else
+			{
+				VectorCopy(pm->gent->currentOrigin, guard.org);
+				guard.yaw = guard_yaw;
+				guard.leaves = 1;
+				guard.first_leave = level.time;
+			}
+		}
 		return qfalse;
 	}
 
