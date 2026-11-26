@@ -2848,7 +2848,7 @@ void G_RunFrame(const int level_time)
 	Rail_Update();
 	Troop_Update();
 	extern void G_RancorPitThink();
-	G_RancorPitThink(); // the rancor that lives on mp/duel7 (NPC_spawn.cpp)
+	G_RancorPitThink(); // the rancor on mp/duel7, the wampa on mp/ctf2 + mp/duel9 (NPC_spawn.cpp)
 	Pilot_Update();
 	extern void G_FighterRoute_Frame();
 	G_FighterRoute_Frame(); // ship_wp_show

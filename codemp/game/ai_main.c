@@ -155,13 +155,15 @@ vmCvar_t bot_forcepowers;
 vmCvar_t bot_forgimmick;
 vmCvar_t bot_honorableduelacceptance;
 vmCvar_t bot_obstaclejumps;	// 1: bots jump only to clear obstacles (no hopping about), 0: they jump as they like
-vmCvar_t bot_sjeai;			// bitmask of SJE bot AI additions (default 31 = all):
+vmCvar_t bot_sjeai;			// bitmask of SJE bot AI additions (default 255 = all):
 #define BOT_SJEAI_EXPLORE	1	// getting about with no waypoints (bot_explore_navigation)
 #define BOT_SJEAI_READMOVE	2	// where his enemy will be: SHR_ReadMove (strafers, chargers, ones in the air)
 #define BOT_SJEAI_STEPOUT	4	// steps out of an enemy swing he can't block well (bot_swing_stepout)
 #define BOT_SJEAI_REAR		8	// a saber user swinging at him from behind becomes his enemy (bot_rear_threat)
 #define BOT_SJEAI_STANCE	16	// counter-stance: the stance that does best against his enemy's
 #define BOT_SJEAI_FORCE		32	// force fighting: break a grip, grip + kick / push, lightning on one who is down, throw timing
+#define BOT_SJEAI_SPREAD	64	// no bunching up: a bot with no enemy steps away from a teammate he stands on (bot_spread_out)
+#define BOT_SJEAI_TARGETS	128	// share out the enemies: fewer bots on one man, none on one who just spawned (bot_target_spread)
 #define BOT_READMOVE_RETREAT	4	// = SHR_MOVE_RETREAT (shared/game/g_npcshared.h)
 // fight reading shared with the NPC Jedi (shared/game/AI_Utils.c)
 extern int SHR_ReadMove(const gentity_t* watcher, const gentity_t* target, float lookahead, vec3_t predicted);
@@ -202,6 +204,7 @@ gentity_t* eFlagRed;
 gentity_t* droppedRedFlag;
 gentity_t* eFlagBlue;
 gentity_t* droppedBlueFlag;
+extern teamgame_t teamgame; // g_team.c (CTF flag status)
 
 char* ctfStateNames[] = {
 	"CTFSTATE_NONE",
@@ -7912,6 +7915,63 @@ static void enemy_visual_update(bot_state_t* bs)
 }
 
 //standard check to find a new enemy.
+// CTF (2026-11-26, CTF bot plan; ideas from OJP's TABBot and the Quake 3 team AI, written into our bot code):
+// a player on red or blue who counts for the team (not an empty client slot or a spectator)
+static qboolean bot_ctf_team_member(const gentity_t* ent)
+{
+	return (qboolean)(ent && ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED
+		&& (ent->client->sess.sessionTeam == TEAM_RED || ent->client->sess.sessionTeam == TEAM_BLUE));
+}
+
+// an enemy who is carrying our flag
+static qboolean bot_ctf_has_our_flag(const bot_state_t* bs, const gentity_t* ent)
+{
+	int my_flag = PW_BLUEFLAG;
+
+	if ((level.gametype != GT_CTF && level.gametype != GT_CTY) || !ent || !ent->client)
+	{
+		return qfalse;
+	}
+	if (level.clients[bs->client].sess.sessionTeam == TEAM_RED)
+	{
+		my_flag = PW_REDFLAG;
+	}
+	return (qboolean)(ent->client->ps.powerups[my_flag] && !OnSameTeam(&g_entities[bs->client], ent));
+}
+
+// bot_sjeai 128 (2026-11-26, after the Open Battlefront Project's BotTargetDiversity): how much further than he
+// is an enemy counts when a bot picks whom to fight - 200 for every other bot already on him (up to 3), 1000 if he
+// just spawned (spawn protection). Not for the Jedi Master, a flag carrier or the one who just hurt us.
+static float bot_target_spread(const bot_state_t* bs, const gentity_t* ent)
+{
+	float add = 0.0f;
+	int others = 0;
+
+	if (!(bot_sjeai.integer & BOT_SJEAI_TARGETS) || !ent || !ent->client || ent->s.number >= MAX_CLIENTS)
+	{
+		return 0.0f;
+	}
+	if (ent->client->ps.isJediMaster || ent->client->ps.powerups[PW_REDFLAG] || ent->client->ps.powerups[PW_BLUEFLAG]
+		|| bs->lastHurt == ent)
+	{
+		return 0.0f;
+	}
+	for (int i = 0; i < MAX_CLIENTS && others < 3; i++)
+	{
+		if (i != bs->client && i != ent->s.number && botstates[i] && botstates[i]->inuse
+			&& botstates[i]->currentEnemy == ent)
+		{
+			others++;
+		}
+	}
+	add += (float)others * 200.0f;
+	if (ent->client->ps.eFlags & EF_INVULNERABLE)
+	{
+		add += 1000.0f;
+	}
+	return add;
+}
+
 static int scan_for_enemies(bot_state_t* bs)
 {
 	if (bot_is_droid(bs))
@@ -7936,6 +7996,10 @@ static int scan_for_enemies(bot_state_t* bs)
 		{
 			//only switch to a new enemy if he's significantly closer
 			has_enemy_dist = bs->frame_Enemy_Len;
+			if (bot_ctf_has_our_flag(bs, bs->currentEnemy))
+			{
+				has_enemy_dist = 1; // CTF: stay on the man with our flag
+			}
 		}
 	}
 
@@ -7980,6 +8044,11 @@ static int scan_for_enemies(bot_state_t* bs)
 			if (g_entities[i].client->ps.isJediMaster)
 			{
 				//make us think the Jedi Master is close so we'll attack him above all
+				distcheck = 1;
+			}
+			else if (bot_ctf_has_our_flag(bs, &g_entities[i]))
+			{
+				//CTF: the man with our flag comes before everyone else
 				distcheck = 1;
 			}
 
@@ -8081,19 +8150,20 @@ static int scan_for_enemies(bot_state_t* bs)
 					request_siege_assistance(bs, REPLY_YES);
 			}
 
-			if (distcheck < closest && (in_field_of_vision(bs->viewangles, 90, a) && !bot_mind_tricked(bs->client, i) ||
+			const float pick = distcheck + bot_target_spread(bs, &g_entities[i]); // bot_sjeai 128: share out the enemies
+			if (pick < closest && (in_field_of_vision(bs->viewangles, 90, a) && !bot_mind_tricked(bs->client, i) ||
 				bot_can_hear(bs, &g_entities[i], distcheck)) && bot_enemy_in_sight(bs, g_entities[i].client->ps.origin))
 			{
 				if (bot_mind_tricked(bs->client, i))
 				{
 					if (distcheck < 256 || level.time - g_entities[i].client->dangerTime < 100)
 					{
-						if (!has_enemy_dist || distcheck < has_enemy_dist - 128)
+						if (!has_enemy_dist || pick < has_enemy_dist - 128)
 						{
 							//if we have an enemy, only switch to closer if he is 128+ closer to avoid flipping out
 							if (!no_attack_non_jm || g_entities[i].client->ps.isJediMaster)
 							{
-								closest = distcheck;
+								closest = pick;
 								bestindex = i;
 							}
 						}
@@ -8101,12 +8171,12 @@ static int scan_for_enemies(bot_state_t* bs)
 				}
 				else
 				{
-					if (!has_enemy_dist || distcheck < has_enemy_dist - 128)
+					if (!has_enemy_dist || pick < has_enemy_dist - 128)
 					{
 						//if we have an enemy, only switch to closer if he is 128+ closer to avoid flipping out
 						if (!no_attack_non_jm || g_entities[i].client->ps.isJediMaster)
 						{
-							closest = distcheck;
+							closest = pick;
 							bestindex = i;
 						}
 					}
@@ -8290,6 +8360,11 @@ static void advanced_scanfor_enemies(bot_state_t* bs)
 			if (g_entities[i].client->ps.isJediMaster)
 			{
 				//make us think the Jedi Master is close so we'll attack him above all
+				distcheck = 1;
+			}
+			else if (bot_ctf_has_our_flag(bs, &g_entities[i]))
+			{
+				//CTF: the man with our flag comes before everyone else
 				distcheck = 1;
 			}
 
@@ -8958,6 +9033,43 @@ static int bot_guard_flag_carrier(bot_state_t* bs)
 	return 1;
 }
 
+// CTF: the nearest health / shield / ammo pickup within range of org that we can take now (not a flag)
+static const gentity_t* bot_ctf_wait_item(const bot_state_t* bs, const vec3_t org, const float range)
+{
+	const gentity_t* best = NULL;
+	float best_dist = range;
+
+	for (int i = MAX_CLIENTS; i < level.num_entities; i++)
+	{
+		const gentity_t* ent = &g_entities[i];
+		const gitem_t* item = NULL;
+
+		if (!ent->inuse || ent->s.eType != ET_ITEM || ent->s.modelindex < 1 || ent->s.modelindex >= bg_numItems
+			|| ent->s.eFlags & (EF_NODRAW | EF_ITEMPLACEHOLDER))
+		{
+			continue;
+		}
+		item = &bg_itemlist[ent->s.modelindex];
+		if (item->giType != IT_HEALTH && item->giType != IT_ARMOR && item->giType != IT_AMMO)
+		{
+			continue;
+		}
+		if (!BG_CanItemBeGrabbed(level.gametype, &ent->s, &bs->cur_ps))
+		{
+			continue; // e.g. health when we have full health
+		}
+		const float dist = Distance(org, ent->r.currentOrigin);
+		if (dist < best_dist)
+		{
+			best_dist = dist;
+			best = ent;
+		}
+	}
+	return best;
+}
+
+#define BOT_CTF_WAIT_RANGE 768.0f // carrier waiting for our flag: stays this close to our stand
+
 //We have the flag, let's get it home.
 static int bot_get_flag_home(bot_state_t* bs)
 {
@@ -8984,12 +9096,62 @@ static int bot_get_flag_home(bot_state_t* bs)
 
 	VectorSubtract(bs->origin, flag_point->origin, a);
 
+	// CTF (2026-11-26, after OJP's TABBot): our flag is carried off, so we cannot score yet. Rather than
+	// stand at the empty stand, wait in our base picking up health, shields and ammo near it. (A dropped
+	// flag of ours has moved flag_point next to it, so then we go and touch it - that returns it.)
+	if ((level.clients[bs->client].sess.sessionTeam == TEAM_RED ? teamgame.redStatus : teamgame.blueStatus) == FLAG_TAKEN
+		&& VectorLength(a) <= BOT_CTF_WAIT_RANGE)
+	{
+		const gentity_t* item = bot_ctf_wait_item(bs, flag_point->origin, BOT_CTF_WAIT_RANGE);
+
+		if (item && bs->wpCurrent && bs->wpDestSwitchTime < level.time)
+		{
+			vec3_t item_org = { 0 };
+			VectorCopy(item->r.currentOrigin, item_org);
+			const int wp = get_nearest_visible_wp(item_org, item->s.number);
+
+			if (wp != -1 && gWPArray[wp] && gWPArray[wp]->inuse && total_trail_distance(bs->wpCurrent->index, wp) != -1)
+			{
+				bs->wpDestination = gWPArray[wp];
+				bs->wpDestSwitchTime = level.time + 3000;
+				return 1;
+			}
+		}
+		if (bs->wpDestSwitchTime >= level.time && bs->wpDestination && bs->wpDestination != flag_point)
+		{
+			return 1; // on the way to a pickup
+		}
+	}
+
 	if (VectorLength(a) > BASE_FLAGWAIT_DISTANCE)
 	{
 		bs->wpDestination = flag_point;
 	}
 
 	return 1;
+}
+
+// CTF (2026-11-26, after OJP's DefendCapture and the Quake 3 team AI): our flag lies dropped. Defenders and
+// retrievers go to it wherever it is, anyone else within 1024 of it does too; touching it returns it
+// (ctf_flag_movement walks the last bit). flagRed / flagBlue were moved next to the dropped flag already.
+static qboolean bot_ctf_return_dropped_flag(bot_state_t* bs)
+{
+	const qboolean red = (qboolean)(level.clients[bs->client].sess.sessionTeam == TEAM_RED);
+	const gentity_t* dropped = red ? droppedRedFlag : droppedBlueFlag;
+	wpobject_t* point = red ? flagRed : flagBlue;
+
+	if (!dropped || !dropped->inuse || !(dropped->flags & FL_DROPPED_ITEM) || !point
+		|| (dropped->classname && !strcmp(dropped->classname, "freed")))
+	{
+		return qfalse;
+	}
+	if (bs->ctfState != CTFSTATE_DEFENDER && bs->ctfState != CTFSTATE_RETRIEVAL
+		&& Distance(bs->origin, dropped->s.pos.trBase) > 1024.0f)
+	{
+		return qfalse;
+	}
+	bs->wpDestination = point;
+	return qtrue;
 }
 
 static void get_new_flag_point(const wpobject_t* wp, const gentity_t* flag_ent, const int team)
@@ -9159,8 +9321,13 @@ static int ctf_takes_priority(bot_state_t* bs)
 		flagBlue = oFlagBlue;
 	}
 
-	if (!bs->ctfState)
+	if (!bs->ctfState && !bs->cur_ps.powerups[enemy_flag])
 	{
+		// no role yet: only a dropped flag of ours near us
+		if (bot_ctf_return_dropped_flag(bs))
+		{
+			goto success;
+		}
 		return 0;
 	}
 
@@ -9170,7 +9337,7 @@ static int ctf_takes_priority(bot_state_t* bs)
 	{
 		ent = &g_entities[i];
 
-		if (ent && ent->client)
+		if (bot_ctf_team_member(ent)) // CTF (2026-11-26): not empty client slots or spectators
 		{
 			/*if (ent->client->ps.powerups[enemyFlag] && OnSameTeam(&g_entities[bs->client], ent))
 			{
@@ -9231,6 +9398,11 @@ static int ctf_takes_priority(bot_state_t* bs)
 	if (bs->state_Forced)
 	{
 		bs->ctfState = bs->state_Forced;
+	}
+
+	if (!bs->cur_ps.powerups[enemy_flag] && bot_ctf_return_dropped_flag(bs))
+	{
+		goto success;
 	}
 
 	if (bs->ctfState == CTFSTATE_DEFENDER)
@@ -10218,11 +10390,14 @@ static void get_ideal_destination(bot_state_t* bs)
 //"squad" what to do.
 static void commander_bot_ctfai(const bot_state_t* bs)
 {
+	// CTF (2026-11-26): counts only real team members, and splits attack / defence over the whole team
+	// (after OJP's TABBot DetermineCTFGoal): about half defend, more when we lead on captures, fewer when we
+	// trail; bots already defending keep it so the roles do not flip about. Real players count as attackers.
 	int i = 0;
 	gentity_t* ent = NULL;
 	int squadmates = 0;
-	gentity_t* squad[MAX_CLIENTS] = { 0 };
-	int defend_attack_priority = 0; //0 == attack, 1 == defend
+	gentity_t* squad[MAX_CLIENTS + 1] = { 0 };
+	qboolean defender[MAX_CLIENTS + 1] = { 0 };
 	int guard_defend_priority = 0; //0 == defend, 1 == guard
 	int attack_retrieve_priority = 0; //0 == retrieve, 1 == attack
 	int my_flag = 0;
@@ -10230,76 +10405,69 @@ static void commander_bot_ctfai(const bot_state_t* bs)
 	int enemy_has_our_flag = 0;
 	int we_have_enemy_flag = 0;
 	int num_on_my_team = 0;
-	int num_on_enemy_team = 0;
 	int num_attackers = 0;
-	int num_defenders = 0;
+	int outside_defenders = 0; // defenders on our team not in this squad (other squads)
+	int want_defenders = 0;
+	int assigned = 0;
+	const team_t my_team = level.clients[bs->client].sess.sessionTeam;
+	const team_t enemy_team = my_team == TEAM_RED ? TEAM_BLUE : TEAM_RED;
 
-	if (level.clients[bs->client].sess.sessionTeam == TEAM_RED)
+	if (my_team == TEAM_RED)
 	{
 		my_flag = PW_REDFLAG;
-	}
-	else
-	{
-		my_flag = PW_BLUEFLAG;
-	}
-
-	if (level.clients[bs->client].sess.sessionTeam == TEAM_RED)
-	{
 		enemy_flag = PW_BLUEFLAG;
 	}
 	else
 	{
+		my_flag = PW_BLUEFLAG;
 		enemy_flag = PW_REDFLAG;
 	}
 
-	while (i < MAX_CLIENTS)
+	for (i = 0; i < MAX_CLIENTS; i++)
 	{
 		ent = &g_entities[i];
 
-		if (ent && ent->client)
+		if (!bot_ctf_team_member(ent))
 		{
-			if (ent->client->ps.powerups[enemy_flag] && OnSameTeam(&g_entities[bs->client], ent))
-			{
-				we_have_enemy_flag = 1;
-			}
-			else if (ent->client->ps.powerups[my_flag] && !OnSameTeam(&g_entities[bs->client], ent))
-			{
-				enemy_has_our_flag = 1;
-			}
+			continue;
+		}
+		if (ent->client->ps.powerups[enemy_flag] && OnSameTeam(&g_entities[bs->client], ent))
+		{
+			we_have_enemy_flag = 1;
+		}
+		else if (ent->client->ps.powerups[my_flag] && !OnSameTeam(&g_entities[bs->client], ent))
+		{
+			enemy_has_our_flag = 1;
+		}
 
-			if (OnSameTeam(&g_entities[bs->client], ent))
-			{
-				num_on_my_team++;
-			}
-			else
-			{
-				num_on_enemy_team++;
-			}
+		if (!OnSameTeam(&g_entities[bs->client], ent))
+		{
+			continue;
+		}
+		num_on_my_team++;
 
-			if (botstates[ent->s.number])
+		if (botstates[i])
+		{
+			const bot_state_t* bst = botstates[i];
+
+			if (bst->ctfState == CTFSTATE_ATTACKER || bst->ctfState == CTFSTATE_RETRIEVAL)
 			{
-				if (botstates[ent->s.number]->ctfState == CTFSTATE_ATTACKER ||
-					botstates[ent->s.number]->ctfState == CTFSTATE_RETRIEVAL)
-				{
-					num_attackers++;
-				}
-				else
-				{
-					num_defenders++;
-				}
-			}
-			else
-			{
-				//assume real players to be attackers in our logic
 				num_attackers++;
 			}
+			if (i != bs->client && !(bst->squadLeader && bst->squadLeader->s.number == bs->client)
+				&& (bst->ctfState == CTFSTATE_DEFENDER || bst->ctfState == CTFSTATE_GUARDCARRIER))
+			{
+				outside_defenders++;
+			}
 		}
-		i++;
+		else
+		{
+			//assume real players to be attackers in our logic
+			num_attackers++;
+		}
 	}
 
-	i = 0;
-
-	while (i < MAX_CLIENTS)
+	for (i = 0; i < MAX_CLIENTS; i++)
 	{
 		ent = &g_entities[i];
 
@@ -10309,14 +10477,56 @@ static void commander_bot_ctfai(const bot_state_t* bs)
 			squad[squadmates] = ent;
 			squadmates++;
 		}
-
-		i++;
 	}
 
 	squad[squadmates] = &g_entities[bs->client];
 	squadmates++;
 
-	i = 0;
+	// how many of the team should defend
+	if (num_on_my_team >= 2)
+	{
+		const int ours = level.teamScores[my_team];
+		const int theirs = level.teamScores[enemy_team];
+
+		want_defenders = num_on_my_team / 2;
+		if (ours > theirs)
+		{
+			want_defenders = (num_on_my_team + 1) / 2; // ahead: hold what we have
+		}
+		else if (ours < theirs)
+		{
+			want_defenders = num_on_my_team / 3; // behind: push
+		}
+		if (want_defenders < 1)
+		{
+			want_defenders = 1;
+		}
+		if (want_defenders > num_on_my_team - 1)
+		{
+			want_defenders = num_on_my_team - 1; // someone always goes for their flag
+		}
+	}
+	want_defenders -= outside_defenders;
+
+	// who defends: first those who already do, then the rest in squad order (never a flag carrier)
+	for (int pass = 0; pass < 2; pass++)
+	{
+		for (i = 0; i < squadmates && assigned < want_defenders; i++)
+		{
+			const bot_state_t* bst = squad[i] && squad[i]->client ? botstates[squad[i]->s.number] : NULL;
+
+			if (!bst || defender[i] || bst->ctfState == CTFSTATE_GETFLAGHOME)
+			{
+				continue;
+			}
+			if (pass == 0 && bst->ctfState != CTFSTATE_DEFENDER && bst->ctfState != CTFSTATE_GUARDCARRIER)
+			{
+				continue;
+			}
+			defender[i] = qtrue;
+			assigned++;
+		}
+	}
 
 	if (enemy_has_our_flag && !we_have_enemy_flag)
 	{
@@ -10325,64 +10535,60 @@ static void commander_bot_ctfai(const bot_state_t* bs)
 		attack_retrieve_priority = 1;
 	}
 
-	while (i < squadmates)
+	for (i = 0; i < squadmates; i++)
 	{
-		if (squad[i] && squad[i]->client && botstates[squad[i]->s.number])
+		bot_state_t* bst = squad[i] && squad[i]->client ? botstates[squad[i]->s.number] : NULL;
+
+		if (!bst)
 		{
-			if (botstates[squad[i]->s.number]->ctfState != CTFSTATE_GETFLAGHOME)
+			continue;
+		}
+		if (bst->ctfState != CTFSTATE_GETFLAGHOME)
+		{
+			//never tell a bot to stop trying to bring the flag to the base
+			if (defender[i])
 			{
-				//never tell a bot to stop trying to bring the flag to the base
-				if (defend_attack_priority)
+				if (we_have_enemy_flag)
 				{
-					if (we_have_enemy_flag)
+					if (guard_defend_priority)
 					{
-						if (guard_defend_priority)
-						{
-							botstates[squad[i]->s.number]->ctfState = CTFSTATE_GUARDCARRIER;
-							guard_defend_priority = 0;
-						}
-						else
-						{
-							botstates[squad[i]->s.number]->ctfState = CTFSTATE_DEFENDER;
-							guard_defend_priority = 1;
-						}
+						bst->ctfState = CTFSTATE_GUARDCARRIER;
+						guard_defend_priority = 0;
 					}
 					else
 					{
-						botstates[squad[i]->s.number]->ctfState = CTFSTATE_DEFENDER;
+						bst->ctfState = CTFSTATE_DEFENDER;
+						guard_defend_priority = 1;
 					}
-					defend_attack_priority = 0;
 				}
 				else
 				{
-					if (enemy_has_our_flag)
-					{
-						if (attack_retrieve_priority)
-						{
-							botstates[squad[i]->s.number]->ctfState = CTFSTATE_ATTACKER;
-							attack_retrieve_priority = 0;
-						}
-						else
-						{
-							botstates[squad[i]->s.number]->ctfState = CTFSTATE_RETRIEVAL;
-							attack_retrieve_priority = 1;
-						}
-					}
-					else
-					{
-						botstates[squad[i]->s.number]->ctfState = CTFSTATE_ATTACKER;
-					}
-					defend_attack_priority = 1;
+					bst->ctfState = CTFSTATE_DEFENDER;
 				}
 			}
-			else if ((num_on_my_team < 2 || !num_attackers) && enemy_has_our_flag)
+			else if (enemy_has_our_flag)
 			{
-				//I'm the only one on my team who will attack and the enemy has my flag, I have to go after him
-				botstates[squad[i]->s.number]->ctfState = CTFSTATE_RETRIEVAL;
+				if (attack_retrieve_priority)
+				{
+					bst->ctfState = CTFSTATE_ATTACKER;
+					attack_retrieve_priority = 0;
+				}
+				else
+				{
+					bst->ctfState = CTFSTATE_RETRIEVAL;
+					attack_retrieve_priority = 1;
+				}
+			}
+			else
+			{
+				bst->ctfState = CTFSTATE_ATTACKER;
 			}
 		}
-
-		i++;
+		else if ((num_on_my_team < 2 || !num_attackers) && enemy_has_our_flag)
+		{
+			//I'm the only one on my team who will attack and the enemy has my flag, I have to go after him
+			bst->ctfState = CTFSTATE_RETRIEVAL;
+		}
 	}
 }
 
@@ -22982,6 +23188,59 @@ static void bot_saber_blaster(const bot_state_t* bs, usercmd_t* ucmd)
 	}
 }
 
+// bot_sjeai 64 (2026-11-26, after the Open Battlefront Project's BotAvoidTeammates): a bot with no enemy that stands
+// (or creeps) within 48 of a teammate steps away from him - straight away when he wasn't going anywhere, sideways
+// when he was (so he gets past him instead of pushing into him).
+#define BOT_SPREAD_RADIUS	48.0f
+static void bot_spread_out(const bot_state_t* bs, const gentity_t* self, usercmd_t* ucmd)
+{
+	const gentity_t* closest = NULL;
+	float best = BOT_SPREAD_RADIUS * BOT_SPREAD_RADIUS;
+	vec3_t away = { 0 }, fwd = { 0 }, right = { 0 }, ang = { 0 };
+
+	for (int i = 0; i < level.maxclients; i++)
+	{
+		const gentity_t* other = &g_entities[i];
+
+		if (i == bs->client || !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED
+			|| other->health <= 0 || !OnSameTeam((gentity_t*)self, (gentity_t*)other)
+			|| fabsf(other->r.currentOrigin[2] - self->r.currentOrigin[2]) > 64.0f)
+		{
+			continue;
+		}
+		const float dx = other->r.currentOrigin[0] - self->r.currentOrigin[0];
+		const float dy = other->r.currentOrigin[1] - self->r.currentOrigin[1];
+		if (dx * dx + dy * dy < best)
+		{
+			best = dx * dx + dy * dy;
+			closest = other;
+		}
+	}
+	if (!closest)
+	{
+		return;
+	}
+
+	VectorSubtract(self->r.currentOrigin, closest->r.currentOrigin, away);
+	away[2] = 0.0f;
+	if (VectorNormalize(away) < 1.0f)
+	{
+		VectorSet(away, bs->client & 1 ? 1.0f : -1.0f, 0.0f, 0.0f); // right on top of him: any way
+	}
+	VectorSet(ang, 0.0f, self->client->ps.viewangles[YAW], 0.0f);
+	AngleVectors(ang, fwd, right, NULL);
+
+	if (!ucmd->forwardmove && !ucmd->rightmove)
+	{
+		ucmd->forwardmove = (signed char)(DotProduct(away, fwd) * 100.0f);
+		ucmd->rightmove = (signed char)(DotProduct(away, right) * 100.0f);
+	}
+	else
+	{
+		ucmd->rightmove = DotProduct(away, right) >= 0.0f ? 100 : -100;
+	}
+}
+
 #define BOT_IDLEWALK_STAIRS_HEIGHT	20.0f	// bot_idlewalk: a next waypoint this much higher / lower = stairs, run them
 static void bot_calm_movement(bot_state_t* bs, usercmd_t* ucmd)
 {
@@ -23003,6 +23262,12 @@ static void bot_calm_movement(bot_state_t* bs, usercmd_t* ucmd)
 	else
 	{
 		bot_stuck_since[client] = 0;
+	}
+
+	if (bot_sjeai.integer & BOT_SJEAI_SPREAD && on_ground && !bs->currentEnemy && VectorLength(hvel) < 120.0f
+		&& !(ps->pm_flags & PMF_STUCK_TO_WALL))
+	{
+		bot_spread_out(bs, self, ucmd);
 	}
 
 	if (bot_idlewalk.integer && !bs->currentEnemy && self->waterlevel < 2
@@ -23599,7 +23864,7 @@ int bot_ai_setup(const int restart)
 	trap->Cvar_Register(&bot_movers, "bot_movers", "1", CVAR_ARCHIVE);	// bots wait for lifts and ride them, and let jump pads fly them
 	trap->Cvar_Register(&bot_aimBallistic, "bot_aimBallistic", "1", CVAR_ARCHIVE);	// bots lead by their shot's flight time
 	trap->Cvar_Register(&bot_aimHold, "bot_aimHold", "1", CVAR_ARCHIVE);	// bots fire only when their gun points at the target
-	trap->Cvar_Register(&bot_sjeai, "bot_sjeai", "63", CVAR_ARCHIVE);	// bitmask, see BOT_SJEAI_* (63 = all)
+	trap->Cvar_Register(&bot_sjeai, "bot_sjeai", "255", CVAR_ARCHIVE);	// bitmask, see BOT_SJEAI_* (255 = all)
 	trap->Cvar_Register(&bot_idlewalk, "bot_idlewalk", "1", CVAR_ARCHIVE);
 	trap->Cvar_Register(&bot_vehicles, "bot_vehicles", "1", CVAR_ARCHIVE);
 	trap->Cvar_Register(&bot_pvstype, "bot_pvstype", "1", CVAR_CHEAT);

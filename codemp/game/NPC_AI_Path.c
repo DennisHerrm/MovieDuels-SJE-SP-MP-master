@@ -436,3 +436,116 @@ qboolean NPC_WPRoute_Direction(gentity_t* self, const vec3_t goal, vec3_t dir)
 	}
 	return qtrue;
 }
+
+/*
+NPC_WPPatrol_Think (2026-11-26, after Warzone's NPC_PatrolArea / NPC_FindPatrolGoal; own code)
+
+On maps with no singleplayer navigation, an idle NPC (BS_DEFAULT, no enemy, no leader, no goal, nothing targets
+him) waits a while, then walks to a bot waypoint 256 - 1024 away that the route finder can reach, looks about
+there for 6 - 15 s and goes on. Only his goal is set (NPCInfo->tempGoal); his own behaviour walks him there, and an
+enemy, a leader, a script or anything else that gives him a goal takes over. g_npcPatrol 0 = off.
+*/
+#define NPCPATROL_MIN_DIST		256.0f
+#define NPCPATROL_MAX_DIST		1024.0f
+#define NPCPATROL_GIVEUP_TIME	30000
+
+static int s_patrolNext[MAX_GENTITIES];		// level.time he may pick a new spot (0 = not idle yet)
+static int s_patrolStart[MAX_GENTITIES];	// level.time he set off (0 = not walking a patrol)
+static int s_patrolMap = -1;				// level.startTime the arrays belong to
+
+static int NPC_WPPatrol_Enabled(void)
+{
+	static vmCvar_t g_npcPatrol;
+	static qboolean registered = qfalse;
+	if (!registered)
+	{
+		trap->Cvar_Register(&g_npcPatrol, "g_npcPatrol", "1", CVAR_ARCHIVE);
+		registered = qtrue;
+	}
+	else
+	{
+		trap->Cvar_Update(&g_npcPatrol);
+	}
+	return g_npcPatrol.integer;
+}
+
+void NPC_WPPatrol_Think(gentity_t* self)
+{
+	gNPC_t* npc = self ? self->NPC : NULL;
+	const int n = self ? self->s.number : 0;
+
+	if (!npc || !self->client || !npc->tempGoal || n < 0 || n >= MAX_GENTITIES)
+	{
+		return;
+	}
+	if (s_patrolMap != level.startTime)
+	{
+		memset(s_patrolNext, 0, sizeof s_patrolNext);
+		memset(s_patrolStart, 0, sizeof s_patrolStart);
+		s_patrolMap = level.startTime;
+	}
+
+	if (s_patrolStart[n])
+	{
+		// walking a patrol: done when the goal was reached (cleared) or someone else gave him one
+		if (npc->goalEntity != npc->tempGoal || self->enemy)
+		{
+			s_patrolStart[n] = 0;
+			s_patrolNext[n] = level.time + Q_irand(6000, 15000);
+		}
+		else if (level.time - s_patrolStart[n] > NPCPATROL_GIVEUP_TIME)
+		{
+			npc->goalEntity = NULL; // can't get there: stop and pick another spot later
+			s_patrolStart[n] = 0;
+			s_patrolNext[n] = level.time + Q_irand(6000, 15000);
+		}
+		return;
+	}
+
+	if (!NPC_WPPatrol_Enabled() || !NPC_WPRoute_Enabled() || !NPC_WPRoute_Ready() || trap->Nav_GetNumNodes() > 0
+		|| self->health <= 0 || self->enemy || self->client->leader || npc->goalEntity || self->targetname
+		|| self->client->NPC_class == CLASS_VEHICLE || self->client->ps.eFlags2 & EF2_FLYING
+		|| npc->stats.walkSpeed <= 0 || self->client->ps.m_iVehicleNum)
+	{
+		s_patrolNext[n] = 0;
+		return;
+	}
+	if (!s_patrolNext[n])
+	{
+		s_patrolNext[n] = level.time + Q_irand(3000, 12000); // just became idle: stand a while first
+		return;
+	}
+	if (level.time < s_patrolNext[n])
+	{
+		return;
+	}
+	s_patrolNext[n] = level.time + 5000; // in case no spot is found
+
+	for (int tries = 0; tries < 8; tries++)
+	{
+		const int wp = Q_irand(0, gWPNum - 1);
+		npcPath_t* p = &s_npcPath[n];
+
+		if (!NPC_WPRoute_Valid(wp))
+		{
+			continue;
+		}
+		const float d = Distance(gWPArray[wp]->origin, self->r.currentOrigin);
+		if (d < NPCPATROL_MIN_DIST || d > NPCPATROL_MAX_DIST
+			|| fabsf(gWPArray[wp]->origin[2] - self->r.currentOrigin[2]) > 192.0f)
+		{
+			continue;
+		}
+		if (!NPC_WPRoute_Plan(self, p, gWPArray[wp]->origin))
+		{
+			continue;
+		}
+		G_SetOrigin(npc->tempGoal, gWPArray[wp]->origin);
+		npc->tempGoal->waypoint = WAYPOINT_NONE;
+		npc->goalEntity = npc->tempGoal;
+		npc->goalRadius = 48;
+		npc->goalTime = level.time;
+		s_patrolStart[n] = level.time;
+		return;
+	}
+}

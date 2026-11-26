@@ -5089,6 +5089,8 @@ qboolean NPC_IsOversized(const gentity_t* self)
 
 #else // MP game
 
+extern void NPC_WPPatrol_Think(gentity_t* self); // codemp/game/NPC_AI_Path.c
+
 static void NPC_ExecuteBState(const gentity_t* self) //, int msec )
 {
 	if (self->enemy && self->enemy->client && self->enemy->client->ps.duelInProgress)
@@ -5111,6 +5113,13 @@ static void NPC_ExecuteBState(const gentity_t* self) //, int msec )
 
 	//Execute our b_state
 	const bState_t b_state = G_CurrentBState(NPCS.NPCInfo);
+
+	// MP (2026-11-26, after Warzone's NPC_PatrolArea): an idle NPC walks between nearby bot waypoints
+	// (g_npcPatrol, codemp/game/NPC_AI_Path.c); it only gives him a goal, his own behaviour walks there
+	if (b_state == BS_DEFAULT)
+	{
+		NPC_WPPatrol_Think(NPCS.NPC);
+	}
 
 	//Pick the proper bstate for us and run it
 	NPC_RunBehavior(self->client->playerTeam, b_state);

@@ -256,6 +256,7 @@ XCVAR_DEF(g_monsterGrab, "1", NULL, CVAR_ARCHIVE, qtrue) // wampa / rancor playe
 XCVAR_DEF(g_rancorPit, "1", NULL, CVAR_ARCHIVE, qtrue) // a rancor always lives on g_rancorPitMap and respawns after it dies (0 = off)
 XCVAR_DEF(g_rancorPitMap, "mp/duel7", NULL, CVAR_ARCHIVE, qfalse)
 XCVAR_DEF(g_rancorPitRespawn, "30", NULL, CVAR_ARCHIVE, qfalse) // seconds after the rancor dies
+XCVAR_DEF(g_wampaPitMaps, "mp/ctf2 mp/duel9", NULL, CVAR_ARCHIVE, qfalse) // the snow maps: a wampa lives there the same way (list split by spaces)
 
 XCVAR_DEF(g_Enhanced_SaberDamage, "0", NULL, CVAR_NONE, qtrue)
 XCVAR_DEF(g_Enhanced_saberTweaks, "0", NULL, CVAR_NONE, qtrue)

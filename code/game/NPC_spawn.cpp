@@ -6020,22 +6020,31 @@ void Svcmd_NPC_f()
 // The rancor that lives on mp/duel7 (2026-10-26): when the map starts a rancor NPC spawns in the pit, and
 // g_rancorPitRespawn seconds after it dies a new one spawns, over and over. g_rancorPit 0 = off,
 // g_rancorPitMap = the map (default mp/duel7). Called every frame from G_RunFrame.
+// 2026-11-26: the snow maps get a wampa the same way: g_wampaPitMaps = the maps (default "mp/ctf2 mp/duel9",
+// a list split by spaces; g_rancorPitMap may be a list too). g_rancorPit and g_rancorPitRespawn cover both.
 static cvar_t* g_rancorPit = nullptr;
 static cvar_t* g_rancorPitMap = nullptr;
 static cvar_t* g_rancorPitRespawn = nullptr;
+static cvar_t* g_wampaPitMaps = nullptr;
 static int rancorPitNextCheck = 0;
 static int rancorPitRespawnTime = 0;
 static int rancorPitLastTime = 0;
 static qboolean rancorPitSpawnedOnce = qfalse;
-static qboolean rancorPitPrecached = qfalse;
+static int rancorPitPrecached = 0; // the creature precached for this map
 static char rancorPitMapName[MAX_QPATH];
+static int rancorPitCreature = 0; // RANCORPIT_NONE / RANCORPIT_RANCOR / RANCORPIT_WAMPA for this map
+#define RANCORPIT_NONE 0
+#define RANCORPIT_RANCOR 1
+#define RANCORPIT_WAMPA 2
 
-static qboolean G_RancorPitIsMap()
+// is the map in list ("mp/duel7" or "mp/ctf2 mp/duel9"; maps/ and .bsp are optional both sides)
+static qboolean G_RancorPitMapListed(const char* list)
 {
 	const char* name = level.mapname;
-	const char* want = g_rancorPitMap->string;
+	const char* p = list;
+	size_t nameLen = 0;
 
-	if (!want[0])
+	if (!p || !p[0])
 	{
 		return qfalse;
 	}
@@ -6043,12 +6052,60 @@ static qboolean G_RancorPitIsMap()
 	{
 		name += 5;
 	}
-	const size_t len = strlen(want);
-	if (Q_stricmpn(name, want, static_cast<int>(len)))
+	nameLen = strlen(name);
+	if (nameLen > 4 && !Q_stricmp(name + nameLen - 4, ".bsp"))
 	{
-		return qfalse;
+		nameLen -= 4;
 	}
-	return static_cast<qboolean>(!name[len] || !Q_stricmp(name + len, ".bsp"));
+	while (*p)
+	{
+		const char* word = NULL;
+		size_t len = 0;
+
+		while (*p == ' ' || *p == ',' || *p == ';' || *p == '\t')
+		{
+			p++;
+		}
+		word = p;
+		while (*p && *p != ' ' && *p != ',' && *p != ';' && *p != '\t')
+		{
+			p++;
+		}
+		len = (size_t)(p - word);
+		if (len > 5 && !Q_stricmpn(word, "maps/", 5))
+		{
+			word += 5;
+			len -= 5;
+		}
+		if (len > 4 && !Q_stricmpn(word + len - 4, ".bsp", 4))
+		{
+			len -= 4;
+		}
+		if (len && len == nameLen && !Q_stricmpn(name, word, (int)len))
+		{
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+// which creature lives on this map (the rancor list wins if a map is in both)
+static int G_RancorPitPickCreature()
+{
+	if (G_RancorPitMapListed(g_rancorPitMap->string))
+	{
+		return RANCORPIT_RANCOR;
+	}
+	if (G_RancorPitMapListed(g_wampaPitMaps->string))
+	{
+		return RANCORPIT_WAMPA;
+	}
+	return RANCORPIT_NONE;
+}
+
+static const char* G_RancorPitNPCType()
+{
+	return rancorPitCreature == RANCORPIT_WAMPA ? "wampa" : "rancor";
 }
 
 static qboolean G_RancorPitAlive()
@@ -6056,7 +6113,7 @@ static qboolean G_RancorPitAlive()
 	for (int i = 1; i < globals.num_entities; i++)
 	{
 		const gentity_t* ent = &g_entities[i];
-		if (ent->inuse && ent->NPC && ent->client && ent->client->NPC_class == CLASS_RANCOR && ent->health > 0)
+		if (ent->inuse && ent->NPC && ent->client && ent->client->NPC_class == (rancorPitCreature == RANCORPIT_WAMPA ? CLASS_WAMPA : CLASS_RANCOR) && ent->health > 0)
 		{
 			return qtrue;
 		}
@@ -6069,6 +6126,8 @@ static qboolean G_RancorPitAlive()
 #define RANCORPIT_MASK (MASK_SOLID | CONTENTS_MONSTERCLIP)
 #define RANCORPIT_HALFWIDTH 72.0f
 #define RANCORPIT_HEIGHT 150.0f
+#define WAMPAPIT_HALFWIDTH 40.0f // the wampa is smaller
+#define WAMPAPIT_HEIGHT 110.0f
 
 // drops spot onto the floor below it; qfalse when there is no floor within 512 units
 static qboolean G_RancorPitFloor(vec3_t spot)
@@ -6092,11 +6151,14 @@ static qboolean G_RancorPitFloor(vec3_t spot)
 // pos = a floor point: room for the whole rancor standing there
 static qboolean G_RancorPitRoom(const vec3_t pos)
 {
-	static constexpr vec3_t mins = { -RANCORPIT_HALFWIDTH, -RANCORPIT_HALFWIDTH, 0 };
-	static constexpr vec3_t maxs = { RANCORPIT_HALFWIDTH, RANCORPIT_HALFWIDTH, RANCORPIT_HEIGHT };
+	const float half = rancorPitCreature == RANCORPIT_WAMPA ? WAMPAPIT_HALFWIDTH : RANCORPIT_HALFWIDTH;
+	const float height = rancorPitCreature == RANCORPIT_WAMPA ? WAMPAPIT_HEIGHT : RANCORPIT_HEIGHT;
+	vec3_t mins = { 0 }, maxs = { 0 };
 	vec3_t start = {};
 	trace_t tr;
 
+	VectorSet(mins, -half, -half, 0);
+	VectorSet(maxs, half, half, height);
 	VectorCopy(pos, start);
 	start[2] += 18; // step height, so a bumpy floor does not count as a wall
 	gi.trace(&tr, start, mins, maxs, start, ENTITYNUM_NONE, RANCORPIT_MASK, static_cast<EG2_Collision>(0), 0);
@@ -6160,6 +6222,21 @@ static qboolean G_RancorPitSpawn()
 	}
 	if (!numSpots)
 	{
+		// a team map with no deathmatch spawns (ctf): the middle of all the team spawns is mid field
+		static const char* teamSpawns[] = { "team_CTF_redplayer", "team_CTF_blueplayer", "team_CTF_redspawn", "team_CTF_bluespawn" };
+		int t = 0;
+		for (t = 0; t < 4; t++)
+		{
+			found = nullptr;
+			while ((found = G_Find(found, FOFS(classname), teamSpawns[t])) != nullptr && numSpots < 64)
+			{
+				VectorCopy(found->s.origin, spots[numSpots]);
+				numSpots++;
+			}
+		}
+	}
+	if (!numSpots)
+	{
 		return qfalse;
 	}
 
@@ -6191,7 +6268,7 @@ static qboolean G_RancorPitSpawn()
 	}
 
 	// open floor nearest the middle: the middle itself, then rings further out (16 directions each),
-	// with room for the whole rancor, nobody close by and a clear line back to the middle
+	// with room for the whole creature, nobody close by and a clear line back to the middle
 	for (ring = 0; ring <= 10 && !ok; ring++)
 	{
 		const float radius = ring * 40.0f;
@@ -6252,7 +6329,7 @@ static qboolean G_RancorPitSpawn()
 	G_SetOrigin(spawner, spot);
 	VectorCopy(spot, spawner->s.origin); // SP NPC_Spawn_Do reads s.origin, which G_SetOrigin only sets for clients (rancor spawned at the map origin)
 	spawner->s.angles[YAW] = vectoyaw(face);
-	spawner->NPC_type = G_NewString("rancor");
+	spawner->NPC_type = G_NewString(G_RancorPitNPCType());
 	spawner->count = 1; // NPC_Spawn_Do frees the spawner
 	spawner->delay = 0;
 
@@ -6266,27 +6343,35 @@ void G_RancorPitThink()
 		g_rancorPit = gi.cvar("g_rancorPit", "1", CVAR_ARCHIVE);
 		g_rancorPitMap = gi.cvar("g_rancorPitMap", "mp/duel7", CVAR_ARCHIVE);
 		g_rancorPitRespawn = gi.cvar("g_rancorPitRespawn", "30", CVAR_ARCHIVE);
+		g_wampaPitMaps = gi.cvar("g_wampaPitMaps", "mp/ctf2 mp/duel9", CVAR_ARCHIVE);
 	}
 
 	if (level.time < rancorPitLastTime || Q_stricmp(level.mapname, rancorPitMapName))
 	{
 		// new map / loaded game
 		rancorPitNextCheck = rancorPitRespawnTime = 0;
-		rancorPitSpawnedOnce = rancorPitPrecached = qfalse;
+		rancorPitSpawnedOnce = qfalse;
+		rancorPitPrecached = rancorPitCreature = RANCORPIT_NONE;
 		Q_strncpyz(rancorPitMapName, level.mapname, sizeof rancorPitMapName);
 	}
 	rancorPitLastTime = level.time;
 
-	if (!g_rancorPit->integer || level.time < rancorPitNextCheck || !G_RancorPitIsMap())
+	if (!g_rancorPit->integer || level.time < rancorPitNextCheck)
 	{
 		return;
 	}
 	rancorPitNextCheck = level.time + 1000;
 
-	if (!rancorPitPrecached)
+	rancorPitCreature = G_RancorPitPickCreature();
+	if (rancorPitCreature == RANCORPIT_NONE)
 	{
-		NPC_PrecacheByClassName("rancor");
-		rancorPitPrecached = qtrue;
+		return;
+	}
+
+	if (rancorPitPrecached != rancorPitCreature)
+	{
+		NPC_PrecacheByClassName(G_RancorPitNPCType());
+		rancorPitPrecached = rancorPitCreature;
 	}
 
 	if (G_RancorPitAlive())

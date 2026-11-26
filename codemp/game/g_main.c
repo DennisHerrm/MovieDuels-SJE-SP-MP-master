@@ -4821,7 +4821,7 @@ void G_RunFrame(const int levelTime)
 	// get any cvar changes
 	G_UpdateCvars();
 
-	G_RancorPitThink(); // the rancor that lives on mp/duel7 (NPC_spawn.c)
+	G_RancorPitThink(); // the rancor on mp/duel7, the wampa on mp/ctf2 + mp/duel9 (NPC_spawn.c)
 
 #ifdef _G_FRAME_PERFANAL
 	trap->PrecisionTimer_Start(&timer_ItemRun);
